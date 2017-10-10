@@ -1,0 +1,17 @@
+(jbuild_version 1)
+
+(executables
+ ((names (main))
+  (preprocess (pps (ppx_jane  ppx_driver.runner)))
+  (libraries
+    (core
+     core_extended
+     async
+     async_shell
+     protocol
+     ))))
+
+(install
+ ((section bin)
+  (files
+    ((main.exe as controller)))))
