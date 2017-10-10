@@ -6,13 +6,5 @@
   (libraries
     (core
      core_extended
-     async
-     async_shell
-     protocol
      re2
      ))))
-
-(install
- ((section bin)
-  (files
-    ((main.exe as worker)))))

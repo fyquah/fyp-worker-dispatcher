@@ -3,12 +3,19 @@ open Async
 
 module Config = Protocol.Config
 module Job_dispatch_rpc = Protocol.Job_dispatch_rpc
+module Relpath = Protocol.Relpath
+
 
 let do_something ~conn =
-  let query =
-    { Job_dispatch_rpc.Query.
-      compile_params = None;
+  let targets =
+    { Protocol.Benchmark.
+      dir = Relpath.of_string "ocaml-benchs/almabench";
+      executable = "almabench.native";
+      run_args = [];
     }
+  in
+  let query =
+    { Job_dispatch_rpc.Query. compile_params = None; targets }
   in
   let%map response =
     Rpc.Rpc.dispatch_exn Job_dispatch_rpc.rpc conn query
