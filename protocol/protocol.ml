@@ -27,6 +27,14 @@ module Benchmark = struct
   [@@deriving bin_io, sexp]
 end
 
+module Compiler_selection = struct
+  type t =
+    | Flambda
+    | Ours
+  [@@deriving bin_io, sexp]
+
+end
+
 module Benchmark_results = struct
   type t =
     { execution_time : Time.Span.t;
@@ -37,8 +45,9 @@ end
 module Job_dispatch_rpc = struct
   module Query = struct
     type t =
-      { compile_params : Compile_params.t option;
-        targets        : Benchmark.t;
+      { compile_params     : Compile_params.t option;
+        compiler_selection : Compiler_selection.t;
+        targets            : Benchmark.t;
       }
     [@@deriving bin_io, sexp]
   end

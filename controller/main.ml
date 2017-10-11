@@ -15,7 +15,11 @@ let do_something ~conn =
     }
   in
   let query =
-    { Job_dispatch_rpc.Query. compile_params = None; targets }
+    { Job_dispatch_rpc.Query.
+      compile_params = None;
+      targets;
+      compiler_selection = Protocol.Compiler_selection.Flambda;
+    }
   in
   let%map response =
     Rpc.Rpc.dispatch_exn Job_dispatch_rpc.rpc conn query

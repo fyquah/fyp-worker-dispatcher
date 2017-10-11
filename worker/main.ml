@@ -6,10 +6,11 @@ module Relpath = Protocol.Relpath
 module Config = Protocol.Config
 module Job_dispatch_rpc = Protocol.Job_dispatch_rpc
 
-let shell ?(env = []) ~dir:working_dir prog args =
+let shell ?(env = []) ?(echo = false) ?(verbose = false) ~dir:working_dir
+    prog args =
   Monitor.try_with_or_error (fun () ->
       let env = `Extend env in
-      Async_shell.run ~working_dir ~env prog args)
+      Async_shell.run ~echo ~verbose ~working_dir ~env prog args)
 ;;
 
 let time_stderr_regex = Re2.Regex.create_exn "^(\\d+\\.\\d+)\\s*user"
@@ -26,13 +27,22 @@ let aggregrate_benchmarks (benchmarks : Protocol.Benchmark_results.t list) =
   { Protocol.Benchmark_results. execution_time }
 ;;
 
-let compile_and_run_benchmark ~num_runs ~working_dir
+let compile_and_run_benchmark ~num_runs ~rundir
+    ~(compiler_selection : Protocol.Compiler_selection.t)
     ~(benchmark : Protocol.Benchmark.t) =
-  let shell = shell ~dir:working_dir in
+  let working_dir = rundir ^/ Relpath.to_string benchmark.dir in
+  let path_to_compiler =
+    match compiler_selection with
+    | Flambda -> rundir ^/ "ocaml-flambda/_install/bin/ocamlopt.opt"
+    | Ours -> failwith "[Ours] compiler not implemented"
+  in
+  let env = [("OCAMLOPT", path_to_compiler)] in
+  let shell = shell ~env ~dir:working_dir in
   Log.Global.sexp ~level:`Info [%message (working_dir : string)];
-  shell "make" [ "clean" ]
-  >>=? fun () -> shell "make" [ benchmark.executable ]
+  shell ~verbose:true ~echo:true "make" [ "clean" ]
+  >>=? fun () -> shell "make" ~verbose:true ~echo:true [ benchmark.executable ]
   >>=? fun () ->
+  Log.Global.sexp ~level:`Info  [%message "Running benchmarks now"];
   Deferred.Or_error.List.init num_runs (fun _ ->
       Monitor.try_with_or_error (fun () ->
           let args =
@@ -56,9 +66,11 @@ let job_dispatcher_impl ~rundir ~config () query =
   Log.Global.sexp ~level:`Info
     [%message "Received query from " (query : Job_dispatch_rpc.Query.t)];
   let benchmark = query.targets in
-  let working_dir = rundir ^/ Relpath.to_string benchmark.dir in
   let num_runs = config.Config.num_runs in
-  match%bind compile_and_run_benchmark ~num_runs ~working_dir ~benchmark with
+  let compiler_selection = query.compiler_selection in
+  match%bind
+    compile_and_run_benchmark ~compiler_selection ~num_runs ~rundir ~benchmark
+  with
   | Ok bench_result ->
     return (Job_dispatch_rpc.Response.Success bench_result)
   | Error (error : Error.t) ->
