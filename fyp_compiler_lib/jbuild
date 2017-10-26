@@ -1,0 +1,8 @@
+(jbuild_version 1)
+
+(menhir ((modules (sexp_parser))))
+(ocamllex (sexp_lexer))
+
+(library
+  ((name    fyp_compiler_lib))
+  )

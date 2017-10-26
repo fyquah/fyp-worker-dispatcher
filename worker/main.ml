@@ -28,6 +28,7 @@ let aggregrate_benchmarks (benchmarks : Protocol.Benchmark_results.t list) =
 ;;
 
 let compile_and_run_benchmark ~num_runs ~rundir
+    ~(compile_params : Protocol.Compile_params.t option)
     ~(compiler_selection : Protocol.Compiler_selection.t)
     ~(benchmark : Protocol.Benchmark.t) =
   let working_dir = rundir ^/ Relpath.to_string benchmark.dir in
@@ -36,7 +37,26 @@ let compile_and_run_benchmark ~num_runs ~rundir
     | Flambda -> rundir ^/ "ocaml-flambda/_install/bin/ocamlopt.opt"
     | Ours -> failwith "[Ours] compiler not implemented"
   in
-  let env = [("OCAMLOPT", path_to_compiler)] in
+  let compiler_flags =
+    match compile_params with
+    | None -> ""
+    | Some params ->
+      sprintf
+        "-inline %.3f -inline-toplevel %d -inline-alloc-cost %d \
+         -inline-branch-cost %d -inline-call-cost %d -inline-prim-cost %d \
+         -inline-indirect-cost %d -inline-lifting-benefit %d"
+        params.inline
+        params.inline_top_level
+        params.inline_alloc_cost
+        params.inline_branch_cost
+        params.inline_call_cost
+        params.inline_prim_cost
+        params.inline_indirect_cost
+        params.inline_lifting_benefit
+  in
+  let env =
+    [("OCAMLOPT", sprintf "%s %s" path_to_compiler compiler_flags)]
+  in
   let shell = shell ~env ~dir:working_dir in
   Log.Global.sexp ~level:`Info [%message (working_dir : string)];
   shell ~verbose:true ~echo:true "make" [ "clean" ]
@@ -68,8 +88,10 @@ let job_dispatcher_impl ~rundir ~config () query =
   let benchmark = query.targets in
   let num_runs = config.Config.num_runs in
   let compiler_selection = query.compiler_selection in
+  let compile_params = query.compile_params in
   match%bind
-    compile_and_run_benchmark ~compiler_selection ~num_runs ~rundir ~benchmark
+    compile_and_run_benchmark ~compile_params
+      ~compiler_selection ~num_runs ~rundir ~benchmark
   with
   | Ok bench_result ->
     return (Job_dispatch_rpc.Response.Success bench_result)

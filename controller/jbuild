@@ -8,7 +8,9 @@
      core_extended
      async
      async_shell
+
      protocol
+     fyp_compiler_lib
      ))))
 
 (install
