@@ -1,10 +1,17 @@
 [@@@ocaml.warning "+a-4-9-30-40-41-42"]
 
-type offset
+module Offset : sig
+  type t
+
+  val base   : t
+  val inc    : t -> t
+  val to_int : t -> int
+  val equal  : t -> t -> bool
+end
 
 type at_call_site =
   { source    : Closure_id.t option;
-    offset    : offset;
+    offset    : Offset.t;
     applied   : Closure_id.t;
   }
 
@@ -19,15 +26,11 @@ type t =
 
 val equal : t -> t -> bool
 
-val base_offset : offset
-
-val inc : offset -> offset
-
 val enter_decl : source: Closure_id.t option -> closure: Closure_id.t -> t
 
-val create_top_level : Closure_id.t -> offset -> t
+val create_top_level : Closure_id.t -> Offset.t -> t
 
-val create : source: Closure_id.t -> applied: Closure_id.t -> offset -> t
+val create : source: Closure_id.t -> applied: Closure_id.t -> Offset.t -> t
 
 val to_sexp : t -> Sexp.t
 

@@ -1,10 +1,20 @@
 [@@@ocaml.warning "+a-4-9-30-40-41-42"]
 
-type offset = int
+module Offset = struct
+  type t = int
+
+  let base = 0
+
+  let inc t = t + 1
+
+  let to_int t = t
+
+  let equal a b = (a = b)
+end
 
 type at_call_site =
   { source    : Closure_id.t option;
-    offset    : offset;
+    offset    : Offset.t;
     applied   : Closure_id.t;
   }
 
@@ -32,10 +42,6 @@ let equal a b =
   | Enter_decl a, Enter_decl b -> enter_decl_equal a b
   | At_call_site a, At_call_site b -> at_call_site_equal a b
   | _ , _ -> false
-
-let base_offset = 0
-
-let inc offset = offset + 1
 
 let enter_decl ~source ~closure = Enter_decl { source; closure }
 
