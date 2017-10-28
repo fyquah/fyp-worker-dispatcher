@@ -31,7 +31,7 @@ let t_of_sexp sexp =
 
 
 let save ~output_prefix =
-  let out_channel = open_out (output_prefix ^ ".data_collector.txt") in
+  let out_channel = open_out (output_prefix ^ ".data_collector.sexp") in
   let ppf = Format.formatter_of_out_channel out_channel in
   let sexp = Sexp.sexp_of_list sexp_of_t !inlining_decisions in
   Format.fprintf ppf "%a" Sexp.print_mach sexp;

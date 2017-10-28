@@ -3,21 +3,33 @@
 type offset = int
 
 type at_call_site =
-  { closure_id : Closure_id.t option;
-    offset     : offset;
+  { source    : Closure_id.t option;
+    offset    : offset;
+    applied   : Closure_id.t;
+  }
+
+type enter_decl =
+  { source     : Closure_id.t option;
+    closure    : Closure_id.t;
   }
 
 type t =
-  | Enter_decl of Closure_id.t
+  | Enter_decl of enter_decl
   | At_call_site of at_call_site
 
-let at_call_site_equal a b =
+let at_call_site_equal (a : at_call_site) (b : at_call_site)  =
   a.offset = b.offset &&
-  Helper.option_equal Closure_id.equal a.closure_id b.closure_id
+  Helper.option_equal Closure_id.equal a.source b.source &&
+  Closure_id.equal a.applied b.applied
+
+let enter_decl_equal (a : enter_decl) (b : enter_decl) =
+  Closure_id.equal a.closure b.closure &&
+  Helper.option_equal Closure_id.equal a.source b.source
+;;
 
 let equal a b =
   match a, b with
-  | Enter_decl a, Enter_decl b -> Closure_id.equal a b
+  | Enter_decl a, Enter_decl b -> enter_decl_equal a b
   | At_call_site a, At_call_site b -> at_call_site_equal a b
   | _ , _ -> false
 
@@ -25,14 +37,14 @@ let base_offset = 0
 
 let inc offset = offset + 1
 
-let enter_decl closure_id = Enter_decl closure_id
+let enter_decl ~source ~closure = Enter_decl { source; closure }
 
-let create_top_level offset =
-  At_call_site { closure_id = None; offset }
+let create_top_level applied offset =
+  At_call_site { source = None; offset ; applied }
 ;;
 
-let create closure_id offset =
-  At_call_site { closure_id = Some closure_id; offset; }
+let create ~source ~applied offset =
+  At_call_site { source = Some source; offset; applied }
 ;;
 
 let closure_id_of_sexp sexp =
@@ -65,35 +77,50 @@ let offset_of_sexp sexp =
 let to_sexp sexp =
   let open Sexp in
   match sexp with
-  | Enter_decl closure_id ->
-    List [ Atom "Enter_decl"; closure_id_to_sexp closure_id; ]
-  | At_call_site { closure_id ; offset } ->
+  | Enter_decl enter_decl ->
+    List [
+      Atom "Enter_decl";
+      option_closure_id_to_sexp enter_decl.source;
+      closure_id_to_sexp enter_decl.closure;
+    ]
+  | At_call_site { source ; offset; applied } ->
     List [
       Atom "At_call_site";
-      option_closure_id_to_sexp closure_id;
+      option_closure_id_to_sexp source;
       offset_to_sexp offset;
+      closure_id_to_sexp applied
     ]
 
 let of_sexp sexp =
   let open Sexp in
   match sexp with
-  | List (Atom "Enter_decl" :: closure_id :: []) ->
-    Enter_decl (closure_id_of_sexp closure_id)
-  | List (Atom "At_call_site" :: closure_id :: offset :: []) ->
-    let closure_id = option_closure_id_of_sexp closure_id in
+  | List (Atom "Enter_decl" :: source :: closure :: []) ->
+    let source = option_closure_id_of_sexp source in
+    let closure = closure_id_of_sexp closure in
+    Enter_decl { source; closure }
+  | List (Atom "At_call_site" :: source :: offset :: applied :: []) ->
+    let source = option_closure_id_of_sexp source in
     let offset = offset_of_sexp offset in
-    At_call_site { closure_id ; offset;  }
+    let applied = closure_id_of_sexp applied in
+    At_call_site { source ; offset; applied }
   | _ ->
     Misc.fatal_errorf "Cannot parse %a as a Call_site.t"
       Sexp.print_mach sexp
 
+let pprint_source ppf t =
+  match t with
+  | None -> Format.fprintf ppf "TOP_LEVEL"
+  | Some c -> Format.fprintf ppf "%a" Closure_id.print c
+
 let pprint ppf t =
   match t with
   | At_call_site at_call_site ->
-    begin match at_call_site.closure_id with
-    | None -> Format.fprintf ppf "TOP_LEVEL"
-    | Some c -> Format.fprintf ppf "%a" Closure_id.print c
-    end;
-    Format.fprintf ppf ":%d" at_call_site.offset;
-  | Enter_decl closure_id ->
-    Format.fprintf ppf "{%a}" Closure_id.print closure_id
+    Format.fprintf ppf "%a<%a:%d>"
+      Closure_id.print at_call_site.applied
+      pprint_source at_call_site.source
+      at_call_site.offset;
+
+  | Enter_decl enter_decl ->
+    Format.fprintf ppf "{%a}<%a>"
+      Closure_id.print enter_decl.closure
+      pprint_source enter_decl.source

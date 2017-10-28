@@ -6,6 +6,9 @@ type t =
     decision : bool;
   }
 
+val sexp_of_t : t -> Sexp.t
+val t_of_sexp : Sexp.t -> t
+
 val inlining_decisions : t list ref
 
 val inlining_overrides : t list ref
