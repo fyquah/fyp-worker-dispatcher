@@ -1,4 +1,4 @@
-[@@@ocaml.warning "+a-4-9-30-40-41-42"]
+[@@@ocaml.warning "+a-4-9-30-40-41-42-44"]
 
 open Core
 open Async
@@ -64,9 +64,6 @@ module Inlining_tree = struct
     | Apply_inlined_function a, Apply_non_inlined_function b ->
       Closure_id.equal a.applied a.applied &&
       Call_site.Offset.equal a.offset b.offset
-    | Apply_non_inlined_function b, Apply_non_inlined_function a ->
-      Closure_id.equal a.applied a.applied &&
-      Call_site.Offset.equal a.offset b.offset
     | _ , _ -> false
 
   let equal_t_and_call_site (t : t) (call_site : Call_site.t) =
@@ -89,8 +86,6 @@ module Inlining_tree = struct
   ;;
 
   let add (top_level_tree : Top_level.t) (collected : Data_collector.t) =
-    let closure_id = collected.applied in
-
     let rec add__generic (tree : t) (call_stack : Call_site.t list) =
       match call_stack with
       | [] -> assert false
@@ -132,7 +127,7 @@ module Inlining_tree = struct
           let children = finder inlined_function.children in
           Apply_inlined_function { inlined_function with children }
 
-        | Apply_non_inlined_function non_inlined_function ->
+        | Apply_non_inlined_function _ ->
           failwith "Inconsistent assumption"
 
     and add__call_site
@@ -192,7 +187,7 @@ module Inlining_tree = struct
         let children = finder inlined_function.children in
         Apply_inlined_function { inlined_function with children }
 
-      | Apply_non_inlined_function non_inlined_function ->
+      | Apply_non_inlined_function _ ->
         failwith "Inconsistent assumption"
     in
     let closure =
@@ -207,7 +202,7 @@ module Inlining_tree = struct
     | _ -> assert false
   ;;
 
-  let build (decisions : Data_collector.t list) =
+  let build (decisions : Data_collector.t list) : Top_level.t =
     let (init : Top_level.t) = [] in
     List.fold decisions ~init ~f:add
 end
@@ -247,7 +242,7 @@ module Traversal_state = struct
       | [] -> Some [ tree ]
       | hd :: tl ->
         match tree with
-        | Apply_non_inlined_function non_inlined_function -> None
+        | Apply_non_inlined_function _ -> None
         | Apply_inlined_function { children; _ }
         | Declaration { children; _ } ->
           let found =
@@ -261,7 +256,7 @@ module Traversal_state = struct
       List.find_map_exn tree_root ~f:(fun child ->
         find_path_in_node child otherwise)
 
-  let descent_pointer pointer state =
+  let descent_pointer t state =
     let rec loop pointer =
       let match_first_child children =
         match children with
@@ -269,20 +264,24 @@ module Traversal_state = struct
         | hd :: _ ->
           loop (Node_pointer { parent = pointer; state; node = hd; })
       in
-      match pointer with
-      | Root -> failwith "Root"
-      | Node_pointer node_pointer ->
-        match node_pointer.node with
+      let match_node node =
+        match (node : Inlining_tree.t) with
         | Declaration decl ->
           match_first_child decl.children
         | Apply_inlined_function inlined_function ->
           match_first_child inlined_function.children
-        | Apply_non_inlined_function non_inlined_function ->
+        | Apply_non_inlined_function _ ->
           pointer
+      in
+      match pointer with
+      | Root -> match_node (List.hd_exn t.tree_root)
+      | Node_pointer node_pointer -> match_node node_pointer.node
     in
-    loop pointer
+    loop t.pointer
 
-  let refresh_with_new_tree (t : t) (tree_root : Inlining_tree.Top_level.t) =
+  let refresh_with_new_tree
+      (t : t)
+      (tree_root : Inlining_tree.Top_level.t) =
     let pointer = t.pointer in
     let path = compute_path pointer ~acc:[] in
     let refreshed_tree_path = refresh_tree_path tree_root path in
@@ -296,8 +295,7 @@ module Traversal_state = struct
       | Node_pointer _, [] -> failwith "Shouldn't happen"
     in
     let pointer = refresh_pointer pointer (List.rev refreshed_tree_path) in
-    let bottom_node = List.tl_exn refreshed_tree_path in
-    let pointer = descent_pointer pointer Original in
+    let pointer = descent_pointer { pointer; tree_root; } Original in
     { pointer ; tree_root }
   ;;
 
@@ -353,11 +351,8 @@ module Traversal_state = struct
         let node = List.nth_exn siblings (index + 1) in
         let parent = node_pointer.parent in
         (* TODO fyquah: descent here ? *)
-        let pointer =
-          descent_pointer
-            (Node_pointer { parent; state = Original; node })
-            Original
-        in
+        let pointer = Node_pointer { parent; state = Original; node } in
+        let pointer = descent_pointer { t with pointer } Original in
         let pointer =
           match pointer with
           | Node_pointer node_pointer ->
@@ -393,6 +388,10 @@ module Traversal_state = struct
 
   let next (t : t) (new_tree_root : Inlining_tree.Top_level.t) =
     step (refresh_with_new_tree t new_tree_root)
+
+  let init (tree_root : Inlining_tree.Top_level.t) =
+    let t = { pointer = Root; tree_root; } in
+    { t with pointer = descent_pointer t Original }
 end
 
 let shell ?(env = []) ?(echo = false) ?(verbose = false) ~dir:working_dir
@@ -413,38 +412,24 @@ let get_initial_state () =
     (List.t_of_sexp (fun sexp ->
         Fyp_compiler_lib.Data_collector.t_of_sexp
           (comp_sexp_of_core_sexp sexp)))
-  >>=? fun decisions ->
+  >>|? fun decisions ->
   match decisions with
-  | hd :: _ ->
-    let next_step =
-      if hd.decision then Try_no_inline else Try_inline
-    in
-    let state =
-      { Transversal_state.
-        rules     = Array.of_list decisions;
-        position  = 0;
-        next_step = next_step;
-        parent    = None
-      }
-    in
-    Some state
+  | _ :: _ -> Some (Inlining_tree.build decisions)
   | [] -> None
 ;;
 
 let () =
   let open Command.Let_syntax in
-  Command.async' ~summary:"Controller"
+  Command.async_or_error' ~summary:"Controller"
     [%map_open
      let config_filename =
        flag "-filename" (required file) ~doc:"PATH to config file"
      in
      fun () ->
-       let open Deferred.Let_syntax in
-       let exp_dir = "../experiments/normal/almabench" in
+       ignore config_filename;
        get_initial_state ()
-       >>= fun state ->
+       >>=? fun state ->
        let state = Option.value_exn state in
-       Deferred.return ()
 
        (* 0. Write the relevant overrides.sexp into the exp dir *)
 
@@ -456,6 +441,7 @@ let () =
 
        (* 4. Save the compilation data in a directory somewhere. *)
 
+       Deferred.Or_error.return ()
        ]
   |> Command.run
 
