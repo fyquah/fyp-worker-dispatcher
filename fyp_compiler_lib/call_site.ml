@@ -3,6 +3,13 @@
 module Offset = struct
   type t = int
 
+  let sexp_of_t t = Sexp.Atom (string_of_int t)
+
+  let t_of_sexp sexp =
+    match sexp with
+    | Sexp.Atom a -> int_of_string a
+    | _ -> raise (Sexp.Parse_error "Cannot parse offset")
+
   let base = 0
 
   let inc t = t + 1
@@ -80,7 +87,7 @@ let offset_of_sexp sexp =
     Misc.fatal_errorf "Cannot parse %a as an offset"
       Sexp.print_mach sexp
 
-let to_sexp sexp =
+let sexp_of_t sexp =
   let open Sexp in
   match sexp with
   | Enter_decl enter_decl ->
@@ -97,7 +104,7 @@ let to_sexp sexp =
       closure_id_to_sexp applied
     ]
 
-let of_sexp sexp =
+let t_of_sexp sexp =
   let open Sexp in
   match sexp with
   | List (Atom "Enter_decl" :: source :: closure :: []) ->

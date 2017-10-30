@@ -12,7 +12,7 @@ let (inlining_overrides : t list ref) = ref []
 
 let sexp_of_t t =
   Sexp.List [
-    Sexp.sexp_of_list Call_site.to_sexp t.call_stack;
+    Sexp.sexp_of_list Call_site.sexp_of_t t.call_stack;
     Closure_id.sexp_of_t t.applied;
     Sexp.t_of_bool t.decision;
   ]
@@ -20,7 +20,7 @@ let sexp_of_t t =
 let t_of_sexp sexp =
   match sexp with
   | Sexp.List (call_stack :: applied :: decision :: []) ->
-    let call_stack = Sexp.list_of_sexp Call_site.of_sexp call_stack in
+    let call_stack = Sexp.list_of_sexp Call_site.t_of_sexp call_stack in
     let applied = Closure_id.t_of_sexp applied in
     let decision = Sexp.bool_of_t decision in
     { call_stack; applied; decision; }
@@ -66,7 +66,7 @@ let find_decision ~call_stack ~applied =
     Format.printf "OVERRIDE Applied = %a call stack = %a with %b\n"
       Closure_id.print applied
       Sexp.print_mach
-      (Sexp.sexp_of_list Call_site.to_sexp call_stack)
+      (Sexp.sexp_of_list Call_site.sexp_of_t call_stack)
       a.decision;
     Some a.decision
 ;;

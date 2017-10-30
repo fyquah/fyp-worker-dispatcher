@@ -3,6 +3,9 @@
 module Offset : sig
   type t
 
+  val sexp_of_t : t -> Sexp.t
+  val t_of_sexp : Sexp.t -> t
+
   val base   : t
   val inc    : t -> t
   val to_int : t -> int
@@ -32,8 +35,8 @@ val create_top_level : Closure_id.t -> Offset.t -> t
 
 val create : source: Closure_id.t -> applied: Closure_id.t -> Offset.t -> t
 
-val to_sexp : t -> Sexp.t
+val sexp_of_t : t -> Sexp.t
 
-val of_sexp : Sexp.t -> t
+val t_of_sexp : Sexp.t -> t
 
 val pprint : Format.formatter -> t -> unit

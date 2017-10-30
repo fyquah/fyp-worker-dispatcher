@@ -21,11 +21,38 @@ let rec core_sexp_of_comp_sexp comp_sexp =
     Core.Sexp.List (List.map ~f:core_sexp_of_comp_sexp l)
 ;;
 
-module Inlining_tree = struct
+module Make_core_sexp(M :
+  sig type t
 
-  module Call_site = Fyp_compiler_lib.Call_site
-  module Closure_id = Fyp_compiler_lib.Closure_id
-  module Data_collector = Fyp_compiler_lib.Data_collector
+  val sexp_of_t : t -> Fyp_compiler_lib.Sexp.t
+  val t_of_sexp : Fyp_compiler_lib.Sexp.t -> t
+end) = struct
+  let sexp_of_t t = core_sexp_of_comp_sexp (M.sexp_of_t t)
+  let t_of_sexp sexp = M.t_of_sexp (comp_sexp_of_core_sexp sexp)
+end
+
+module Data_collector = struct
+  include Fyp_compiler_lib.Data_collector
+  include Make_core_sexp(Fyp_compiler_lib.Data_collector)
+end
+
+module Closure_id = struct
+  include Fyp_compiler_lib.Closure_id
+  include Make_core_sexp(Fyp_compiler_lib.Closure_id)
+end
+
+module Call_site = struct
+  include Fyp_compiler_lib.Call_site
+  include Make_core_sexp(Fyp_compiler_lib.Call_site)
+
+end
+
+module Call_site_offset = struct
+  include Call_site.Offset
+  include Make_core_sexp(Call_site.Offset)
+end
+
+module Inlining_tree = struct
 
   exception Build_error
 
@@ -39,16 +66,33 @@ module Inlining_tree = struct
     }
   and non_inlined_function =
     { applied   : Closure_id.t;
-      offset    : Call_site.Offset.t;
+      offset    : Call_site_offset.t;
     }
   and inlined_function =
     { applied   : Closure_id.t;
-      offset    : Call_site.Offset.t;
+      offset    : Call_site_offset.t;
       children  : t list;
     }
+  [@@deriving sexp]
+
+  let shallow_sexp_of_t sexp =
+    let open Sexp in
+    match sexp with
+    | Declaration decl ->
+      List [ Atom "Declaration"; Closure_id.sexp_of_t decl.closure; ]
+    | Apply_inlined_function inlined_function ->
+      List [
+        Atom "Apply_inlined_function";
+        Closure_id.sexp_of_t inlined_function.applied;
+      ]
+    | Apply_non_inlined_function non_inlined_function ->
+      List [
+        Atom "Apply_non_inlined_function";
+        Closure_id.sexp_of_t non_inlined_function.applied;
+      ]
 
   module Top_level = struct
-    type nonrec t = t list
+    type nonrec t = t list [@@deriving sexp]
   end
 
   let fuzzy_equal a b =
@@ -73,6 +117,11 @@ module Inlining_tree = struct
     | (Apply_inlined_function inlined_function, At_call_site at_call_site) ->
       Closure_id.equal inlined_function.applied at_call_site.applied &&
       Call_site.Offset.equal inlined_function.offset at_call_site.offset
+
+    | (Apply_non_inlined_function non_inlined_function, At_call_site at_call_site) ->
+      Closure_id.equal non_inlined_function.applied at_call_site.applied &&
+      Call_site.Offset.equal non_inlined_function.offset at_call_site.offset
+
     | _, _ -> false
 
   (* Only on short lists! *)
@@ -156,6 +205,9 @@ module Inlining_tree = struct
                     applied = collected.applied;
                   }
                 in
+                assert (
+                  Closure_id.equal collected.applied call_site.applied
+                );
                 Apply_non_inlined_function record)
             ~f:(fun (child : t) ->
               if equal_t_and_call_site child
@@ -191,7 +243,16 @@ module Inlining_tree = struct
         failwith "Inconsistent assumption"
     in
     let closure =
-      Closure_id.wrap (Fyp_compiler_lib.Variable.create "transient")
+      let ident = Fyp_compiler_lib.Ident.create_persistent "<none>" in
+      let linkage_name = Fyp_compiler_lib.Linkage_name.create "none" in
+      let current_compilation_unit =
+        Fyp_compiler_lib.Compilation_unit.create ident linkage_name
+      in
+      let variable =
+        Fyp_compiler_lib.Variable.create ~current_compilation_unit
+          "transient"
+      in
+      Closure_id.wrap variable
     in
     let children = top_level_tree in
     let call_site = Declaration { closure ; children } in
@@ -211,6 +272,7 @@ module Traversal_state = struct
   type state =
     | Original
     | Override
+  [@@deriving sexp_of]
 
   type pointer =
     | Root
@@ -221,16 +283,161 @@ module Traversal_state = struct
       node    : Inlining_tree.t;
     }
 
+  let rec sexp_of_pointer (pointer : pointer) =
+    match pointer with
+    | Root -> Sexp.Atom "Root"
+    | Node_pointer node_pointer ->
+      Sexp.List [
+        Sexp.Atom "Node_pointer";
+        sexp_of_node_pointer node_pointer;
+      ]
+  and sexp_of_node_pointer node_pointer =
+    let sexp_of_node (node : Inlining_tree.t) =
+      match node with
+      | Declaration decl ->
+        Sexp.List [
+          Sexp.Atom "Declaration";
+          Closure_id.sexp_of_t decl.closure;
+        ]
+
+      | Apply_inlined_function inlined_function ->
+        Sexp.List [
+          Sexp.Atom "Apply_inlined_function";
+          Closure_id.sexp_of_t inlined_function.applied;
+        ]
+
+      | Apply_non_inlined_function non_inlined_function ->
+        Sexp.List [
+          Sexp.Atom "Apply_non_inlined_function";
+          Closure_id.sexp_of_t non_inlined_function.applied;
+        ]
+    in
+    Sexp.List [
+      Sexp.List [ Sexp.Atom "parent"; sexp_of_pointer node_pointer.parent ];
+      Sexp.List [ Sexp.Atom "state";  sexp_of_state node_pointer.state ];
+      Sexp.List [ Sexp.Atom "node";   sexp_of_node node_pointer.node ];
+    ]
+
   type t =
     { pointer   : pointer;
       tree_root : Inlining_tree.Top_level.t;
     }
+  [@@deriving sexp_of]
 
   let rec compute_path pointer ~acc =
     match pointer with
     | Root -> acc
     | Node_pointer node_pointer ->
       compute_path node_pointer.parent ~acc:(node_pointer.node :: acc)
+
+  let change_call_site_source call_site ~source
+      : Fyp_compiler_lib.Call_site.t =
+    let source = Some source in
+    match (call_site : Fyp_compiler_lib.Call_site.t) with
+    | Enter_decl enter_decl -> Enter_decl { enter_decl with source }
+    | At_call_site acs -> At_call_site { acs with source }
+
+  let node_closure_id = function
+    | Inlining_tree.Declaration decl -> decl.closure
+    | Apply_inlined_function a -> a.applied
+    | Apply_non_inlined_function a -> a.applied
+
+  let to_override_rules t : Fyp_compiler_lib.Data_collector.t list =
+    let pointer = t.pointer in
+    let rec loop path =
+      let match_hd (hd : Inlining_tree.t) ~remainder ~decision
+          : (Call_site.t list * bool) =
+        match hd with
+        | Declaration decl ->
+          let source = None in
+          let closure = decl.closure in
+          (Call_site.Enter_decl { source; closure; } :: remainder,
+           decision)
+        | Apply_inlined_function inlined_function ->
+          let offset = inlined_function.offset in
+          let applied = inlined_function.applied in
+          let at_call_site =
+            { Call_site.
+              source = None;
+              offset = offset;
+              applied = applied;
+            }
+          in
+          (Call_site.At_call_site at_call_site :: remainder, decision)
+        | Apply_non_inlined_function non_inlined_function ->
+          let offset = non_inlined_function.offset in
+          let applied = non_inlined_function.applied in
+          let at_call_site =
+            { Fyp_compiler_lib.Call_site.
+              source = None; offset; applied;
+            }
+          in
+          (Call_site.At_call_site at_call_site :: remainder, decision)
+      in
+      match (path : Inlining_tree.t list) with
+      | hd :: [] ->
+        let decision =
+          match hd with
+          | Declaration _ -> assert false
+          | Apply_inlined_function _ -> true
+          | Apply_non_inlined_function _ -> false
+        in
+        match_hd hd ~remainder:[] ~decision
+      | hd :: tl ->
+        let call_stack, decision = loop tl in
+        let source = node_closure_id hd in
+        let call_stack =
+          change_call_site_source ~source (List.hd_exn call_stack)
+          :: List.tl_exn call_stack
+        in
+        match_hd hd ~remainder:call_stack ~decision
+      | [] -> assert false
+    in
+    let path = compute_path pointer ~acc:[] in
+    let call_stack, decision = loop path in
+    let module Data_collector = Fyp_compiler_lib.Data_collector in
+    let module Acc = struct
+      type t =
+        { rules       : Data_collector.t list;
+          stack_so_far: Call_site.t list;
+        }
+
+      let empty = { rules = []; stack_so_far = [] }
+    end
+    in
+    let rec loop_2 ~rev_stack ~(acc : Acc.t) =
+      match rev_stack with
+      | [] -> acc
+      | hd :: tl ->
+        let call_stack = acc.stack_so_far @ [ hd ] in
+        let new_rule =
+          match hd with
+          | Call_site.Enter_decl _ -> None
+          | Call_site.At_call_site acs ->
+            Some (
+              let applied = acs.applied in
+              match tl with
+              | [] -> { Data_collector. call_stack; applied; decision }
+              | _  ->
+                let decision = true in
+                { Data_collector. call_stack; applied; decision }
+            )
+        in
+        let rules =
+          match new_rule with
+          | None -> acc.Acc.rules
+          | Some rule ->  rule :: acc.Acc.rules
+        in
+        let acc = { Acc. stack_so_far = call_stack; rules; } in
+        loop_2 ~rev_stack:tl ~acc
+    in
+    Writer.write_sexp (Lazy.force Writer.stdout)
+      (List.sexp_of_t (Inlining_tree.shallow_sexp_of_t) path);
+    Writer.write (Lazy.force Writer.stdout) "\n";
+    Writer.write_sexp (Lazy.force Writer.stdout)
+      ([%sexp_of: Call_site.t list] call_stack);
+    (loop_2 ~acc:Acc.empty ~rev_stack:(List.rev call_stack)).Acc.rules
+  ;;
 
   let refresh_tree_path
       (tree_root : Inlining_tree.Top_level.t)
@@ -274,7 +481,11 @@ module Traversal_state = struct
           pointer
       in
       match pointer with
-      | Root -> match_node (List.hd_exn t.tree_root)
+      | Root ->
+        loop (
+          let node = List.hd_exn t.tree_root in
+          Node_pointer { parent = Root; state; node }
+        )
       | Node_pointer node_pointer -> match_node node_pointer.node
     in
     loop t.pointer
@@ -350,7 +561,6 @@ module Traversal_state = struct
       end else
         let node = List.nth_exn siblings (index + 1) in
         let parent = node_pointer.parent in
-        (* TODO fyquah: descent here ? *)
         let pointer = Node_pointer { parent; state = Original; node } in
         let pointer = descent_pointer { t with pointer } Original in
         let pointer =
@@ -401,10 +611,11 @@ let shell ?(env = []) ?(echo = false) ?(verbose = false) ~dir:working_dir
       Async_shell.run ~echo ~verbose ~working_dir ~env prog args)
 ;;
 
+let exp_dir = "../experiments/normal/almabench"
+
 let get_initial_state () =
-  let exp_dir = "../experiments/normal/almabench" in
-  shell ~dir:exp_dir "make" ["all"]
-  >>=? fun () ->
+  shell ~verbose:true ~dir:exp_dir "make" [ "clean" ] >>=? fun () ->
+  shell ~dir:exp_dir "make" [ "all" ] >>=? fun () ->
   (* TODO(fyquah): Run the program in workers to get exec time information.
    *)
   let filename = exp_dir ^/ "almabench.0.data_collector.sexp" in
@@ -414,7 +625,8 @@ let get_initial_state () =
           (comp_sexp_of_core_sexp sexp)))
   >>|? fun decisions ->
   match decisions with
-  | _ :: _ -> Some (Inlining_tree.build decisions)
+  | _ :: _ ->
+    Some (Traversal_state.init (Inlining_tree.build decisions))
   | [] -> None
 ;;
 
@@ -425,15 +637,31 @@ let () =
      let config_filename =
        flag "-filename" (required file) ~doc:"PATH to config file"
      in
+     let lift_deferred m =
+       Deferred.(m >>| fun x -> Core.Or_error.return x)
+     in
      fun () ->
        ignore config_filename;
        get_initial_state ()
        >>=? fun state ->
+       let stdout = Lazy.force Writer.stdout in
        let state = Option.value_exn state in
+       let state = Option.value_exn (Traversal_state.step state) in
+
+       Writer.write stdout (Sexp.to_string_hum ([%sexp_of: Traversal_state.t] state));
+
+       let override_rules = Traversal_state.to_override_rules state in
 
        (* 0. Write the relevant overrides.sexp into the exp dir *)
+       lift_deferred (
+         Writer.save_sexp (exp_dir ^/ "overrides.sexp")
+           ([%sexp_of: Data_collector.t list] override_rules);
+       )
+       >>=? fun () ->
 
        (* 1. Compile the program *)
+       shell ~verbose:true ~dir:exp_dir "make" [ "clean" ] >>=? fun () ->
+       shell ~verbose:true ~dir:exp_dir "make" [ "all" ]   >>=? fun () ->
 
        (* 2. Run the program on the target machines. *)
 
