@@ -5,6 +5,7 @@ open Async
 module Relpath = Protocol.Relpath
 module Config = Protocol.Config
 module Job_dispatch_rpc = Protocol.Job_dispatch_rpc
+module Info_rpc = Protocol.Info_rpc
 
 let shell ?(env = []) ?(echo = false) ?(verbose = false) ~dir:working_dir
     prog args =
@@ -79,20 +80,32 @@ let compile_and_run_benchmark ~num_runs ~rundir
             |> Time.Span.of_sec
           in
           { Protocol.Benchmark_results. execution_time }))
-  >>|? aggregrate_benchmarks
 ;;
 
 let job_dispatcher_impl ~rundir ~config () query =
   Log.Global.sexp ~level:`Info
     [%message "Received query from " (query : Job_dispatch_rpc.Query.t)];
-  let benchmark = query.targets in
   let num_runs = config.Config.num_runs in
-  let compiler_selection = query.compiler_selection in
-  let compile_params = query.compile_params in
-  match%bind
-    compile_and_run_benchmark ~compile_params
-      ~compiler_selection ~num_runs ~rundir ~benchmark
-  with
+  begin match query with
+  | Job_dispatch_rpc.Query.Run_binary relpath ->
+    let executable = rundir ^/ Relpath.to_string relpath in
+    Deferred.Or_error.List.init num_runs (fun _ ->
+        Monitor.try_with_or_error (fun () ->
+            let args = [ executable ] in
+            let%map (_stdout, stderr) =
+              Async_shell.run_full_and_error "/usr/bin/time" args
+            in
+            (* Exeception here is fine, because we are running in a monitor *)
+            let execution_time =
+              Re2.Regex.first_match_exn time_stderr_regex stderr
+              |> Re2.Regex.Match.get_exn ~sub:(`Index 1)
+              |> float_of_string
+              |> Time.Span.of_sec
+            in
+            { Protocol.Benchmark_results. execution_time }))
+    >>|? aggregrate_benchmarks
+  end
+  >>= function
   | Ok bench_result ->
     return (Job_dispatch_rpc.Response.Success bench_result)
   | Error (error : Error.t) ->
@@ -100,11 +113,21 @@ let job_dispatcher_impl ~rundir ~config () query =
     return (Job_dispatch_rpc.Response.Failed error)
 ;;
 
+let information_rpc_impl
+    ~(config : Config.t) ~rundir () (query : Info_rpc.Query.t) =
+  match query with
+  | Where_to_copy ->
+    let relpath = config.worker_direct_exec_dir in
+    Deferred.return { Info_rpc.Response. rundir; relpath; }
+
 let start_server ~config ~rundir ~stop =
   let port = config.Config.worker_port in
   let implementations =
     [ Rpc.Rpc.implement Job_dispatch_rpc.rpc
-        (job_dispatcher_impl ~config ~rundir) ]
+        (job_dispatcher_impl ~config ~rundir);
+      Rpc.Rpc.implement Info_rpc.rpc
+        (information_rpc_impl ~config ~rundir);
+    ]
   in
   let implementations =
     Rpc.Implementations.create_exn ~implementations

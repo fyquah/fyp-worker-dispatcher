@@ -42,13 +42,31 @@ module Benchmark_results = struct
   [@@deriving bin_io, sexp]
 end
 
+module Info_rpc = struct
+  module Query = struct
+    type t = Where_to_copy [@@deriving sexp, bin_io]
+  end
+
+  module Response = struct
+    type t =
+      { rundir  : string;
+        relpath : Relpath.t;
+      }
+    [@@deriving sexp, bin_io]
+  end
+
+  let rpc =
+    Rpc.Rpc.create ~name:"information" ~version:0
+      ~bin_query:Query.bin_t
+      ~bin_response:Response.bin_t
+  ;;
+end
+
+
 module Job_dispatch_rpc = struct
   module Query = struct
     type t =
-      { compile_params     : Compile_params.t option;
-        compiler_selection : Compiler_selection.t;
-        targets            : Benchmark.t;
-      }
+      | Run_binary of Relpath.t
     [@@deriving bin_io, sexp]
   end
 
@@ -74,6 +92,7 @@ module Config = struct
   type t =
     { worker_port : int;
       num_runs: int;
+      worker_direct_exec_dir: Relpath.t;
     }
   [@@deriving sexp]
 end

@@ -4,8 +4,10 @@ open Core
 open Async
 
 module Config = Protocol.Config
+module Info_rpc = Protocol.Info_rpc
 module Job_dispatch_rpc = Protocol.Job_dispatch_rpc
 module Relpath = Protocol.Relpath
+module Benchmark_results = Protocol.Benchmark_results
 
 let rec comp_sexp_of_core_sexp core_sexp =
   match core_sexp with
@@ -654,6 +656,42 @@ let get_initial_state () =
   | [] -> None
 ;;
 
+module Worker_connection = struct
+  type 'a t =
+    { socket : ([`Active], 'a) Socket.t;
+      reader : Reader.t;
+      writer : Writer.t;
+      rpc_connection : Rpc.Connection.t
+    }
+end
+
+let run_binary_on_worker ~worker_connection ~path_to_bin =
+  let conn = worker_connection.Worker_connection.rpc_connection in
+  Rpc.Rpc.dispatch Info_rpc.rpc conn Info_rpc.Query.Where_to_copy
+  >>=? fun path_to_rundir ->
+  (* TODO: remove hard code *)
+  let abs_path_to_rundir =
+    path_to_rundir.Info_rpc.Response.rundir
+    ^/ Relpath.to_string (path_to_rundir.Info_rpc.Response.relpath)
+  in
+  let args = [ path_to_bin; sprintf "0.0.0.0:%s" abs_path_to_rundir ] in
+  shell ~dir:(Filename.dirname path_to_bin) ~verbose:true "scp" args
+  >>=? fun () ->
+  let query =
+    Job_dispatch_rpc.Query.Run_binary (
+      Relpath.of_string (
+        Relpath.to_string path_to_rundir.relpath
+        ^/ Filename.basename path_to_bin
+      )
+    )
+  in
+  Rpc.Rpc.dispatch Job_dispatch_rpc.rpc conn query
+  >>=? fun response ->
+  match response with
+  | Success results -> Deferred.Or_error.return results
+  | Failed e -> Deferred.return (Error e)
+;;
+
 let () =
   let open Command.Let_syntax in
   Command.async_or_error' ~summary:"Controller"
@@ -665,7 +703,20 @@ let () =
        Deferred.(m >>| fun x -> Core.Or_error.return x)
      in
      fun () ->
-       ignore config_filename;
+       Reader.load_sexp config_filename [%of_sexp: Config.t]
+       >>=? fun config ->
+       lift_deferred (
+         Tcp.connect
+           (Tcp.to_host_and_port "0.0.0.0" config.worker_port)
+           ~timeout:(Time.Span.of_int_sec 1)
+       )
+       >>=? (fun (socket, reader, writer) ->
+         Rpc.Connection.create reader writer ~connection_state:(fun _ -> ())
+         >>| function
+         | Ok rpc_connection ->
+           Ok ({ Worker_connection. socket; reader; writer; rpc_connection; })
+         | Error exn -> raise exn)
+       >>=? fun worker_connection ->
        get_initial_state ()
        >>=? fun state ->
        let stdout = Lazy.force Writer.stdout in
@@ -690,6 +741,9 @@ let () =
        shell ~verbose:true ~dir:exp_dir "make" [ "all" ]   >>=? fun () ->
 
        (* 2. Run the program on the target machines. *)
+       let path_to_bin = exp_dir ^/ "almabench.native" in
+       run_binary_on_worker ~worker_connection ~path_to_bin
+       >>=? fun (_ : Benchmark_results.t) ->
 
        (* 3. Decide what to explore next *)
 
