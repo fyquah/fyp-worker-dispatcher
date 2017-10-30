@@ -135,6 +135,7 @@ module Inlining_tree = struct
   ;;
 
   let add (top_level_tree : Top_level.t) (collected : Data_collector.t) =
+
     let rec add__generic (tree : t) (call_stack : Call_site.t list) =
       match call_stack with
       | [] -> assert false
@@ -265,6 +266,8 @@ module Inlining_tree = struct
 
   let build (decisions : Data_collector.t list) : Top_level.t =
     let (init : Top_level.t) = [] in
+    Writer.write (Lazy.force Writer.stdout)
+      ((Sexp.to_string_hum (List.sexp_of_t Data_collector.sexp_of_t decisions)));
     List.fold decisions ~init ~f:add
 end
 
@@ -613,19 +616,40 @@ let shell ?(env = []) ?(echo = false) ?(verbose = false) ~dir:working_dir
 
 let exp_dir = "../experiments/normal/almabench"
 
+let rec is_prefix ~(prefix : Call_site.t list) (test : Call_site.t list) =
+  match prefix, test with
+  | [], [] -> false
+  | [], _ -> true
+  | _, [] -> false
+  | prefix_hd :: prefix_tl, hd :: tl ->
+    Call_site.equal prefix_hd hd &&
+    is_prefix ~prefix:prefix_tl tl
+
+let filter_decisions (decisions : Data_collector.t list) =
+  List.filter decisions ~f:(fun test ->
+    not (
+      List.exists decisions ~f:(fun decision ->
+        if phys_equal test decision
+        then false
+        else (
+          not decision.decision &&
+          is_prefix ~prefix:(List.rev decision.call_stack) (List.rev test.call_stack)
+        )
+      )
+    )
+  )
+
 let get_initial_state () =
   shell ~verbose:true ~dir:exp_dir "make" [ "clean" ] >>=? fun () ->
   shell ~dir:exp_dir "make" [ "all" ] >>=? fun () ->
   (* TODO(fyquah): Run the program in workers to get exec time information.
    *)
   let filename = exp_dir ^/ "almabench.0.data_collector.sexp" in
-  Reader.load_sexp filename
-    (List.t_of_sexp (fun sexp ->
-        Fyp_compiler_lib.Data_collector.t_of_sexp
-          (comp_sexp_of_core_sexp sexp)))
+  Reader.load_sexp filename [%of_sexp: Data_collector.t list]
   >>|? fun decisions ->
   match decisions with
   | _ :: _ ->
+    let decisions = filter_decisions decisions in
     Some (Traversal_state.init (Inlining_tree.build decisions))
   | [] -> None
 ;;
@@ -653,6 +677,9 @@ let () =
        let override_rules = Traversal_state.to_override_rules state in
 
        (* 0. Write the relevant overrides.sexp into the exp dir *)
+       shell ~verbose:true ~dir:exp_dir "make" [ "clean" ]
+       >>=? fun () ->
+
        lift_deferred (
          Writer.save_sexp (exp_dir ^/ "overrides.sexp")
            ([%sexp_of: Data_collector.t list] override_rules);
@@ -660,7 +687,6 @@ let () =
        >>=? fun () ->
 
        (* 1. Compile the program *)
-       shell ~verbose:true ~dir:exp_dir "make" [ "clean" ] >>=? fun () ->
        shell ~verbose:true ~dir:exp_dir "make" [ "all" ]   >>=? fun () ->
 
        (* 2. Run the program on the target machines. *)
