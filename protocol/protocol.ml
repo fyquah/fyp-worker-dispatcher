@@ -89,10 +89,30 @@ module Job_dispatch_rpc = struct
 end
 
 module Config = struct
+  module Rpc_worker_config = struct
+    type t =
+      { port : int;
+        worker_direct_exec_dir: Relpath.t;
+      }
+    [@@deriving sexp]
+  end
+
+  module Ssh_worker_config = struct
+    type t =
+      { rundir : string; (* We will setup overselves *)
+      }
+    [@@deriving sexp]
+  end
+
+  type worker_config =
+    | Rpc_worker of Rpc_worker_config.t
+    | Ssh_worker of Ssh_worker_config.t
+  [@@deriving sexp]
+
   type t =
-    { worker_port : int;
-      num_runs: int;
-      worker_direct_exec_dir: Relpath.t;
+    { num_runs: int;
+      worker_config: worker_config;
+      worker_hostnames: string list;
     }
   [@@deriving sexp]
 end

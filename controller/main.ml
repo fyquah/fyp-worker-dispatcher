@@ -657,15 +657,23 @@ let get_initial_state () =
 ;;
 
 module Worker_connection = struct
-  type 'a t =
+  type 'a rpc_conn =
     { socket : ([`Active], 'a) Socket.t;
       reader : Reader.t;
       writer : Writer.t;
       rpc_connection : Rpc.Connection.t
     }
+
+  type ssh_conn = { hostname: string; rundir: string; }
+
+  type 'a t =
+    | Rpc : 'a rpc_conn -> 'a t
+    | Ssh : ssh_conn -> 'a t
 end
 
-let run_binary_on_worker ~worker_connection ~path_to_bin =
+let lift_deferred m = Deferred.(m >>| fun x -> Core.Or_error.return x)
+
+let run_binary_on_rpc_worker ~hostname ~worker_connection ~path_to_bin =
   let conn = worker_connection.Worker_connection.rpc_connection in
   Rpc.Rpc.dispatch Info_rpc.rpc conn Info_rpc.Query.Where_to_copy
   >>=? fun path_to_rundir ->
@@ -674,7 +682,7 @@ let run_binary_on_worker ~worker_connection ~path_to_bin =
     path_to_rundir.Info_rpc.Response.rundir
     ^/ Relpath.to_string (path_to_rundir.Info_rpc.Response.relpath)
   in
-  let args = [ path_to_bin; sprintf "0.0.0.0:%s" abs_path_to_rundir ] in
+  let args = [ path_to_bin; sprintf "%s:%s" hostname abs_path_to_rundir ] in
   shell ~dir:(Filename.dirname path_to_bin) ~verbose:true "scp" args
   >>=? fun () ->
   let query =
@@ -692,6 +700,70 @@ let run_binary_on_worker ~worker_connection ~path_to_bin =
   | Failed e -> Deferred.return (Error e)
 ;;
 
+let run_binary_on_ssh_worker ~rundir ~hostname ~path_to_bin =
+  lift_deferred (Unix.getcwd ())
+  >>=? fun dir ->
+  shell ~dir "scp" [ path_to_bin; hostname ^ ":" ^ rundir; ]
+  >>=? fun () ->
+  Async_shell.run_one ~echo:true ~verbose:true ~working_dir:dir "ssh" [
+    hostname;
+    rundir ^/ "benchmark_binary.sh";
+    rundir ^/ (Filename.basename path_to_bin);
+    "3";
+  ]
+  >>= function
+  | Some output_string ->
+    let times =
+      List.map ~f:Float.of_string (String.split_lines output_string)
+    in
+    let seconds =
+      List.sum (module Float) times ~f:Fn.id
+        /. (Int.to_float (List.length times))
+    in
+    let execution_time = Time.Span.of_sec seconds in
+    Deferred.Or_error.return (
+      { Protocol.Benchmark_results. execution_time }
+    )
+  | None -> Deferred.Or_error.error_s [%message "Something went wrong"]
+;;
+
+let run_binary_on_worker ~hostname ~conn ~path_to_bin =
+  match conn with
+  | Worker_connection.Rpc worker_connection ->
+    run_binary_on_rpc_worker ~worker_connection ~path_to_bin ~hostname
+  | Worker_connection.Ssh (ssh_config : Worker_connection.ssh_conn) ->
+    run_binary_on_ssh_worker ~rundir:ssh_config.rundir ~hostname ~path_to_bin
+;;
+
+let init_connection ~hostname ~worker_config =
+  match worker_config with
+  | Protocol.Config.Ssh_worker ssh_config ->
+    begin
+    lift_deferred (Unix.getcwd ())
+    >>=? fun cwd ->
+    let args =
+      [ "worker/benchmark_binary.sh"; (hostname ^ ":" ^ ssh_config.rundir) ]
+    in
+    shell ~dir:cwd "scp" args >>|? fun () ->
+    let rundir = ssh_config.rundir in
+    Worker_connection.Ssh { rundir; hostname; }
+    end
+  | Protocol.Config.Rpc_worker rpc_config ->
+    lift_deferred (
+      Tcp.connect
+        (Tcp.to_host_and_port hostname rpc_config.port)
+        ~timeout:(Time.Span.of_int_sec 1)
+    )
+    >>=? fun (socket, reader, writer) ->
+    Rpc.Connection.create reader writer ~connection_state:(fun _ -> ())
+    >>| function
+    | Ok rpc_connection ->
+      let rpc_connection =
+        { Worker_connection. socket; reader; writer; rpc_connection; }
+      in
+      Ok (Worker_connection.Rpc rpc_connection)
+    | Error exn -> raise exn
+
 let () =
   let open Command.Let_syntax in
   Command.async_or_error' ~summary:"Controller"
@@ -699,23 +771,11 @@ let () =
      let config_filename =
        flag "-filename" (required file) ~doc:"PATH to config file"
      in
-     let lift_deferred m =
-       Deferred.(m >>| fun x -> Core.Or_error.return x)
-     in
      fun () ->
        Reader.load_sexp config_filename [%of_sexp: Config.t]
        >>=? fun config ->
-       lift_deferred (
-         Tcp.connect
-           (Tcp.to_host_and_port "0.0.0.0" config.worker_port)
-           ~timeout:(Time.Span.of_int_sec 1)
-       )
-       >>=? (fun (socket, reader, writer) ->
-         Rpc.Connection.create reader writer ~connection_state:(fun _ -> ())
-         >>| function
-         | Ok rpc_connection ->
-           Ok ({ Worker_connection. socket; reader; writer; rpc_connection; })
-         | Error exn -> raise exn)
+       init_connection ~hostname:(List.hd_exn config.worker_hostnames)
+         ~worker_config:config.worker_config
        >>=? fun worker_connection ->
        get_initial_state ()
        >>=? fun state ->
@@ -742,7 +802,8 @@ let () =
 
        (* 2. Run the program on the target machines. *)
        let path_to_bin = exp_dir ^/ "almabench.native" in
-       run_binary_on_worker ~worker_connection ~path_to_bin
+       run_binary_on_worker ~conn:worker_connection ~path_to_bin
+         ~hostname:(List.hd_exn config.worker_hostnames)
        >>=? fun (_ : Benchmark_results.t) ->
 
        (* 3. Decide what to explore next *)
@@ -752,56 +813,3 @@ let () =
        Deferred.Or_error.return ()
        ]
   |> Command.run
-
-
-(*
-
-let do_something ~conn =
-  let targets =
-    { Protocol.Benchmark.
-      dir = Relpath.of_string "ocaml-benchs/almabench";
-      executable = "almabench.native";
-      run_args = [];
-    }
-  in
-  let query =
-    { Job_dispatch_rpc.Query.
-      compile_params = None;
-      targets;
-      compiler_selection = Protocol.Compiler_selection.Flambda;
-    }
-  in
-  let%map response =
-    Rpc.Rpc.dispatch_exn Job_dispatch_rpc.rpc conn query
-  in
-  Log.Global.sexp ~level:`Info
-    [%message (response : Protocol.Job_dispatch_rpc.Response.t)]
-;;
-
-let () =
-  let open Command.Let_syntax in
-  Command.async' ~summary:"Controller"
-    [%map_open
-     let config_filename =
-       flag "-filename" (required file) ~doc:"PATH to config file"
-     in
-     fun () ->
-       let open Deferred.Let_syntax in
-       let%bind config =
-         Reader.load_sexp_exn config_filename [%of_sexp: Config.t]
-       in
-       let worker_host = "0.0.0.0" in
-       let worker_port = config.worker_port in
-       Tcp.with_connection
-         (Tcp.to_host_and_port worker_host worker_port)
-         ~timeout:(Time.Span.of_int_sec 1)
-         (fun _ r w ->
-            match%bind
-              Rpc.Connection.create r w ~connection_state:(fun _ -> ())
-            with
-            | Error exn -> raise exn
-            | Ok conn -> do_something conn)]
-  |> Command.run
-
-*)
-
