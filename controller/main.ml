@@ -773,10 +773,51 @@ let rec build_sliding_window ~n input_list =
     :: build_sliding_window ~n (List.tl_exn input_list)
 ;;
 
+module Work_unit_id : sig
+  type t [@@deriving sexp]
+  include Hashable.S with type t := t
+  include Stringable.S with type t := t
+
+  val gen : unit -> t
+end = struct
+  module T = struct
+    type t = int [@@deriving sexp]
+
+    let hash = Int.hash
+
+    let compare = Int.compare
+
+    let acc = ref 0
+
+    let gen () =
+      let ret = !acc in
+      acc := ret + 1;
+      ret
+
+    let to_string = Int.to_string
+    let of_string = Int.of_string
+  end
+
+  include T
+  include Hashable.Make(T)
+end
+
 type work_unit =
-  { rules       : Data_collector.t list;
+  { overrides   : Data_collector.t list;
+    decisions   : Data_collector.t list;
     path_to_bin : string;
+    id          : Work_unit_id.t;
   }
+
+module Results = struct
+  type t =
+    { id        : Work_unit_id.t;
+      overrides : Data_collector.t list;
+      decisions : Data_collector.t list;
+      benchmark : Benchmark_results.t;
+    }
+  [@@deriving sexp]
+end
 
 let () =
   let open Command.Let_syntax in
@@ -784,6 +825,8 @@ let () =
     [%map_open
      let config_filename =
        flag "-filename" (required file) ~doc:"PATH to config file"
+     and controller_rundir =
+       flag "-rundir" (required string) ~doc:"PATH rundir"
      in
      fun () ->
        Reader.load_sexp config_filename [%of_sexp: Config.t]
@@ -829,9 +872,18 @@ let () =
              >>=? fun () ->
              shell ~echo:true ~dir:exp_dir "chmod" [ "755"; filename ]
              >>=? fun () ->
+             Reader.load_sexp (exp_dir ^/ "almabench.0.data_collector.sexp")
+               [%of_sexp: Data_collector.t list]
+             >>=? fun executed_decisions ->
              let path_to_bin = filename in
-             let rules = flipped_decisions in
-             lift_deferred (Mvar.put latest_work (Some { path_to_bin; rules; }))
+             let overrides = flipped_decisions in
+             let decisions = executed_decisions in
+             let id = Work_unit_id.gen () in
+             lift_deferred (
+               Mvar.put latest_work (
+                 Some { path_to_bin; overrides; decisions; id; }
+               )
+             )
          )
          >>= function
          | Ok () -> Mvar.put latest_work None
@@ -848,14 +900,28 @@ let () =
                Deferred.return (`Finished (Ok ()))
              | Some work_unit ->
                begin
-               let rules = work_unit.rules in
                let path_to_bin = work_unit.path_to_bin in
                printf "Running %s\n" path_to_bin;
                run_binary_on_worker ~conn ~path_to_bin ~hostname
                >>= function
-               | Ok _ ->
-                 printf "Done with %s\n" path_to_bin;
-                 Deferred.return (`Repeat ())
+               | Ok benchmark ->
+                 printf "Done with %s. Saving results ...\n" path_to_bin;
+                 Unix.mkdir ~p:() (controller_rundir ^/ "results")
+                 >>= fun () ->
+                 let results_dir = controller_rundir ^/ "results" in
+                 let work_unit_id = work_unit.id in
+                 let results =
+                   let id = work_unit.id in
+                   let overrides = work_unit.overrides in
+                   let decisions = work_unit.decisions in
+                   { Results. id; benchmark; overrides; decisions; }
+                 in
+                 let filename =
+                   results_dir ^/
+                   (sprintf !"results_%{Work_unit_id}.sexp" work_unit_id)
+                 in
+                 Writer.save_sexp filename (Results.sexp_of_t results)
+                 >>| fun () -> `Repeat ()
                | Error e -> Deferred.return (`Finished (Error e))
                end))
        ]
