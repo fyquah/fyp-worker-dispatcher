@@ -93,13 +93,15 @@ module Config = struct
     type t =
       { port : int;
         worker_direct_exec_dir: Relpath.t;
+        hostname : string;
       }
     [@@deriving sexp]
   end
 
   module Ssh_worker_config = struct
     type t =
-      { rundir : string; (* We will setup overselves *)
+      { rundir   : string; (* We will setup overselves *)
+        hostname : string;
       }
     [@@deriving sexp]
   end
@@ -109,10 +111,14 @@ module Config = struct
     | Ssh_worker of Ssh_worker_config.t
   [@@deriving sexp]
 
+  let hostname worker_config =
+    match worker_config with
+    | Rpc_worker r -> r.hostname
+    | Ssh_worker s -> s.hostname
+
   type t =
     { num_runs: int;
-      worker_config: worker_config;
-      worker_hostnames: string list;
+      worker_configs: worker_config list;
     }
   [@@deriving sexp]
 end

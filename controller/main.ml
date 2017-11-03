@@ -652,7 +652,7 @@ let get_initial_state () =
   match decisions with
   | _ :: _ ->
     let decisions = filter_decisions decisions in
-    Some (Traversal_state.init (Inlining_tree.build decisions))
+    Some (decisions, Traversal_state.init (Inlining_tree.build decisions))
   | [] -> None
 ;;
 
@@ -703,19 +703,21 @@ let run_binary_on_rpc_worker ~hostname ~worker_connection ~path_to_bin =
 let run_binary_on_ssh_worker ~rundir ~hostname ~path_to_bin =
   lift_deferred (Unix.getcwd ())
   >>=? fun dir ->
-  shell ~dir "scp" [ path_to_bin; hostname ^ ":" ^ rundir; ]
+  shell ~echo:true ~verbose: true ~dir "scp"
+    [ path_to_bin;
+      hostname ^ ":" ^ rundir ^/ "binary.exe";
+    ]
   >>=? fun () ->
-  Async_shell.run_one ~echo:true ~verbose:true ~working_dir:dir "ssh" [
+  Async_shell.run_lines ~echo:true ~verbose:true ~working_dir:dir "ssh" [
     hostname;
     rundir ^/ "benchmark_binary.sh";
-    rundir ^/ (Filename.basename path_to_bin);
+    rundir ^/ "binary.exe";
     "3";
   ]
   >>= function
-  | Some output_string ->
-    let times =
-      List.map ~f:Float.of_string (String.split_lines output_string)
-    in
+  | [] -> Deferred.Or_error.error_s [%message "Something went wrong"]
+  | lines ->
+    let times = List.map ~f:Float.of_string lines in
     let seconds =
       List.sum (module Float) times ~f:Fn.id
         /. (Int.to_float (List.length times))
@@ -724,7 +726,6 @@ let run_binary_on_ssh_worker ~rundir ~hostname ~path_to_bin =
     Deferred.Or_error.return (
       { Protocol.Benchmark_results. execution_time }
     )
-  | None -> Deferred.Or_error.error_s [%message "Something went wrong"]
 ;;
 
 let run_binary_on_worker ~hostname ~conn ~path_to_bin =
@@ -764,6 +765,19 @@ let init_connection ~hostname ~worker_config =
       Ok (Worker_connection.Rpc rpc_connection)
     | Error exn -> raise exn
 
+let rec build_sliding_window ~n input_list =
+  if List.length input_list <= n then
+    []
+  else
+    (List.take input_list n)
+    :: build_sliding_window ~n (List.tl_exn input_list)
+;;
+
+type work_unit =
+  { rules       : Data_collector.t list;
+    path_to_bin : string;
+  }
+
 let () =
   let open Command.Let_syntax in
   Command.async_or_error' ~summary:"Controller"
@@ -774,42 +788,75 @@ let () =
      fun () ->
        Reader.load_sexp config_filename [%of_sexp: Config.t]
        >>=? fun config ->
-       init_connection ~hostname:(List.hd_exn config.worker_hostnames)
-         ~worker_config:config.worker_config
-       >>=? fun worker_connection ->
+       Deferred.Or_error.List.map config.worker_configs ~how:`Parallel
+         ~f:(fun worker_config ->
+           let hostname = Protocol.Config.hostname worker_config in
+           init_connection ~hostname ~worker_config)
+       >>=? fun worker_connections ->
        get_initial_state ()
        >>=? fun state ->
        let stdout = Lazy.force Writer.stdout in
-       let state = Option.value_exn state in
+       let (initial_decisions, state) = Option.value_exn state in
        let state = Option.value_exn (Traversal_state.step state) in
 
-       Writer.write stdout (Sexp.to_string_hum ([%sexp_of: Traversal_state.t] state));
+       Writer.write stdout
+         (Sexp.to_string_hum (
+           [%sexp_of: Data_collector.t list] initial_decisions));
 
-       let override_rules = Traversal_state.to_override_rules state in
-
-       (* 0. Write the relevant overrides.sexp into the exp dir *)
-       shell ~verbose:true ~dir:exp_dir "make" [ "clean" ]
-       >>=? fun () ->
-
-       lift_deferred (
-         Writer.save_sexp (exp_dir ^/ "overrides.sexp")
-           ([%sexp_of: Data_collector.t list] override_rules);
-       )
-       >>=? fun () ->
-
-       (* 1. Compile the program *)
-       shell ~verbose:true ~dir:exp_dir "make" [ "all" ]   >>=? fun () ->
-
-       (* 2. Run the program on the target machines. *)
-       let path_to_bin = exp_dir ^/ "almabench.native" in
-       run_binary_on_worker ~conn:worker_connection ~path_to_bin
-         ~hostname:(List.hd_exn config.worker_hostnames)
-       >>=? fun (_ : Benchmark_results.t) ->
-
-       (* 3. Decide what to explore next *)
-
-       (* 4. Save the compilation data in a directory somewhere. *)
-
-       Deferred.Or_error.return ()
+       let sliding_window = build_sliding_window ~n:2 initial_decisions in
+       let hostnames =
+         List.map ~f:Protocol.Config.hostname config.worker_configs
+       in
+       let latest_work = Mvar.create () in
+       Deferred.don't_wait_for (
+         Deferred.Or_error.List.iter ~how:`Sequential sliding_window ~f:(fun decisions ->
+             let flipped_decisions =
+               List.map decisions ~f:(fun d ->
+                   { d with decision = not d.decision })
+             in
+             shell ~echo:true ~verbose:true ~dir:exp_dir "make" [ "clean" ]
+             >>=? fun () ->
+             lift_deferred (
+               Writer.save_sexp (exp_dir ^/ "overrides.sexp")
+                 ([%sexp_of: Data_collector.t list] flipped_decisions)
+             )
+             >>=? fun () ->
+             shell ~verbose:true ~dir:exp_dir "make" [ "all" ]
+             >>=? fun () ->
+             let filename = Filename.temp_file "fyp-" "-almabench" in
+             shell ~echo:true ~verbose:true ~dir:exp_dir
+               "cp" [ "almabench.native"; filename ]
+             >>=? fun () ->
+             shell ~echo:true ~dir:exp_dir "chmod" [ "755"; filename ]
+             >>=? fun () ->
+             let path_to_bin = filename in
+             let rules = flipped_decisions in
+             lift_deferred (Mvar.put latest_work (Some { path_to_bin; rules; }))
+         )
+         >>= function
+         | Ok () -> Mvar.put latest_work None
+         | Error e -> failwithf !"Error %{sexp#hum: Error.t}" e ()
+       );
+       Deferred.Or_error.List.iter
+         (List.zip_exn worker_connections hostnames)
+         ~how:`Parallel ~f:(fun (conn, hostname) ->
+           Deferred.repeat_until_finished () (fun () ->
+             Mvar.take latest_work
+             >>= function
+             | None ->
+               Mvar.set latest_work None;
+               Deferred.return (`Finished (Ok ()))
+             | Some work_unit ->
+               begin
+               let rules = work_unit.rules in
+               let path_to_bin = work_unit.path_to_bin in
+               printf "Running %s\n" path_to_bin;
+               run_binary_on_worker ~conn ~path_to_bin ~hostname
+               >>= function
+               | Ok _ ->
+                 printf "Done with %s\n" path_to_bin;
+                 Deferred.return (`Repeat ())
+               | Error e -> Deferred.return (`Finished (Error e))
+               end))
        ]
   |> Command.run
