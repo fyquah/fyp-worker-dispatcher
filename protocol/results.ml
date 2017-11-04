@@ -63,5 +63,6 @@ type t =
     overrides : Data_collector.t list;
     decisions : Data_collector.t list;
     benchmark : Execution_stats.t;
+    path_to_bin : string sexp_option;
   }
 [@@deriving sexp]

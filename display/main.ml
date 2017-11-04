@@ -48,6 +48,21 @@ let command_compare_decisions =
      in
      render_boolean "decisions" decisions_equal;
      render_boolean "overrides" overrides_equal;
+     begin match sexp_1.path_to_bin, sexp_2.path_to_bin with
+     | None, _
+     | _, None ->
+       printf "==> binaries: Cannot compare!\n";
+       Deferred.unit
+     | Some a, Some b ->
+       Monitor.try_with
+         (fun () -> (Async_shell.run ~expect:[0] "diff" [ a; b; ]))
+       >>| begin function
+       | Ok () ->  true
+       | Error exn -> false
+       end
+       >>| fun flag -> render_boolean "binaries" flag
+     end
+     >>= fun () ->
      printf !"==> Exec time : %{print_time} VS %{print_time}\n"
        (compute_time_stats sexp_1.benchmark.raw_execution_time)
        (compute_time_stats sexp_2.benchmark.raw_execution_time);

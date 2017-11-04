@@ -876,7 +876,8 @@ let () =
                    let id = work_unit.id in
                    let overrides = work_unit.overrides in
                    let decisions = work_unit.decisions in
-                   { Results. id; benchmark; overrides; decisions; }
+                   let path_to_bin = Some path_to_bin in
+                   { Results. id; benchmark; overrides; decisions; path_to_bin; }
                  in
                  let filename =
                    results_dir ^/
