@@ -7,7 +7,8 @@ module Config = Protocol.Config
 module Info_rpc = Protocol.Info_rpc
 module Job_dispatch_rpc = Protocol.Job_dispatch_rpc
 module Relpath = Protocol.Relpath
-module Benchmark_results = Protocol.Benchmark_results
+module Execution_stats = Protocol.Execution_stats
+module Results = Protocol.Results
 
 let rec comp_sexp_of_core_sexp core_sexp =
   match core_sexp with
@@ -700,7 +701,7 @@ let run_binary_on_rpc_worker ~hostname ~worker_connection ~path_to_bin =
   | Failed e -> Deferred.return (Error e)
 ;;
 
-let run_binary_on_ssh_worker ~rundir ~hostname ~path_to_bin =
+let run_binary_on_ssh_worker ~config ~rundir ~hostname ~path_to_bin =
   lift_deferred (Unix.getcwd ())
   >>=? fun dir ->
   shell ~echo:true ~verbose: true ~dir "scp"
@@ -712,28 +713,27 @@ let run_binary_on_ssh_worker ~rundir ~hostname ~path_to_bin =
     hostname;
     rundir ^/ "benchmark_binary.sh";
     rundir ^/ "binary.exe";
-    "3";
+    Int.to_string (config.Config.num_runs);
   ]
   >>= function
   | [] -> Deferred.Or_error.error_s [%message "Something went wrong"]
   | lines ->
-    let times = List.map ~f:Float.of_string lines in
-    let seconds =
-      List.sum (module Float) times ~f:Fn.id
-        /. (Int.to_float (List.length times))
+    let raw_execution_time =
+      List.map lines ~f:(fun line ->
+          Time.Span.of_sec (Float.of_string line))
     in
-    let execution_time = Time.Span.of_sec seconds in
     Deferred.Or_error.return (
-      { Protocol.Benchmark_results. execution_time }
+      { Execution_stats. raw_execution_time }
     )
 ;;
 
-let run_binary_on_worker ~hostname ~conn ~path_to_bin =
+let run_binary_on_worker ~config ~hostname ~conn ~path_to_bin =
   match conn with
   | Worker_connection.Rpc worker_connection ->
     run_binary_on_rpc_worker ~worker_connection ~path_to_bin ~hostname
   | Worker_connection.Ssh (ssh_config : Worker_connection.ssh_conn) ->
-    run_binary_on_ssh_worker ~rundir:ssh_config.rundir ~hostname ~path_to_bin
+    let rundir = ssh_config.rundir in
+    run_binary_on_ssh_worker ~config ~rundir ~hostname ~path_to_bin
 ;;
 
 let init_connection ~hostname ~worker_config =
@@ -773,51 +773,12 @@ let rec build_sliding_window ~n input_list =
     :: build_sliding_window ~n (List.tl_exn input_list)
 ;;
 
-module Work_unit_id : sig
-  type t [@@deriving sexp]
-  include Hashable.S with type t := t
-  include Stringable.S with type t := t
-
-  val gen : unit -> t
-end = struct
-  module T = struct
-    type t = int [@@deriving sexp]
-
-    let hash = Int.hash
-
-    let compare = Int.compare
-
-    let acc = ref 0
-
-    let gen () =
-      let ret = !acc in
-      acc := ret + 1;
-      ret
-
-    let to_string = Int.to_string
-    let of_string = Int.of_string
-  end
-
-  include T
-  include Hashable.Make(T)
-end
-
 type work_unit =
   { overrides   : Data_collector.t list;
     decisions   : Data_collector.t list;
     path_to_bin : string;
-    id          : Work_unit_id.t;
+    id          : Results.Work_unit_id.t;
   }
-
-module Results = struct
-  type t =
-    { id        : Work_unit_id.t;
-      overrides : Data_collector.t list;
-      decisions : Data_collector.t list;
-      benchmark : Benchmark_results.t;
-    }
-  [@@deriving sexp]
-end
 
 let () =
   let open Command.Let_syntax in
@@ -878,7 +839,7 @@ let () =
              let path_to_bin = filename in
              let overrides = flipped_decisions in
              let decisions = executed_decisions in
-             let id = Work_unit_id.gen () in
+             let id = Results.Work_unit_id.gen () in
              lift_deferred (
                Mvar.put latest_work (
                  Some { path_to_bin; overrides; decisions; id; }
@@ -902,7 +863,7 @@ let () =
                begin
                let path_to_bin = work_unit.path_to_bin in
                printf "Running %s\n" path_to_bin;
-               run_binary_on_worker ~conn ~path_to_bin ~hostname
+               run_binary_on_worker ~config ~conn ~path_to_bin ~hostname
                >>= function
                | Ok benchmark ->
                  printf "Done with %s. Saving results ...\n" path_to_bin;
@@ -918,7 +879,8 @@ let () =
                  in
                  let filename =
                    results_dir ^/
-                   (sprintf !"results_%{Work_unit_id}.sexp" work_unit_id)
+                   (sprintf !"results_%{Results.Work_unit_id}.sexp"
+                     work_unit_id)
                  in
                  Writer.save_sexp filename (Results.sexp_of_t results)
                  >>| fun () -> `Repeat ()

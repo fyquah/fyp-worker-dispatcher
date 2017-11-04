@@ -9,3 +9,7 @@ controller:
 .PHONY: test
 test:
 	jbuilder build test/main.exe
+
+.PHONY: display
+display:
+	jbuilder build display/main.exe

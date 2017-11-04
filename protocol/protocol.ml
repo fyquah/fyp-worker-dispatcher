@@ -2,6 +2,8 @@ open Core
 open Async
 
 module Relpath = Relpath
+module Results = Results
+module Execution_stats = Execution_stats
 
 module Compile_params = struct
   type t =
@@ -33,13 +35,6 @@ module Compiler_selection = struct
     | Ours
   [@@deriving bin_io, sexp]
 
-end
-
-module Benchmark_results = struct
-  type t =
-    { execution_time : Time.Span.t;
-    }
-  [@@deriving bin_io, sexp]
 end
 
 module Info_rpc = struct
@@ -76,7 +71,7 @@ module Job_dispatch_rpc = struct
      * chained up to three times...)
      *)
     type t =
-      | Success of Benchmark_results.t
+      | Success of Execution_stats.t
       | Failed of Error.t
     [@@deriving bin_io, sexp]
   end
