@@ -1,3 +1,7 @@
+.PHONY: all
+all:
+	jbuilder build
+
 .PHONY: worker
 worker:
 	jbuilder build worker/main.exe

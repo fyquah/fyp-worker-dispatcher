@@ -722,8 +722,9 @@ let run_binary_on_ssh_worker ~config ~rundir ~hostname ~path_to_bin =
       List.map lines ~f:(fun line ->
           Time.Span.of_sec (Float.of_string line))
     in
+    let worker_hostname = Some hostname in
     Deferred.Or_error.return (
-      { Execution_stats. raw_execution_time }
+      { Execution_stats. raw_execution_time; worker_hostname; }
     )
 ;;
 
@@ -785,7 +786,7 @@ let () =
   Command.async_or_error' ~summary:"Controller"
     [%map_open
      let config_filename =
-       flag "-filename" (required file) ~doc:"PATH to config file"
+       flag "-config" (required file) ~doc:"PATH to config file"
      and controller_rundir =
        flag "-rundir" (required string) ~doc:"PATH rundir"
      in
