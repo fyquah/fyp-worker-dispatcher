@@ -888,5 +888,7 @@ let () =
                  >>| fun () -> `Repeat ()
                | Error e -> Deferred.return (`Finished (Error e))
                end))
+         >>|? fun () ->
+         printf "Completed experiment!"
        ]
   |> Command.run
