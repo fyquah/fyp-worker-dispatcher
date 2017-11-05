@@ -9,10 +9,7 @@ function extract_time {
 }
 
 for i in $(seq 1 "$NUM_RUNS"); do
-  TIME_OUTPUT=$((time (cat w/random1M.bin | taskset 0x1 "$PATH_TO_BINARY" >/dev/null 2>/dev/null)) 2>&1)
-
-  # I don't know why this additional echo is needed -- but since it works i
-  # don't question the lord of shell scripts.
-  echo "$TIME_OUTPUT" | extract_time
+  { time taskset 0x1 "$PATH_TO_BINARY" 1>/dev/null 2>/dev/null; } 2>out_time.txt
+  cat out_time.txt | extract_time
   echo ""
 done
