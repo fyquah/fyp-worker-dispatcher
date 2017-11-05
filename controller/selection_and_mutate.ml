@@ -41,7 +41,7 @@ let selection all_results =
               Owl.Stats.t_test_unpaired ~equal_var:false ~alpha ~side
                 null.exec_times alternate.exec_times
             in
-            not h || (null.mean > alternate.mean)))
+            not h || (null.mean < alternate.mean)))
     in
     if List.length new_list = List.length exec_times
     then new_list

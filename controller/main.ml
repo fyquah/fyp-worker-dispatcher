@@ -906,7 +906,7 @@ let () =
        let exp_uuid =
          Time.to_string_iso8601_basic ~zone:Time.Zone.utc (Time.now ())
        in
-       printf "Experiment UUID = %s" exp_uuid;
+       printf "Experiment UUID = %s\n" exp_uuid;
        Reader.load_sexp config_filename [%of_sexp: Config.t]
        >>=? fun config ->
        Deferred.Or_error.List.map config.worker_configs ~how:`Parallel
