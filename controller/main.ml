@@ -642,8 +642,15 @@ let filter_decisions (decisions : Data_collector.t list) =
     )
   )
 
-let get_initial_state () =
+let lift_deferred m = Deferred.(m >>| fun x -> Core.Or_error.return x)
+
+let get_initial_state ~base_overrides () =
   shell ~verbose:true ~dir:exp_dir "make" [ "clean" ] >>=? fun () ->
+  lift_deferred (
+    Writer.save_sexp (exp_dir ^/ "overrides.sexp")
+      ([%sexp_of: Data_collector.t list] base_overrides)
+  )
+  >>=? fun () ->
   shell ~dir:exp_dir "make" [ "all" ] >>=? fun () ->
   (* TODO(fyquah): Run the program in workers to get exec time information.
    *)
@@ -671,8 +678,6 @@ module Worker_connection = struct
     | Rpc : 'a rpc_conn -> 'a t
     | Ssh : ssh_conn -> 'a t
 end
-
-let lift_deferred m = Deferred.(m >>| fun x -> Core.Or_error.return x)
 
 let run_binary_on_rpc_worker ~hostname ~worker_connection ~path_to_bin =
   let conn = worker_connection.Worker_connection.rpc_connection in
@@ -781,6 +786,105 @@ type work_unit =
     id          : Results.Work_unit_id.t;
   }
 
+(* - [base_overrides] refers to overrides that should be kept throughout
+ *   every compilation -- the sliding window does not include base overrides.
+ * - [new_overrides] refers to new overrides to run the sliding window over.
+ *   We want to select good overrides here.
+ *
+ * This funciton assumes that [base_overrides] and [new_overrides] are
+ * non-conflicting and mutually exclusive sets of decisions.
+ *)
+let slide_over_decisions
+    ~config ~worker_connections ~rundir:controller_rundir
+    ~base_overrides ~new_overrides =
+  let sliding_window = build_sliding_window ~n:2 new_overrides in
+  let hostnames =
+    List.map ~f:Protocol.Config.hostname config.Config.worker_configs
+  in
+  let latest_work = Mvar.create () in
+  Deferred.don't_wait_for (
+    Deferred.Or_error.List.iter ~how:`Sequential sliding_window ~f:(fun decisions ->
+        let flipped_decisions =
+          List.map decisions ~f:(fun (d : Data_collector.t) ->
+              { d with decision = not d.decision })
+        in
+        shell ~echo:true ~verbose:true ~dir:exp_dir "make" [ "clean" ]
+        >>=? fun () ->
+        lift_deferred (
+          Writer.save_sexp (exp_dir ^/ "overrides.sexp")
+            ([%sexp_of: Data_collector.t list]
+              (base_overrides @ flipped_decisions))
+        )
+        >>=? fun () ->
+        shell ~verbose:true ~dir:exp_dir "make" [ "all" ]
+        >>=? fun () ->
+        let filename = Filename.temp_file "fyp-" "-almabench" in
+        shell ~echo:true ~verbose:true ~dir:exp_dir
+          "cp" [ "almabench.native"; filename ]
+        >>=? fun () ->
+        shell ~echo:true ~dir:exp_dir "chmod" [ "755"; filename ]
+        >>=? fun () ->
+        Reader.load_sexp (exp_dir ^/ "almabench.0.data_collector.sexp")
+          [%of_sexp: Data_collector.t list]
+        >>=? fun executed_decisions ->
+        let path_to_bin = filename in
+        let overrides = flipped_decisions in
+        let decisions = executed_decisions in
+        let id = Results.Work_unit_id.gen () in
+        lift_deferred (
+          Mvar.put latest_work (
+            Some { path_to_bin; overrides; decisions; id; }
+          )
+        )
+    )
+    >>= function
+    | Ok () -> Mvar.put latest_work None
+    | Error e -> failwithf !"Error %{sexp#hum: Error.t}" e ()
+  );
+  let results_acc = ref [] in
+  Deferred.Or_error.List.iter
+    (List.zip_exn worker_connections hostnames)
+    ~how:`Parallel ~f:(fun (conn, hostname) ->
+      Deferred.repeat_until_finished () (fun () ->
+        Mvar.take latest_work
+        >>= function
+        | None ->
+          Mvar.set latest_work None;
+          Deferred.return (`Finished (Ok ()))
+        | Some work_unit ->
+          begin
+          let path_to_bin = work_unit.path_to_bin in
+          printf "Running %s\n" path_to_bin;
+          run_binary_on_worker ~config ~conn ~path_to_bin ~hostname
+          >>= function
+          | Ok benchmark ->
+            printf "Done with %s. Saving results ...\n" path_to_bin;
+            Unix.mkdir ~p:() (controller_rundir ^/ "results")
+            >>= fun () ->
+            let results_dir = controller_rundir ^/ "results" in
+            let work_unit_id = work_unit.id in
+            let results =
+              let id = work_unit.id in
+              let overrides = work_unit.overrides in
+              let decisions = work_unit.decisions in
+              let path_to_bin = Some path_to_bin in
+              { Results. id; benchmark; overrides; decisions; path_to_bin; }
+            in
+            results_acc := results :: !results_acc;
+            let filename =
+              results_dir ^/
+              (sprintf !"results_%{Results.Work_unit_id}.sexp"
+                work_unit_id)
+            in
+            Writer.save_sexp filename (Results.sexp_of_t results)
+            >>| fun () -> `Repeat ()
+          | Error e -> Deferred.return (`Finished (Error e))
+          end))
+    >>|? fun () ->
+    printf "Completed experiment!";
+    !results_acc
+;;
+
 let () =
   let open Command.Let_syntax in
   Command.async_or_error' ~summary:"Controller"
@@ -798,97 +902,42 @@ let () =
            let hostname = Protocol.Config.hostname worker_config in
            init_connection ~hostname ~worker_config)
        >>=? fun worker_connections ->
-       get_initial_state ()
-       >>=? fun state ->
-       let stdout = Lazy.force Writer.stdout in
-       let (initial_decisions, state) = Option.value_exn state in
-       let state = Option.value_exn (Traversal_state.step state) in
 
-       Writer.write stdout
-         (Sexp.to_string_hum (
-           [%sexp_of: Data_collector.t list] initial_decisions));
-
-       let sliding_window = build_sliding_window ~n:2 initial_decisions in
-       let hostnames =
-         List.map ~f:Protocol.Config.hostname config.worker_configs
-       in
-       let latest_work = Mvar.create () in
-       Deferred.don't_wait_for (
-         Deferred.Or_error.List.iter ~how:`Sequential sliding_window ~f:(fun decisions ->
-             let flipped_decisions =
-               List.map decisions ~f:(fun d ->
-                   { d with decision = not d.decision })
+       Deferred.repeat_until_finished (`Base [])
+         (fun (`Base base_overrides) ->
+           begin
+             get_initial_state ~base_overrides ()
+             >>=? fun state ->
+             let (new_overrides, _state) = Option.value_exn state in
+             let new_overrides =
+               (* This filter ensures that every the base and overrides
+                * sets are mutually exclusive.
+                *
+                * Base is definitely non conflicting, as it is generated
+                * from the previous generation whereas new_overrides is
+                * non conflicting due to the filter_decisions call earlier.
+                *)
+               List.filter new_overrides ~f:(fun override ->
+                 not (
+                   List.exists base_overrides ~f:(fun base ->
+                     Data_collector.equal base override)
+                   )
+                 )
              in
-             shell ~echo:true ~verbose:true ~dir:exp_dir "make" [ "clean" ]
-             >>=? fun () ->
-             lift_deferred (
-               Writer.save_sexp (exp_dir ^/ "overrides.sexp")
-                 ([%sexp_of: Data_collector.t list] flipped_decisions)
-             )
-             >>=? fun () ->
-             shell ~verbose:true ~dir:exp_dir "make" [ "all" ]
-             >>=? fun () ->
-             let filename = Filename.temp_file "fyp-" "-almabench" in
-             shell ~echo:true ~verbose:true ~dir:exp_dir
-               "cp" [ "almabench.native"; filename ]
-             >>=? fun () ->
-             shell ~echo:true ~dir:exp_dir "chmod" [ "755"; filename ]
-             >>=? fun () ->
-             Reader.load_sexp (exp_dir ^/ "almabench.0.data_collector.sexp")
-               [%of_sexp: Data_collector.t list]
-             >>=? fun executed_decisions ->
-             let path_to_bin = filename in
-             let overrides = flipped_decisions in
-             let decisions = executed_decisions in
-             let id = Results.Work_unit_id.gen () in
-             lift_deferred (
-               Mvar.put latest_work (
-                 Some { path_to_bin; overrides; decisions; id; }
-               )
-             )
-         )
-         >>= function
-         | Ok () -> Mvar.put latest_work None
-         | Error e -> failwithf !"Error %{sexp#hum: Error.t}" e ()
-       );
-       Deferred.Or_error.List.iter
-         (List.zip_exn worker_connections hostnames)
-         ~how:`Parallel ~f:(fun (conn, hostname) ->
-           Deferred.repeat_until_finished () (fun () ->
-             Mvar.take latest_work
-             >>= function
-             | None ->
-               Mvar.set latest_work None;
-               Deferred.return (`Finished (Ok ()))
-             | Some work_unit ->
-               begin
-               let path_to_bin = work_unit.path_to_bin in
-               printf "Running %s\n" path_to_bin;
-               run_binary_on_worker ~config ~conn ~path_to_bin ~hostname
-               >>= function
-               | Ok benchmark ->
-                 printf "Done with %s. Saving results ...\n" path_to_bin;
-                 Unix.mkdir ~p:() (controller_rundir ^/ "results")
-                 >>= fun () ->
-                 let results_dir = controller_rundir ^/ "results" in
-                 let work_unit_id = work_unit.id in
-                 let results =
-                   let id = work_unit.id in
-                   let overrides = work_unit.overrides in
-                   let decisions = work_unit.decisions in
-                   let path_to_bin = Some path_to_bin in
-                   { Results. id; benchmark; overrides; decisions; path_to_bin; }
-                 in
-                 let filename =
-                   results_dir ^/
-                   (sprintf !"results_%{Results.Work_unit_id}.sexp"
-                     work_unit_id)
-                 in
-                 Writer.save_sexp filename (Results.sexp_of_t results)
-                 >>| fun () -> `Repeat ()
-               | Error e -> Deferred.return (`Finished (Error e))
-               end))
-         >>|? fun () ->
-         printf "Completed experiment!"
+             slide_over_decisions ~config ~worker_connections
+               ~base_overrides ~rundir:controller_rundir ~new_overrides
+           end
+           >>| function
+           | Ok results ->
+             let next_generation =
+               Selection_and_mutate.mutate (
+                 Selection_and_mutate.selection results
+              )
+             in
+             begin match next_generation with
+             | [] -> `Finished (Ok ())
+             | new_base -> `Repeat (`Base new_base)
+             end
+           | Error e -> `Finished (Error e))
        ]
   |> Command.run

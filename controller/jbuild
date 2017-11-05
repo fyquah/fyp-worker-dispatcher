@@ -1,7 +1,7 @@
 (jbuild_version 1)
 
 (executables
- ((names (main selection_and_mutate))
+ ((names (main))
   (preprocess (pps (ppx_jane  ppx_driver.runner)))
   (libraries
     (core
@@ -18,5 +18,4 @@
 (install
  ((section bin)
   (files
-    ((selection_and_mutate.exe as selection_and_mutate)
-     (main.exe as controller)))))
+    ((main.exe as controller)))))

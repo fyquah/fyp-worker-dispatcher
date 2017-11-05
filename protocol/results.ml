@@ -33,6 +33,7 @@ module Work_unit_id : sig
   type t [@@deriving sexp]
   include Hashable.S with type t := t
   include Stringable.S with type t := t
+  include Comparable.S with type t := t
 
   val gen : unit -> t
 end = struct
@@ -56,6 +57,7 @@ end = struct
 
   include T
   include Hashable.Make(T)
+  include Comparable.Make(T)
 end
 
 type t =
