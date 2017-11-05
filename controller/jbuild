@@ -1,7 +1,7 @@
 (jbuild_version 1)
 
 (executables
- ((names (main))
+ ((names (main selection_and_mutate))
   (preprocess (pps (ppx_jane  ppx_driver.runner)))
   (libraries
     (core
@@ -11,9 +11,12 @@
 
      protocol
      fyp_compiler_lib
+
+     owl
      ))))
 
 (install
  ((section bin)
   (files
-    ((main.exe as controller)))))
+    ((selection_and_mutate.exe as selection_and_mutate)
+     (main.exe as controller)))))

@@ -6,7 +6,7 @@ nmcli conn down "Imperial-WPA"
 sudo /sbin/ifup enp2s0
 sleep 1.0
 
-for i in $(seq 2 12); do
+for i in $(seq 12 20); do
   RUNDIR=../prod/controller-rundir/$i
 
   mkdir -p "$RUNDIR"
