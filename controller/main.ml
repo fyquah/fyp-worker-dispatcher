@@ -9,6 +9,7 @@ module Job_dispatch_rpc = Protocol.Job_dispatch_rpc
 module Relpath = Protocol.Relpath
 module Execution_stats = Protocol.Execution_stats
 module Results = Protocol.Results
+module Work_unit_id = Results.Work_unit_id
 
 let rec comp_sexp_of_core_sexp core_sexp =
   match core_sexp with
@@ -689,7 +690,7 @@ let run_binary_on_rpc_worker ~hostname ~worker_connection ~path_to_bin =
     ^/ Relpath.to_string (path_to_rundir.Info_rpc.Response.relpath)
   in
   let args = [ path_to_bin; sprintf "%s:%s" hostname abs_path_to_rundir ] in
-  shell ~dir:(Filename.dirname path_to_bin) ~verbose:true "scp" args
+  shell ~dir:(Filename.dirname path_to_bin) "scp" args
   >>=? fun () ->
   let query =
     Job_dispatch_rpc.Query.Run_binary (
@@ -709,12 +710,12 @@ let run_binary_on_rpc_worker ~hostname ~worker_connection ~path_to_bin =
 let run_binary_on_ssh_worker ~config ~rundir ~hostname ~path_to_bin =
   lift_deferred (Unix.getcwd ())
   >>=? fun dir ->
-  shell ~echo:true ~verbose: true ~dir "scp"
+  shell ~echo:true ~dir "scp"
     [ path_to_bin;
       hostname ^ ":" ^ rundir ^/ "binary.exe";
     ]
   >>=? fun () ->
-  Async_shell.run_lines ~echo:true ~verbose:true ~working_dir:dir "ssh" [
+  Async_shell.run_lines ~echo:true ~working_dir:dir "ssh" [
     hostname;
     rundir ^/ "benchmark_binary.sh";
     rundir ^/ "binary.exe";
@@ -795,7 +796,7 @@ type work_unit =
  * non-conflicting and mutually exclusive sets of decisions.
  *)
 let slide_over_decisions
-    ~config ~worker_connections ~rundir:controller_rundir
+    ~config ~worker_connections ~results_dir
     ~base_overrides ~new_overrides =
   let sliding_window = build_sliding_window ~n:2 new_overrides in
   let hostnames =
@@ -859,9 +860,8 @@ let slide_over_decisions
           >>= function
           | Ok benchmark ->
             printf "Done with %s. Saving results ...\n" path_to_bin;
-            Unix.mkdir ~p:() (controller_rundir ^/ "results")
+            Unix.mkdir ~p:() results_dir
             >>= fun () ->
-            let results_dir = controller_rundir ^/ "results" in
             let work_unit_id = work_unit.id in
             let results =
               let id = work_unit.id in
@@ -886,6 +886,13 @@ let slide_over_decisions
 ;;
 
 let () =
+  let module Generation = struct
+    type t =
+      { base_overrides : Data_collector.t list;
+        gen            : int;
+      }
+  end
+  in
   let open Command.Let_syntax in
   Command.async_or_error' ~summary:"Controller"
     [%map_open
@@ -895,6 +902,11 @@ let () =
        flag "-rundir" (required string) ~doc:"PATH rundir"
      in
      fun () ->
+       (* There is daylight saving now, so UTC timezone == G time zone :D *)
+       let exp_uuid =
+         Time.to_string_iso8601_basic ~zone:Time.Zone.utc (Time.now ())
+       in
+       printf "Experiment UUID = %s" exp_uuid;
        Reader.load_sexp config_filename [%of_sexp: Config.t]
        >>=? fun config ->
        Deferred.Or_error.List.map config.worker_configs ~how:`Parallel
@@ -903,10 +915,11 @@ let () =
            init_connection ~hostname ~worker_config)
        >>=? fun worker_connections ->
 
-       Deferred.repeat_until_finished (`Base [])
-         (fun (`Base base_overrides) ->
+       Deferred.repeat_until_finished { Generation. base_overrides = []; gen = 0 }
+         (fun generation ->
+           Log.Global.info ">>>= Running generation %d" generation.gen;
            begin
-             get_initial_state ~base_overrides ()
+             get_initial_state ~base_overrides:generation.base_overrides ()
              >>=? fun state ->
              let (new_overrides, _state) = Option.value_exn state in
              let new_overrides =
@@ -919,24 +932,50 @@ let () =
                 *)
                List.filter new_overrides ~f:(fun override ->
                  not (
-                   List.exists base_overrides ~f:(fun base ->
+                   List.exists generation.base_overrides ~f:(fun base ->
                      Data_collector.equal base override)
                    )
                  )
              in
+             let results_dir = controller_rundir ^/ exp_uuid in
              slide_over_decisions ~config ~worker_connections
-               ~base_overrides ~rundir:controller_rundir ~new_overrides
+               ~base_overrides:generation.base_overrides
+               ~results_dir ~new_overrides
            end
            >>| function
            | Ok results ->
-             let next_generation =
-               Selection_and_mutate.mutate (
-                 Selection_and_mutate.selection results
-              )
-             in
-             begin match next_generation with
-             | [] -> `Finished (Ok ())
-             | new_base -> `Repeat (`Base new_base)
+             printf "[GENERATION %d] Results summary:\n" generation.gen;
+             List.iter results ~f:(fun result ->
+               let seconds =
+                 Array.of_list_map result.benchmark.raw_execution_time
+                   ~f:Time.Span.to_sec
+               in
+               let mean = Time.Span.of_sec (Owl.Stats.mean seconds) in
+               let sd = Time.Span.of_sec (Owl.Stats.std seconds) in
+               printf !"[GENERATION %d] Work unit %{Work_unit_id}: %{Time.Span} (sd: %{Time.Span})\n"
+                 generation.gen
+                 result.id
+                 mean
+                 sd
+             );
+             let selected_results = Selection_and_mutate.selection results in
+             begin match Selection_and_mutate.mutate selected_results with
+             | [] ->
+               printf "[GENERATION %d] Terminating at generation %d\n"
+                 generation.gen generation.gen;
+               `Finished (Ok ())
+             | new_base ->
+               printf
+                 "[GENERATION %d] Selected work unit ids for mutation = %s\n"
+                 generation.gen
+                 (String.concat ~sep:", "
+                   (List.map selected_results ~f:(fun result ->
+                     (Results.Work_unit_id.to_string result.Results.id))));
+               `Repeat (
+                 { Generation. gen = generation.gen + 1;
+                   base_overrides = new_base;
+                 }
+               )
              end
            | Error e -> `Finished (Error e))
        ]
