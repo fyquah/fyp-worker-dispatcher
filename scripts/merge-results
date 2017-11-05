@@ -1,0 +1,14 @@
+#!/bin/bash
+
+
+WORK_ID="$1"
+PREFIX="../experiments/results/"
+COMMAND="cat $PREFIX/0/results/results_$WORK_ID.sexp"
+
+for i in $(seq 1 12); do
+  FILENAME="$PREFIX/$i/results/results_$WORK_ID.sexp"
+  COMMAND="$COMMAND | jbuilder exec -- display merge-results /dev/stdin $FILENAME"
+done
+
+mkdir -p "$PREFIX/merged"
+bash -c "$COMMAND" >"$PREFIX/merged/$WORK_ID.sexp"

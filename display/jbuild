@@ -14,7 +14,7 @@
      protocol
 
      ; external libs
-     gsl
+     owl
      ))))
 
 (install
