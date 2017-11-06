@@ -7,6 +7,7 @@ sudo /sbin/ifup enp2s0
 sleep 1.0
 
 RUNDIR=../prod/controller-rundir/$(ocamlnow)
+echo "RUNDIR = $RUNDIR"
 
 jbuilder exec -- controller \
   -config deploy_config.sexp \
