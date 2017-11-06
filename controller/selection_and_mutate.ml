@@ -66,10 +66,19 @@ let selection all_results =
   List.filter all_results ~f:(fun (results : Results.t) ->
     Results.Work_unit_id.Set.mem selected_ids results.id)
 
-let mutate (results : Results.t list) =
-  (* quadrative time, but who cares? *)
-  List.fold results ~init:[] ~f:(fun acc result ->
-    List.fold ~init:acc result.overrides ~f:(fun acc needle ->
-      if List.exists acc ~f:(Data_collector.equal needle)
-      then acc
-      else needle :: acc))
+let mutate (results : Results.t list) ~old_base =
+  let new_stuff =
+    (* quadrative time, but who cares? *)
+    List.fold results ~init:[] ~f:(fun acc result ->
+      List.fold ~init:acc result.overrides ~f:(fun acc needle ->
+        let exists =
+          List.exists acc ~f:(Data_collector.equal needle)
+          || List.exists old_base ~f:(Data_collector.equal needle)
+        in
+        if exists
+        then acc
+        else needle :: acc))
+  in
+  match new_stuff with
+  | [] -> None
+  | otherwise -> Some (otherwise @ old_base)

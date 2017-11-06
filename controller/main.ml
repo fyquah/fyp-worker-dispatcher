@@ -270,8 +270,6 @@ module Inlining_tree = struct
 
   let build (decisions : Data_collector.t list) : Top_level.t =
     let (init : Top_level.t) = [] in
-    Writer.write (Lazy.force Writer.stdout)
-      ((Sexp.to_string_hum (List.sexp_of_t Data_collector.sexp_of_t decisions)));
     List.fold decisions ~init ~f:add
 end
 
@@ -438,11 +436,13 @@ module Traversal_state = struct
         let acc = { Acc. stack_so_far = call_stack; rules; } in
         loop_2 ~rev_stack:tl ~acc
     in
+    (*
     Writer.write_sexp (Lazy.force Writer.stdout)
       (List.sexp_of_t (Inlining_tree.shallow_sexp_of_t) path);
     Writer.write (Lazy.force Writer.stdout) "\n";
     Writer.write_sexp (Lazy.force Writer.stdout)
       ([%sexp_of: Call_site.t list] call_stack);
+    *)
     (loop_2 ~acc:Acc.empty ~rev_stack:(List.rev call_stack)).Acc.rules
   ;;
 
@@ -618,8 +618,6 @@ let shell ?(env = []) ?(echo = false) ?(verbose = false) ~dir:working_dir
       Async_shell.run ~echo ~verbose ~working_dir ~env prog args)
 ;;
 
-let exp_dir = "../experiments/normal/almabench"
-
 let rec is_prefix ~(prefix : Call_site.t list) (test : Call_site.t list) =
   match prefix, test with
   | [], [] -> false
@@ -645,7 +643,7 @@ let filter_decisions (decisions : Data_collector.t list) =
 
 let lift_deferred m = Deferred.(m >>| fun x -> Core.Or_error.return x)
 
-let get_initial_state ~base_overrides () =
+let get_initial_state ~bin_name ~exp_dir ~base_overrides () =
   shell ~verbose:true ~dir:exp_dir "make" [ "clean" ] >>=? fun () ->
   lift_deferred (
     Writer.save_sexp (exp_dir ^/ "overrides.sexp")
@@ -655,7 +653,7 @@ let get_initial_state ~base_overrides () =
   shell ~dir:exp_dir "make" [ "all" ] >>=? fun () ->
   (* TODO(fyquah): Run the program in workers to get exec time information.
    *)
-  let filename = exp_dir ^/ "almabench.0.data_collector.sexp" in
+  let filename = exp_dir ^/ (bin_name ^ ".0.data_collector.sexp") in
   Reader.load_sexp filename [%of_sexp: Data_collector.t list]
   >>|? fun decisions ->
   match decisions with
@@ -796,7 +794,7 @@ type work_unit =
  * non-conflicting and mutually exclusive sets of decisions.
  *)
 let slide_over_decisions
-    ~config ~worker_connections ~results_dir
+    ~config ~worker_connections ~bin_name ~exp_dir ~results_dir
     ~base_overrides ~new_overrides =
   let sliding_window = build_sliding_window ~n:2 new_overrides in
   let hostnames =
@@ -819,13 +817,13 @@ let slide_over_decisions
         >>=? fun () ->
         shell ~verbose:true ~dir:exp_dir "make" [ "all" ]
         >>=? fun () ->
-        let filename = Filename.temp_file "fyp-" "-almabench" in
+        let filename = Filename.temp_file "fyp-" ("-" ^ bin_name) in
         shell ~echo:true ~verbose:true ~dir:exp_dir
-          "cp" [ "almabench.native"; filename ]
+          "cp" [ (bin_name ^ ".native"); filename ]
         >>=? fun () ->
         shell ~echo:true ~dir:exp_dir "chmod" [ "755"; filename ]
         >>=? fun () ->
-        Reader.load_sexp (exp_dir ^/ "almabench.0.data_collector.sexp")
+        Reader.load_sexp (exp_dir ^/ (bin_name ^ ".0.data_collector.sexp"))
           [%of_sexp: Data_collector.t list]
         >>=? fun executed_decisions ->
         let path_to_bin = filename in
@@ -880,9 +878,7 @@ let slide_over_decisions
             >>| fun () -> `Repeat ()
           | Error e -> Deferred.return (`Finished (Error e))
           end))
-    >>|? fun () ->
-    printf "Completed experiment!";
-    !results_acc
+    >>|? fun () -> !results_acc
 ;;
 
 let () =
@@ -900,8 +896,16 @@ let () =
        flag "-config" (required file) ~doc:"PATH to config file"
      and controller_rundir =
        flag "-rundir" (required string) ~doc:"PATH rundir"
+     and exp_dir =
+       flag "-exp-dir" (required string) ~doc:"PATH experiment directory"
+     and bin_name =
+       flag "-bin-name" (required string)
+         ~doc:"STRING binary name (without the .ml extension!)"
      in
      fun () ->
+       if Filename.check_suffix bin_name ".ml" then begin
+         failwith "Binary name should not contain .ml suffix!"
+       end;
        (* There is daylight saving now, so UTC timezone == G time zone :D *)
        let exp_uuid =
          Time.to_string_iso8601_basic ~zone:Time.Zone.utc (Time.now ())
@@ -917,9 +921,18 @@ let () =
 
        Deferred.repeat_until_finished { Generation. base_overrides = []; gen = 0 }
          (fun generation ->
+           let print_sexp sexp =
+             List.iter
+               (sexp |> Sexp.to_string_hum |> String.split_lines)
+               ~f:(fun line -> printf "[GENERATION %d] %s\n" generation.gen line);
+           in
            Log.Global.info ">>>= Running generation %d" generation.gen;
+           printf "[GENERATION %d] Starting generation!\n" generation.gen;
+           printf "[GENERATION %d] Base overrides:\n" generation.gen;
+           print_sexp ([%sexp_of: Data_collector.t list] generation.base_overrides);
            begin
-             get_initial_state ~base_overrides:generation.base_overrides ()
+             let base_overrides = generation.base_overrides in
+             get_initial_state ~bin_name ~exp_dir ~base_overrides ()
              >>=? fun state ->
              let (new_overrides, _state) = Option.value_exn state in
              let new_overrides =
@@ -937,10 +950,17 @@ let () =
                    )
                  )
              in
-             let results_dir = controller_rundir ^/ exp_uuid in
-             slide_over_decisions ~config ~worker_connections
+             let results_dir =
+               controller_rundir
+               ^/ exp_uuid
+               ^/ Int.to_string_hum generation.gen
+             in
+             printf "[GENERATION %d] Generation choices:\n" generation.gen;
+             print_sexp ([%sexp_of: Data_collector.t list] new_overrides);
+
+             slide_over_decisions ~bin_name ~config ~worker_connections
                ~base_overrides:generation.base_overrides
-               ~results_dir ~new_overrides
+               ~exp_dir ~results_dir ~new_overrides
            end
            >>| function
            | Ok results ->
@@ -952,19 +972,23 @@ let () =
                in
                let mean = Time.Span.of_sec (Owl.Stats.mean seconds) in
                let sd = Time.Span.of_sec (Owl.Stats.std seconds) in
-               printf !"[GENERATION %d] Work unit %{Work_unit_id}: %{Time.Span} (sd: %{Time.Span})\n"
+               printf
+                 !"[GENERATION %d] Work unit %{Work_unit_id}: %{Time.Span} (sd: %{Time.Span})\n"
                  generation.gen
                  result.id
                  mean
                  sd
              );
              let selected_results = Selection_and_mutate.selection results in
-             begin match Selection_and_mutate.mutate selected_results with
-             | [] ->
+             let old_base = generation.base_overrides in
+             begin match
+               Selection_and_mutate.mutate ~old_base selected_results
+             with
+             | None ->
                printf "[GENERATION %d] Terminating at generation %d\n"
                  generation.gen generation.gen;
                `Finished (Ok ())
-             | new_base ->
+             | Some new_base ->
                printf
                  "[GENERATION %d] Selected work unit ids for mutation = %s\n"
                  generation.gen
