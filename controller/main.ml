@@ -705,7 +705,7 @@ let run_binary_on_rpc_worker ~hostname ~worker_connection ~path_to_bin =
   | Failed e -> Deferred.return (Error e)
 ;;
 
-let run_binary_on_ssh_worker ~config ~rundir ~hostname ~path_to_bin =
+let run_binary_on_ssh_worker ~config ~rundir ~hostname ~path_to_bin ~bin_args =
   lift_deferred (Unix.getcwd ())
   >>=? fun dir ->
   shell ~echo:true ~dir "scp"
@@ -718,6 +718,7 @@ let run_binary_on_ssh_worker ~config ~rundir ~hostname ~path_to_bin =
     rundir ^/ "benchmark_binary.sh";
     rundir ^/ "binary.exe";
     Int.to_string (config.Config.num_runs);
+    bin_args;
   ]
   >>= function
   | [] -> Deferred.Or_error.error_s [%message "Something went wrong"]
@@ -732,13 +733,13 @@ let run_binary_on_ssh_worker ~config ~rundir ~hostname ~path_to_bin =
     )
 ;;
 
-let run_binary_on_worker ~config ~hostname ~conn ~path_to_bin =
+let run_binary_on_worker ~config ~hostname ~conn ~path_to_bin ~bin_args =
   match conn with
   | Worker_connection.Rpc worker_connection ->
     run_binary_on_rpc_worker ~worker_connection ~path_to_bin ~hostname
   | Worker_connection.Ssh (ssh_config : Worker_connection.ssh_conn) ->
     let rundir = ssh_config.rundir in
-    run_binary_on_ssh_worker ~config ~rundir ~hostname ~path_to_bin
+    run_binary_on_ssh_worker ~config ~rundir ~hostname ~path_to_bin ~bin_args
 ;;
 
 let init_connection ~hostname ~worker_config =
@@ -795,7 +796,7 @@ type work_unit =
  *)
 let slide_over_decisions
     ~config ~worker_connections ~bin_name ~exp_dir ~results_dir
-    ~base_overrides ~new_overrides =
+    ~base_overrides ~new_overrides ~bin_args =
   let sliding_window = build_sliding_window ~n:2 new_overrides in
   let hostnames =
     List.map ~f:Protocol.Config.hostname config.Config.worker_configs
@@ -854,7 +855,7 @@ let slide_over_decisions
           begin
           let path_to_bin = work_unit.path_to_bin in
           printf "Running %s\n" path_to_bin;
-          run_binary_on_worker ~config ~conn ~path_to_bin ~hostname
+          run_binary_on_worker ~config ~conn ~path_to_bin ~hostname ~bin_args
           >>= function
           | Ok benchmark ->
             printf "Done with %s. Saving results ...\n" path_to_bin;
@@ -901,6 +902,8 @@ let () =
      and bin_name =
        flag "-bin-name" (required string)
          ~doc:"STRING binary name (without the .ml extension!)"
+     and bin_args =
+       flag "-args" (required string) ~doc:"STRING arguments"
      in
      fun () ->
        if Filename.check_suffix bin_name ".ml" then begin
@@ -960,7 +963,7 @@ let () =
 
              slide_over_decisions ~bin_name ~config ~worker_connections
                ~base_overrides:generation.base_overrides
-               ~exp_dir ~results_dir ~new_overrides
+               ~exp_dir ~results_dir ~new_overrides ~bin_args
            end
            >>| function
            | Ok results ->
