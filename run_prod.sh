@@ -14,5 +14,5 @@ jbuilder exec -- controller \
   -rundir "$RUNDIR" \
   -exp-dir ../experiments/async/cohttp \
   -bin-name cohttp_async_bench \
-  -bin-args "10000" \
+  -bin-args "20000" \
   1>"$RUNDIR/stdout.log"
