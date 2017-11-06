@@ -1,0 +1,12 @@
+(jbuild_version 1)
+
+(executables
+ ((names (now))
+  (preprocess (pps (ppx_jane  ppx_driver.runner)))
+  (libraries
+    (core))))
+
+(install
+ ((section bin)
+  (files
+    ((now.exe as ocamlnow)))))

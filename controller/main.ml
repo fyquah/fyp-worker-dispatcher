@@ -910,10 +910,6 @@ let () =
          failwith "Binary name should not contain .ml suffix!"
        end;
        (* There is daylight saving now, so UTC timezone == G time zone :D *)
-       let exp_uuid =
-         Time.to_string_iso8601_basic ~zone:Time.Zone.utc (Time.now ())
-       in
-       printf "Experiment UUID = %s\n" exp_uuid;
        Reader.load_sexp config_filename [%of_sexp: Config.t]
        >>=? fun config ->
        Deferred.Or_error.List.map config.worker_configs ~how:`Parallel
@@ -955,7 +951,6 @@ let () =
              in
              let results_dir =
                controller_rundir
-               ^/ exp_uuid
                ^/ Int.to_string_hum generation.gen
              in
              printf "[GENERATION %d] Generation choices:\n" generation.gen;

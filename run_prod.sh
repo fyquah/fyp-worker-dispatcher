@@ -6,7 +6,7 @@ nmcli conn down "Imperial-WPA"
 sudo /sbin/ifup enp2s0
 sleep 1.0
 
-RUNDIR=../prod/controller-rundir
+RUNDIR=../prod/controller-rundir/$(ocamlnow)
 
 jbuilder exec -- controller \
   -config deploy_config.sexp \
