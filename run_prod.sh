@@ -7,6 +7,7 @@ sudo /sbin/ifup enp2s0
 sleep 1.0
 
 RUNDIR=../prod/controller-rundir/$(ocamlnow)
+mkdir -p $RUNDIR
 echo "RUNDIR = $RUNDIR"
 
 jbuilder exec -- controller \
@@ -14,5 +15,5 @@ jbuilder exec -- controller \
   -rundir "$RUNDIR" \
   -exp-dir ../experiments/async/cohttp \
   -bin-name cohttp_async_bench \
-  -bin-args "20000" \
+  -args "20000" \
   1>"$RUNDIR/stdout.log"
