@@ -17,4 +17,5 @@ cp $OCAML_DIR/middle_end/base_types/closure_element.ml* ./
 cp $OCAML_DIR/middle_end/base_types/variable.ml* ./
 cp $OCAML_DIR/middle_end/base_types/compilation_unit.ml* ./
 cp $OCAML_DIR/middle_end/base_types/linkage_name.ml* ./
+cp $OCAML_DIR/middle_end/feature_extractor.ml* ./
 cp $OCAML_DIR/typing/ident.ml* ./
