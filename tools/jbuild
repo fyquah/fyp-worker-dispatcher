@@ -1,12 +1,18 @@
 (jbuild_version 1)
 
 (executables
- ((names (now))
+ ((names (now feature_extractor))
   (preprocess (pps (ppx_jane  ppx_driver.runner)))
   (libraries
-    (core))))
+    (core
+     async
+     async_shell
+   
+     fyp_compiler_lib
+    ))))
 
 (install
  ((section bin)
   (files
-    ((now.exe as ocamlnow)))))
+    ((now.exe as ocamlnow)
+     (feature_extractor.exe as feature_extractor)))))

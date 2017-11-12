@@ -25,7 +25,8 @@ type t =
     is_a_functor                     : bool;
     non_specialized_args             : int;
     specialized_args                 : int;
-    size                             : int;
+    size_before_simplify             : int;
+    size_after_simplify              : int;
     underlying_direct_applications   : int;
     underlying_indirect_applications : int;
     is_recursive                     : bool;
@@ -47,6 +48,7 @@ type t =
     original_function_size           : int option;
     original_bound_vars              : int option;
     flambda_round                    : int;
+    flambda_tries                    : bool;
   }
 
 val empty
@@ -54,6 +56,8 @@ val empty
   -> is_a_functor: bool
   -> is_recursive : bool
   -> is_annonymous: bool
+  -> size_before_simplify: int
+  -> size_after_simplify: int
   -> call_context_stack: call_context list
   -> direct_call: bool
   -> recursive_call: bool
@@ -63,6 +67,7 @@ val empty
   -> original_function_size: int option
   -> original_bound_vars: int option
   -> flambda_round: int
+  -> flambda_tries: bool
   -> t
 
 val mined_features : t list ref
