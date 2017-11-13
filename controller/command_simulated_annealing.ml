@@ -4,27 +4,32 @@ open Core
 open Async
 open Common
 
-module State = struct
+module SA = Optimization.Simulated_annealing
+
+module Annealer = struct
   module T = struct
     type state = Inlining_tree.t [@@deriving sexp]
 
     type t = state [@@deriving sexp]
-    
+
     let compare = Inlining_tree.compare
   end
 
   include T
   include Comparable.Make(T)
 
-  let move inlining_tree =
+  let move ~(step : int) ~(config: SA.Common.config) state =
+    ignore step;
+    ignore config;
+    let num_leaves = Inlining_tree.Top_level.count_leaves state in
+    let choice = Random.int num_leaves in
+    Inlining_tree.Top_level.flip_several_leaves state [ choice ]
   ;;
 end
 
-module SA = Optimization.Simulated_annealing.Make(State)
-
 let command =
   let open Command.Let_syntax in
-  Command.async_or_error' ~doc:"Command"
+  Command.async_or_error' ~summary:"Command"
     [%map_open
       let {
         Command_params.
@@ -34,5 +39,6 @@ let command =
         bin_name;
         bin_args } = Command_params.params
       in
-      Deferred.Or_error.return ()
+      fun () ->
+        Deferred.Or_error.return ()
     ]

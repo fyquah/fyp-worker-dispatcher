@@ -1,25 +1,25 @@
 open Core
 open Async
 
-module Make(T: sig
-  type state
-
-  val energy : state -> float Deferred.t
-
-  val move : state -> state Deferred.t
-
-  include Comparable.S with type t := state
-
-end) = struct
-
-  type state = T.state
-
-  type config = 
+module Common = struct
+  type config = Simulated_annealing_intf.config =
     { t_max          : float;
       t_min          : float;
       updates        : int;
       steps          : int;
     }
+
+  let temperature (config : config) step =
+    let step = Float.of_int step in
+    let steps = Float.of_int config.steps in
+    let t_factor = -1.0 *. Float.log (config.t_max /. config.t_min) in
+    config.t_max *. Float.exp (t_factor *. step /. steps)
+  ;;
+end
+
+module Make(T: Simulated_annealing_intf.T) = struct
+
+  type state = T.state
 
   type t =
     { state          : state;
@@ -29,11 +29,12 @@ end) = struct
 
       energy_cache   : float Deferred.t T.Map.t;
 
-      config         : config;
+      config         : Common.config;
     }
 
   let default_config =
-    { t_max = 25_000.0;
+    { Common.
+      t_max = 25_000.0;
       t_min = 2.5;
       updates = 100;
       steps = 1000;
@@ -63,23 +64,19 @@ end) = struct
   ;;
 
   let step t =
-    let config = t.config in
-    let t_factor = -1.0 *. Float.log (config.t_max /. config.t_min) in
-    let sensitivity =
-      let steps = Float.of_int config.steps in
-      let step = Float.of_int t.step in
-      config.t_max *. Float.exp (t_factor *. step /. steps)
-    in
+    let temperature = Common.temperature t.config t.step in
     let current_state = t.state in
     let t, current_energy = query_energy t current_state in
-    let%bind next_state = T.move current_state in
+    let%bind next_state =
+      T.move ~config:t.config ~step:t.step current_state
+    in
     let t, next_energy = query_energy t next_state in
     let%map (current_energy, next_energy) =
       Deferred.both current_energy next_energy
     in
     let d_e = next_energy -. current_energy in
     let rand = Random.float 1.0 in
-    if d_e > 0.0 && Float.exp (Float.neg d_e /. sensitivity) <. rand then
+    if d_e > 0.0 && Float.exp (Float.neg d_e /. temperature) <. rand then
       { t with step = t.step + 1 }
     else
       let accepts = t.accepts + 1 in

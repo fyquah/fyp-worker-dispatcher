@@ -30,6 +30,8 @@ module Top_level : sig
   val count_leaves : t -> int
 
   val flip_nth_leaf : t -> int -> t
+
+  val flip_several_leaves : t -> int list -> t
 end
 
 val shallow_sexp_of_t : t -> Sexp.t

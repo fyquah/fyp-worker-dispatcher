@@ -29,7 +29,7 @@ and inlined_function =
 let is_leaf t =
   match t with
   | Apply_inlined_function { children = []; _ }
-  | Declaration { children = []; _ } 
+  | Declaration { children = []; _ }
   | Apply_non_inlined_function _ -> true
   | _ -> false
 ;;
@@ -60,7 +60,7 @@ let shallow_sexp_of_t sexp =
     ]
 
 module Top_level = struct
-  type nonrec t = t list [@@deriving sexp]
+  type root = t list [@@deriving sexp]
 
   let count_leaves root =
     let rec loop t =
@@ -121,6 +121,12 @@ module Top_level = struct
         i n ()
     | `Replaced new_tree -> new_tree
   ;;
+
+  let flip_several_leaves root indices =
+    List.fold indices ~init:root ~f:flip_nth_leaf
+  ;;
+
+  type t = root [@@deriving sexp]
 end
 
 let fuzzy_equal a b =
