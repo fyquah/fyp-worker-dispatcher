@@ -88,7 +88,8 @@ let slide_over_decisions
           begin
           let path_to_bin = work_unit.path_to_bin in
           printf "Running %s\n" path_to_bin;
-          run_binary_on_worker ~config ~conn ~path_to_bin ~hostname ~bin_args
+          Experiment_utils.run_binary_on_worker
+            ~config ~conn ~path_to_bin ~hostname ~bin_args
           >>= function
           | Ok benchmark ->
             printf "Done with %s. Saving results ...\n" path_to_bin;
@@ -113,27 +114,6 @@ let slide_over_decisions
           | Error e -> Deferred.return (`Finished (Error e))
           end))
     >>|? fun () -> !results_acc
-;;
-
-
-let get_initial_state ~bin_name ~exp_dir ~base_overrides () =
-  shell ~verbose:true ~dir:exp_dir "make" [ "clean" ] >>=? fun () ->
-  lift_deferred (
-    Writer.save_sexp (exp_dir ^/ "overrides.sexp")
-      ([%sexp_of: Data_collector.t list] base_overrides)
-  )
-  >>=? fun () ->
-  shell ~dir:exp_dir "make" [ "all" ] >>=? fun () ->
-  (* TODO(fyquah): Run the program in workers to get exec time information.
-   *)
-  let filename = exp_dir ^/ (bin_name ^ ".0.data_collector.sexp") in
-  Reader.load_sexp filename [%of_sexp: Data_collector.t list]
-  >>|? fun decisions ->
-  match decisions with
-  | _ :: _ ->
-    let decisions = filter_decisions decisions in
-    Some (decisions, Traversal_state.init (Inlining_tree.build decisions))
-  | [] -> None
 ;;
 
 let command =
@@ -161,7 +141,7 @@ let command =
        Deferred.Or_error.List.map config.worker_configs ~how:`Parallel
          ~f:(fun worker_config ->
            let hostname = Protocol.Config.hostname worker_config in
-           init_connection ~hostname ~worker_config)
+           Experiment_utils.init_connection ~hostname ~worker_config)
        >>=? fun worker_connections ->
 
        Deferred.repeat_until_finished { Generation. base_overrides = []; gen = 0 }
@@ -177,7 +157,8 @@ let command =
            print_sexp ([%sexp_of: Data_collector.t list] generation.base_overrides);
            begin
              let base_overrides = generation.base_overrides in
-             get_initial_state ~bin_name ~exp_dir ~base_overrides ()
+             Experiment_utils.get_initial_state
+               ~bin_name ~exp_dir ~base_overrides ()
              >>=? fun state ->
              let (new_overrides, _state) = Option.value_exn state in
              let new_overrides =

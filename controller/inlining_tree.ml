@@ -126,6 +126,9 @@ module Top_level = struct
     List.fold indices ~init:root ~f:flip_nth_leaf
   ;;
 
+  let to_override_rules root =
+  ;;
+
   type t = root [@@deriving sexp]
 end
 

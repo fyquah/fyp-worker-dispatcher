@@ -32,6 +32,8 @@ module Top_level : sig
   val flip_nth_leaf : t -> int -> t
 
   val flip_several_leaves : t -> int list -> t
+
+  val to_override_rules : t -> Data_collector.t list
 end
 
 val shallow_sexp_of_t : t -> Sexp.t
