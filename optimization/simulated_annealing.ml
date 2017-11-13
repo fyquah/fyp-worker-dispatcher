@@ -14,11 +14,6 @@ end) = struct
 
   type state = T.state
 
-  type best_solution =
-    { energy         : float;
-      state          : state;
-    }
-
   type config = 
     { t_max          : float;
       t_min          : float;
@@ -32,7 +27,6 @@ end) = struct
       accepts        : int;
       improves       : int;
 
-      best_solution  : best_solution option;
       energy_cache   : float Deferred.t T.Map.t;
 
       config         : config;
@@ -51,7 +45,6 @@ end) = struct
       accepts = 0;
       improves = 0;
 
-      best_solution = None;
       energy_cache = T.Map.empty;
 
       config = default_config;
@@ -81,7 +74,7 @@ end) = struct
     let t, current_energy = query_energy t current_state in
     let%bind next_state = T.move current_state in
     let t, next_energy = query_energy t next_state in
-    let%bind (current_energy, next_energy) =
+    let%map (current_energy, next_energy) =
       Deferred.both current_energy next_energy
     in
     let d_e = next_energy -. current_energy in
