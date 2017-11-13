@@ -54,7 +54,8 @@ module Make(T: Simulated_annealing_intf.T) = struct
   let query_energy t s =
     match T.Map.find t.energy_cache s with
     | None   ->
-      let deferred_energy = T.energy t.state in
+      (* TODO: ok_exn is NOT okay *)
+      let deferred_energy = T.energy t.state >>| ok_exn in
       let energy_cache =
         T.Map.add t.energy_cache ~key:s ~data:deferred_energy
       in
@@ -69,6 +70,7 @@ module Make(T: Simulated_annealing_intf.T) = struct
     let t, current_energy = query_energy t current_state in
     let%bind next_state =
       T.move ~config:t.config ~step:t.step current_state
+      >>| ok_exn
     in
     let t, next_energy = query_energy t next_state in
     let%map (current_energy, next_energy) =

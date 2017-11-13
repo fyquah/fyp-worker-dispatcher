@@ -4,6 +4,14 @@ open Core
 open Async
 open Common
 
+module Initial_state = struct
+  type t =
+    { decisions : Data_collector.t list;
+      traversal_state : Traversal_state.t;
+      path_to_bin  : string;
+    }
+end
+
 let get_initial_state ~bin_name ~exp_dir ~base_overrides () =
   shell ~verbose:true ~dir:exp_dir "make" [ "clean" ] >>=? fun () ->
   lift_deferred (
@@ -16,11 +24,20 @@ let get_initial_state ~bin_name ~exp_dir ~base_overrides () =
    *)
   let filename = exp_dir ^/ (bin_name ^ ".0.data_collector.sexp") in
   Reader.load_sexp filename [%of_sexp: Data_collector.t list]
-  >>|? fun decisions ->
+  >>=? fun decisions ->
+  let filename = Filename.temp_file "fyp-" ("-" ^ bin_name) in
+  shell ~echo:true ~verbose:true ~dir:exp_dir
+    "cp" [ (bin_name ^ ".native"); filename ]
+  >>|? fun () ->
   match decisions with
   | _ :: _ ->
     let decisions = filter_decisions decisions in
-    Some (decisions, Traversal_state.init (Inlining_tree.build decisions))
+    Some {
+      Initial_state.
+      decisions;
+      traversal_state = Traversal_state.init (Inlining_tree.build decisions);
+      path_to_bin = filename;
+    }
   | [] -> None
 ;;
 

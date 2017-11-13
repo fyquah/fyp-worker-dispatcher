@@ -11,9 +11,9 @@ type config =
 module type T = sig
   type state
 
-  val energy : state -> float Deferred.t
+  val energy : state -> float Deferred.Or_error.t
 
-  val move : step: int -> config: config -> state -> state Deferred.t
+  val move : step: int -> config: config -> state -> state Deferred.Or_error.t
 
   include Comparable.S with type t := state
 end
@@ -24,10 +24,8 @@ module type S = sig
     include T
   end
 
-  type state = T.state
-
   type t =
-    { state          : state;
+    { state          : T.state;
       step           : int;
       accepts        : int;
       improves       : int;
@@ -37,7 +35,7 @@ module type S = sig
       config         : config;
     }
 
-  val empty : state -> t
+  val empty : T.state -> t
 
   val step : t -> t Deferred.t
 end

@@ -127,6 +127,43 @@ module Top_level = struct
   ;;
 
   let to_override_rules root =
+    let rec loop_node ~source ~call_stack ~node =
+      match node with
+      | Declaration decl ->
+        let call_stack =
+          let closure = decl.closure in
+          Call_site.Enter_decl { source; closure; } :: call_stack
+        in
+        List.concat_no_order (
+          let source = Some decl.closure in
+          List.map decl.children ~f:(fun node ->
+            loop_node ~source ~call_stack ~node)
+        )
+
+      | Apply_inlined_function inlined ->
+        let decision = true in
+        let applied = inlined.applied in
+        let offset = inlined.offset in
+        let call_stack =
+          Call_site.At_call_site { source; offset; applied } :: call_stack
+        in
+        let hd = { Data_collector. call_stack; decision; applied } in
+        hd :: List.concat_no_order (
+          List.map inlined.children ~f:(fun node ->
+            loop_node ~source:(Some inlined.applied) ~call_stack ~node)
+        )
+
+      | Apply_non_inlined_function not_inlined ->
+        let decision = false in
+        let applied = not_inlined.applied in
+        let call_stack =
+          let offset = not_inlined.offset in
+          Call_site.At_call_site { source; offset; applied } :: call_stack
+        in
+        [{ call_stack; applied; decision }]
+    in
+    List.concat_map root ~f:(fun node ->
+      loop_node ~source:None ~call_stack:[] ~node)
   ;;
 
   type t = root [@@deriving sexp]

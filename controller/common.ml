@@ -92,6 +92,7 @@ let filter_decisions (decisions : Data_collector.t list) =
 let lift_deferred m = Deferred.(m >>| fun x -> Core.Or_error.return x)
 
 let geometric_mean l =
-  Float.exp
-  List.fold l ~init:1.0 ~f:(fun a b -> a *. b) in
+  let power = float_of_int (List.length l) in
+  let base = List.fold l ~init:1.0 ~f:(fun a b -> a *. b) in
+  base ** power
 ;;

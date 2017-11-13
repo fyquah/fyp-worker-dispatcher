@@ -160,7 +160,11 @@ let command =
              Experiment_utils.get_initial_state
                ~bin_name ~exp_dir ~base_overrides ()
              >>=? fun state ->
-             let (new_overrides, _state) = Option.value_exn state in
+             let { Experiment_utils.Initial_state.
+               decisions = new_overrides;
+               traversal_state = _;
+               path_to_bin = _;
+             } = Option.value_exn state in
              let new_overrides =
                (* This filter ensures that every the base and overrides
                 * sets are mutually exclusive.
