@@ -7,9 +7,10 @@ type config =
     updates        : int;
     steps          : int;
   }
+[@@deriving sexp_of]
 
 module type T = sig
-  type state
+  type state [@@deriving sexp_of]
 
   val energy : state -> float Deferred.Or_error.t
 
@@ -31,9 +32,11 @@ module type S = sig
       improves       : int;
 
       energy_cache   : float Deferred.t T.Map.t;
+      best_solution  : (T.state * float) option;
 
       config         : config;
     }
+  [@@deriving sexp_of]
 
   val empty : T.state -> t
 

@@ -30,9 +30,12 @@ end) = struct
       { tree        : Inlining_tree.Top_level.t;
         work_unit   : Work_unit.t;
       }
-      [@@deriving sexp]
+    [@@deriving sexp]
 
     type t = state [@@deriving sexp]
+
+    (* We don't want debugging messages to contain the entire tree. *)
+    let sexp_of_state state = Work_unit.sexp_of_t state.work_unit
 
     let compare a b = List.compare Inlining_tree.compare a.tree b.tree
   end
@@ -111,6 +114,7 @@ let command =
             let hostname = Protocol.Config.hostname worker_config in
             Experiment_utils.init_connection ~hostname ~worker_config)
         >>=? fun worker_connections ->
+        Log.Global.sexp ~level:`Info [%message "building initial state" ];
         Utils.get_initial_state ~bin_name ~exp_dir ~base_overrides:[] ()
         >>=? fun initial_state ->
         let initial_state = Option.value_exn initial_state in
@@ -145,7 +149,10 @@ let command =
           let work_unit = initial_state.path_to_bin in
           Annealer.empty { Annealer.T. tree; work_unit; }
         in
+        let stdout = Lazy.force Writer.stdout in
         Deferred.repeat_until_finished state (fun state ->
+          let sexp = Annealer.sexp_of_t state in
+          Writer.write stdout (Sexp.to_string_hum sexp);
           Annealer.step state
           >>| fun next -> `Repeat next
         )

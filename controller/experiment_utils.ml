@@ -28,6 +28,8 @@ let get_initial_state ~bin_name ~exp_dir ~base_overrides () =
   let filename = Filename.temp_file "fyp-" ("-" ^ bin_name) in
   shell ~echo:true ~verbose:true ~dir:exp_dir
     "cp" [ (bin_name ^ ".native"); filename ]
+  >>=? fun () ->
+  shell ~echo:true ~dir:exp_dir "chmod" [ "755"; filename ]
   >>|? fun () ->
   match decisions with
   | _ :: _ ->

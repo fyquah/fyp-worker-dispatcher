@@ -8,6 +8,7 @@ module Common = struct
       updates        : int;
       steps          : int;
     }
+  [@@deriving sexp_of]
 
   let temperature (config : config) step =
     let step = Float.of_int step in
@@ -19,18 +20,22 @@ end
 
 module Make(T: Simulated_annealing_intf.T) = struct
 
-  type state = T.state
-
   type t =
-    { state          : state;
+    { state          : T.state;
       step           : int;
       accepts        : int;
       improves       : int;
 
       energy_cache   : float Deferred.t T.Map.t;
+      best_solution  : (T.state * float) option;
 
       config         : Common.config;
     }
+  [@@deriving sexp_of]
+
+  let sexp_of_t t =
+    sexp_of_t { t with energy_cache = T.Map.empty }
+  ;;
 
   let default_config =
     { Common.
@@ -47,6 +52,7 @@ module Make(T: Simulated_annealing_intf.T) = struct
       improves = 0;
 
       energy_cache = T.Map.empty;
+      best_solution = None;
 
       config = default_config;
     }
@@ -64,6 +70,15 @@ module Make(T: Simulated_annealing_intf.T) = struct
       t, deferred_energy
   ;;
 
+  let bump_best_solution t state energy =
+    match t.best_solution with
+    | None -> { t with best_solution = Some (state, energy) }
+    | Some (best_soln, best_energy) ->
+      if energy <. best_energy
+      then { t with best_solution = Some (state, energy) }
+      else t
+  ;;
+
   let step t =
     let temperature = Common.temperature t.config t.step in
     let current_state = t.state in
@@ -76,6 +91,8 @@ module Make(T: Simulated_annealing_intf.T) = struct
     let%map (current_energy, next_energy) =
       Deferred.both current_energy next_energy
     in
+    let t = bump_best_solution t current_state current_energy in
+    let t = bump_best_solution t next_state next_energy in
     let d_e = next_energy -. current_energy in
     let rand = Random.float 1.0 in
     if d_e > 0.0 && Float.exp (Float.neg d_e /. temperature) <. rand then
