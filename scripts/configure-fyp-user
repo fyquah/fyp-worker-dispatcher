@@ -1,0 +1,6 @@
+#!/bin/bash
+
+opam init
+opam repo add opam-repo-dev /home/fyquah/fyp/opam-repo-dev
+opam switch 4.05.0+fyp
+opam install core cohttp.async
