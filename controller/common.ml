@@ -54,6 +54,8 @@ end
 module Call_site_offset = struct
   include Call_site.Offset
   include Make_core_sexp(Call_site.Offset)
+
+  let compare a b = Int.compare (to_int a) (to_int b)
 end
 
 let shell ?(env = []) ?(echo = false) ?(verbose = false) ~dir:working_dir

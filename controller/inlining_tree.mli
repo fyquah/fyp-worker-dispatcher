@@ -1,5 +1,6 @@
 [@@@ocaml.warning "+a-4-9-30-40-41-42-44"]
 
+open Core
 open Common
 
 exception Build_error
@@ -21,11 +22,17 @@ and inlined_function =
     offset    : Call_site_offset.t;
     children  : t list;
   }
-[@@deriving sexp]
+[@@deriving sexp, compare]
 
 module Top_level : sig
   type nonrec t = t list [@@deriving sexp]
+
+  val count_leaves : t -> int
+
+  val flip_nth_leaf : t -> int -> t
 end
+
+val shallow_sexp_of_t : t -> Sexp.t
 
 val fuzzy_equal : t -> t -> bool
 

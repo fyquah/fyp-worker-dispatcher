@@ -24,7 +24,24 @@ and inlined_function =
     offset    : Call_site_offset.t;
     children  : t list;
   }
-[@@deriving sexp]
+[@@deriving sexp, compare]
+
+let is_leaf t =
+  match t with
+  | Apply_inlined_function { children = []; _ }
+  | Declaration { children = []; _ } 
+  | Apply_non_inlined_function _ -> true
+  | _ -> false
+;;
+
+let flip_node t =
+  match t with
+  | Declaration _ -> assert false
+  | Apply_inlined_function { applied; offset } ->
+    Apply_non_inlined_function { applied; offset }
+  | Apply_non_inlined_function { applied; offset } ->
+    Apply_inlined_function { applied; offset; children = [] }
+;;
 
 let shallow_sexp_of_t sexp =
   let open Sexp in
@@ -44,6 +61,66 @@ let shallow_sexp_of_t sexp =
 
 module Top_level = struct
   type nonrec t = t list [@@deriving sexp]
+
+  let count_leaves root =
+    let rec loop t =
+      let sum_all l =
+        match l with
+        | [] -> 1
+        | l ->
+          List.map ~f:loop l
+          |> List.sum ~f:Fn.id (module Int)
+      in
+      match t with
+      | Declaration decl -> sum_all decl.children
+      | Apply_inlined_function inlined_function ->
+        sum_all inlined_function.children
+      | Apply_non_inlined_function _ -> 1
+    in
+    List.sum ~f:(fun t -> loop t) (module Int) root
+  ;;
+
+  let flip_nth_leaf root n =
+    let rec loop ~state ~node =
+      if is_leaf node then begin
+        match state with
+        | 0 -> `Replaced (flip_node node)
+        | state -> `Leaf_visited (state - 1)
+      end else begin
+        match node with
+        | Apply_non_inlined_function _ -> assert false
+        | Declaration decl ->
+          begin match loop_nodes ~state ~nodes:decl.children with
+          | `Leaf_visited i -> `Leaf_visited i
+          | `Replaced children ->
+            `Replaced (Declaration { decl with children })
+          end
+        | Apply_inlined_function inlined ->
+          begin match loop_nodes ~state ~nodes:inlined.children with
+          | `Leaf_visited i -> `Leaf_visited i
+          | `Replaced children ->
+            `Replaced (
+              Apply_inlined_function { inlined with children }
+            )
+          end
+      end
+    and loop_nodes ~state ~nodes =
+      match nodes with
+      | [] -> `Leaf_visited state
+      | hd :: tl ->
+        match loop ~state ~node:hd with
+        | `Replaced node -> `Replaced (node :: tl)
+        | `Leaf_visited i ->
+          match loop_nodes ~state:i ~nodes:tl with
+          | `Replaced tl -> `Replaced (hd :: tl)
+          | `Leaf_visited i -> `Leaf_visited i
+    in
+    match loop_nodes ~state:n ~nodes:root with
+    | `Leaf_visited i ->
+      failwithf "Cannot visit leaf %d from in a tree with %d leaves"
+        i n ()
+    | `Replaced new_tree -> new_tree
+  ;;
 end
 
 let fuzzy_equal a b =

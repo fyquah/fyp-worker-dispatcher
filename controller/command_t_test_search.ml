@@ -147,22 +147,14 @@ let command =
   let open Command.Let_syntax in
   Command.async_or_error' ~summary:"Controller"
     [%map_open
-     let config_filename =
-       flag "-config" (required file) ~doc:"PATH to config file"
-     and controller_rundir =
-       flag "-rundir" (required string) ~doc:"PATH rundir"
-     and exp_dir =
-       flag "-exp-dir" (required string) ~doc:"PATH experiment directory"
-     and bin_name =
-       flag "-bin-name" (required string)
-         ~doc:"STRING binary name (without the .ml extension!)"
-     and bin_args =
-       flag "-args" (required string) ~doc:"STRING arguments"
-     in
+      let {
+        Command_params.
+        config_filename;
+        controller_rundir;
+        exp_dir;
+        bin_name;
+        bin_args } = Command_params.params in
      fun () ->
-       if Filename.check_suffix bin_name ".ml" then begin
-         failwith "Binary name should not contain .ml suffix!"
-       end;
        (* There is daylight saving now, so UTC timezone == G time zone :D *)
        Reader.load_sexp config_filename [%of_sexp: Config.t]
        >>=? fun config ->
