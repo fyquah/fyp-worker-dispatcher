@@ -168,8 +168,14 @@ let command =
         Deferred.Or_error.List.init ~how:`Sequential 3 ~f:(fun i ->
           Log.Global.sexp ~level:`Info
             [%message "Initial state run " (i : int)];
-          Utils.Scheduler.dispatch scheduler initial_state.path_to_bin)
+          Deferred.Or_error.List.init (List.length config.worker_configs)
+            ~how:`Parallel
+            ~f:(fun _ ->
+              Utils.Scheduler.dispatch scheduler initial_state.path_to_bin))
         >>=? fun initial_execution_times ->
+        let initial_execution_times =
+          List.concat_no_order initial_execution_times
+        in
         let initial_execution_time =
           List.concat_map initial_execution_times ~f:(fun stat ->
             List.map ~f:Time.Span.to_sec stat.raw_execution_time)
