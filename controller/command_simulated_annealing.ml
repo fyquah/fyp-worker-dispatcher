@@ -152,10 +152,9 @@ let command =
           let work_unit = initial_state.path_to_bin in
           Annealer.empty { Annealer.T. tree; work_unit; }
         in
-        let stdout = Lazy.force Writer.stdout in
         Deferred.repeat_until_finished state (fun state ->
           let sexp = Annealer.sexp_of_t state in
-          Writer.write stdout (Sexp.to_string_hum sexp);
+          printf "Step %d:\n%s\n" state.step (Sexp.to_string_hum sexp);
           Annealer.step state
           >>| fun next -> `Repeat next
         )
