@@ -183,7 +183,13 @@ let command =
         let state =
           let tree = initial_state.traversal_state.tree_root in
           let work_unit = initial_state.path_to_bin in
-          Annealer.empty { Annealer.T. tree; work_unit; }
+          let initial = { Annealer.T. tree; work_unit; } in
+          let t = Annealer.empty initial in
+          let energy_cache =
+            Annealer.T2.Map.add t.energy_cache
+              ~key:initial ~data:(Deferred.return 1.0)
+          in
+          { t with energy_cache }
         in
         Deferred.repeat_until_finished state (fun state ->
           let sexp = Annealer.sexp_of_t state in
