@@ -174,7 +174,10 @@ module Scheduler = struct
         ('c availble_workers,
          [ `Read | `Who_can_write of Core_kernel__Perms.me ]) Mvar.t;
       process     : ('c Worker_connection.t -> 'a -> 'b Deferred.t);
+      num_workers : int;
     }
+
+  let num_workers t = t.num_workers
 
   let add_conn_to_queue q conn =
     match q with
@@ -190,7 +193,7 @@ module Scheduler = struct
         Mvar.update worker_queue ~f:(fun q -> add_conn_to_queue q conn) ;
         Deferred.unit)
     >>| fun () ->
-    { queue = worker_queue; process; }
+    { queue = worker_queue; process; num_workers = List.length connections; }
   ;;
 
   let dispatch t a =

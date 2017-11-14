@@ -6,6 +6,7 @@ type config =
     t_min          : float;
     updates        : int;
     steps          : int;
+    workers        : int;
   }
 [@@deriving sexp_of]
 
@@ -38,7 +39,7 @@ module type S = sig
     }
   [@@deriving sexp_of]
 
-  val empty : T.state -> t
+  val empty : ?config: config -> T.state -> t
 
   val step : t -> t Deferred.t
 end

@@ -3,10 +3,11 @@ open Async
 
 module Common = struct
   type config = Simulated_annealing_intf.config =
-    { t_max          : float;
-      t_min          : float;
-      updates        : int;
-      steps          : int;
+    { t_max             : float;
+      t_min             : float;
+      updates           : int;
+      steps             : int;
+      workers           : int;
     }
   [@@deriving sexp_of]
 
@@ -43,9 +44,10 @@ module Make(T: Simulated_annealing_intf.T) = struct
       t_min = 2.5;
       updates = 100;
       steps = 1000;
+      workers = 1;
     }
 
-  let empty state =
+  let empty ?(config = default_config) state =
     { state;
       step = 0;
       accepts = 0;
@@ -54,7 +56,7 @@ module Make(T: Simulated_annealing_intf.T) = struct
       energy_cache = T.Map.empty;
       best_solution = None;
 
-      config = default_config;
+      config;
     }
 
   let query_energy t s =
@@ -86,13 +88,21 @@ module Make(T: Simulated_annealing_intf.T) = struct
   ;;
 
   let step t =
+    let t_step = t.step in
+    Log.Global.sexp ~level:`Info
+      [%message (t_step : int) "Calling step" (t : t)];
     let temperature = Common.temperature t.config t.step in
     let current_state = t.state in
     let t, current_energy = query_energy t current_state in
-    let%bind next_state =
-      T.move ~config:t.config ~step:t.step current_state
-      >>| ok_exn
+    assert (t.config.workers >= 1);
+    let%bind possible_next_states =
+      Deferred.List.init t.config.workers ~how:`Sequential
+        ~f:(fun (_ : int) ->
+          T.move ~config:t.config ~step:t.step current_state
+          >>| ok_exn)
     in
+    (* TODO: Parallelism? *)
+    let next_state = List.hd_exn possible_next_states in
     let t, next_energy = query_energy t next_state in
     let%map (current_energy, next_energy) =
       Deferred.both current_energy next_energy
@@ -101,12 +111,29 @@ module Make(T: Simulated_annealing_intf.T) = struct
     let t = bump_best_solution t next_state next_energy in
     let d_e = next_energy -. current_energy in
     let rand = Random.float 1.0 in
-    if d_e > 0.0 && Float.exp (Float.neg d_e /. temperature) <. rand then
+    let probability =
+      if d_e <= 0.0 then 1.0
+      else Float.exp (Float.neg d_e /. temperature)
+    in
+    let step = t.step in
+    Log.Global.sexp ~level:`Info
+      [%message
+        (step : int)
+        (probability : float)
+        (rand : float)
+        (current_energy : float)
+        (next_energy : float)];
+    if d_e > 0.0 && probability <. rand then begin
+      Log.Global.sexp ~level:`Info [%message (step : int) "Rejecting change!"];
       { t with step = t.step + 1 }
-    else
+    end else begin
       let accepts = t.accepts + 1 in
       let improves = if d_e <. 0.0 then t.improves + 1 else t.improves in
       let step = t.step + 1 in
-      { t with step; accepts; improves; }
+      let state = next_state in
+      Log.Global.sexp ~level:`Info
+        [%message (step: int) "Accepting change to new state!"];
+      { t with state; step; accepts; improves; }
+    end
   ;;
 end

@@ -28,4 +28,4 @@ cd "$RUNDIR"
   -rundir "$RUNDIR" \
   -exp-dir ~/prod/experiments/async/cohttp \
   -bin-name cohttp_async_bench \
-  -args "10000"
+  -args "20000"

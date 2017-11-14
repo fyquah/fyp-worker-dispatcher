@@ -44,14 +44,33 @@ end) = struct
     include T
     include Comparable.Make(T)
 
+    let unique_random_from_list ~count choices =
+      let rec loop ~choices ~(left : int) =
+        if Int.O.(left <= 0) then []
+        else begin
+          let size = Int.Set.length choices in
+          let selected =
+            Option.value_exn (Int.Set.nth choices (Random.int size))
+          in
+          selected :: loop ~left:(left - 1) ~choices:(Int.Set.remove choices selected)
+        end
+      in
+      loop ~choices:(Int.Set.of_list choices) ~left:count
+    ;;
+
     let move ~(step : int) ~(config: SA.Common.config) state =
       ignore step;
       ignore config;
       let current_tree = state.tree in
       let num_leaves = Inlining_tree.Top_level.count_leaves current_tree in
-      let choice = Random.int num_leaves in
+      let choices =
+        (* flip between 1 to 3 leaves *)
+        unique_random_from_list
+          ~count:(Int.min num_leaves (Random.int 3 + 1))
+          (List.init num_leaves ~f:Fn.id)
+      in
       let new_tree =
-        Inlining_tree.Top_level.flip_several_leaves current_tree [ choice ]
+        Inlining_tree.Top_level.flip_several_leaves current_tree choices
       in
       shell ~dir:M.exp_dir "make" [ "clean" ]
       >>=? fun () ->

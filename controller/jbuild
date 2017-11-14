@@ -1,7 +1,7 @@
 (jbuild_version 1)
 
 (executables
- ((names (main))
+ ((names (main test))
   (preprocess (pps (ppx_jane  ppx_driver.runner)))
   (libraries
     (core
@@ -19,4 +19,5 @@
 (install
  ((section bin)
   (files
-    ((main.exe as controller)))))
+    ((main.exe as controller)
+     (test.exe as controller_test)))))
