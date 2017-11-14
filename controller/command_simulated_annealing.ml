@@ -154,9 +154,13 @@ let command =
         in
         lift_deferred (Utils.Scheduler.create worker_connections ~process)
         >>=? fun scheduler ->
-        Deferred.Or_error.List.map ~how:`Sequential worker_connections ~f:(fun _ ->
-          Utils.Scheduler.dispatch scheduler initial_state.path_to_bin
-        )
+        (* We run this 3 more times than the others to gurantee
+         * stability of the distribution of initial execution times.
+         *)
+        Deferred.Or_error.List.init ~how:`Sequential 3 ~f:(fun i ->
+          Log.Global.sexp ~level:`Info
+            [%message "Initial state run " (i : int)];
+          Utils.Scheduler.dispatch scheduler initial_state.path_to_bin)
         >>=? fun initial_execution_times ->
         let initial_execution_time =
           List.concat_map initial_execution_times ~f:(fun stat ->
