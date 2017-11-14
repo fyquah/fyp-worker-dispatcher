@@ -110,6 +110,9 @@ end) = struct
           |> List.map ~f:Time.Span.to_sec
         )
       in
+      Log.Global.sexp ~level:`Info [%message
+        (state : T.state)
+        (mean_exec_time : float)];
       mean_exec_time /. Time.Span.to_sec M.initial_execution_time
     ;;
   end
