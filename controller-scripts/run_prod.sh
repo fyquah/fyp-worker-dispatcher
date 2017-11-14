@@ -26,6 +26,6 @@ cd "$RUNDIR"
 "$CONTROLLER" "$1" \
   -config config.sexp \
   -rundir "$RUNDIR" \
-  -exp-dir ~/prod/experiments/async/cohttp \
-  -bin-name cohttp_async_bench \
-  -args "20000"
+  -exp-dir ~/prod/experiments/normal/almabench \
+  -bin-name almabench \
+  -args ""
