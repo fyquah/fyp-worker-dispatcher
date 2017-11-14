@@ -2,7 +2,7 @@ open Core
 
 type params =
   { config_filename   : string;
-    controller_rundir : string; 
+    controller_rundir : string;
     exp_dir           : string;
     bin_name          : string;
     bin_args          : string;
@@ -22,8 +22,12 @@ let params =
          ~doc:"STRING binary name (without the .ml extension!)"
      and bin_args =
        flag "-args" (required string) ~doc:"STRING arguments"
-     in
+     and debug = flag "-debug" no_arg ~doc:"debug" in
      if Filename.check_suffix bin_name ".ml" then begin
        failwith "Binary name should not contain .ml suffix!"
+     end;
+     if debug then begin
+       Common.shell_echo_default := true;
+       Common.shell_verbose_default := true;
      end;
      { config_filename; controller_rundir; exp_dir; bin_name; bin_args }]

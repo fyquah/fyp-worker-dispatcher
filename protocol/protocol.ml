@@ -97,6 +97,7 @@ module Config = struct
     type t =
       { rundir   : string; (* We will setup overselves *)
         hostname : string;
+        user     : string;
       }
     [@@deriving sexp]
   end

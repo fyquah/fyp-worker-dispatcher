@@ -52,7 +52,7 @@ module Worker_connection = struct
       rpc_connection : Rpc.Connection.t
     }
 
-  type ssh_conn = { hostname: string; rundir: string; }
+  type ssh_conn = { user: string; hostname: string; rundir: string; }
 
   type 'a t =
     | Rpc : 'a rpc_conn -> 'a t
@@ -91,16 +91,16 @@ let run_binary_on_rpc_worker ~hostname ~worker_connection ~path_to_bin =
   | Failed e -> Deferred.return (Error e)
 ;;
 
-let run_binary_on_ssh_worker ~config ~rundir ~hostname ~path_to_bin ~bin_args =
+let run_binary_on_ssh_worker ~config ~rundir ~user ~hostname ~path_to_bin ~bin_args =
   lift_deferred (Unix.getcwd ())
   >>=? fun dir ->
   shell ~dir "scp"
     [ path_to_bin;
-      hostname ^ ":" ^ rundir ^/ "binary.exe";
+      sprintf "%s@%s:%s" user hostname (rundir ^/ "binary.exe");
     ]
   >>=? fun () ->
   Async_shell.run_lines ~working_dir:dir "ssh" [
-    hostname;
+    sprintf "%s@%s" user hostname;
     rundir ^/ "benchmark_binary.sh";
     rundir ^/ "binary.exe";
     Int.to_string (config.Config.num_runs);
@@ -125,7 +125,8 @@ let run_binary_on_worker ~config ~hostname ~conn ~path_to_bin ~bin_args =
     run_binary_on_rpc_worker ~worker_connection ~path_to_bin ~hostname
   | Worker_connection.Ssh (ssh_config : Worker_connection.ssh_conn) ->
     let rundir = ssh_config.rundir in
-    run_binary_on_ssh_worker ~config ~rundir ~hostname ~path_to_bin ~bin_args
+    let user = ssh_config.user in
+    run_binary_on_ssh_worker ~user ~config ~rundir ~hostname ~path_to_bin ~bin_args
 ;;
 
 let init_connection ~hostname ~worker_config =
@@ -134,12 +135,16 @@ let init_connection ~hostname ~worker_config =
     begin
     lift_deferred (Unix.getcwd ())
     >>=? fun cwd ->
+    let user = ssh_config.user in
     let args =
-      [ "worker/benchmark_binary.sh"; (hostname ^ ":" ^ ssh_config.rundir) ]
+      [ "worker/benchmark_binary.sh";
+        (sprintf "%s@%s:%s" user hostname ssh_config.rundir);
+      ]
     in
     shell ~dir:cwd "scp" args >>|? fun () ->
     let rundir = ssh_config.rundir in
-    Worker_connection.Ssh { rundir; hostname; }
+    let user = ssh_config.user in
+    Worker_connection.Ssh { user; rundir; hostname; }
     end
   | Protocol.Config.Rpc_worker rpc_config ->
     lift_deferred (
