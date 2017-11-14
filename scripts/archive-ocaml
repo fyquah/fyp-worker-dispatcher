@@ -1,0 +1,6 @@
+#!/bin/bash
+
+cd "$(dirname "$0")"
+cd ../../ocaml/
+git archive --prefix ocaml/ --format tar HEAD \
+  | gzip > ../ocaml-tarballs/ocaml.tar.gz
