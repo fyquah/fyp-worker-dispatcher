@@ -101,7 +101,7 @@ end) = struct
 
     let energy state =
       let num_workers = Experiment_utils.Scheduler.num_workers M.scheduler in
-      Deferred.Or_error.List.init num_workers ~f:(fun _ ->
+      Deferred.Or_error.List.init num_workers ~how:`Parallel ~f:(fun _ ->
         Experiment_utils.Scheduler.dispatch M.scheduler state.work_unit)
       >>|? fun results ->
       let mean_exec_time =
