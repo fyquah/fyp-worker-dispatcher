@@ -154,6 +154,11 @@ let command =
             ~num_runs ~config ~conn ~path_to_bin
             ~hostname:(Utils.Worker_connection.hostname conn)
             ~bin_args
+          >>|? fun execution_stats ->
+          Log.Global.sexp ~level:`Info [%message
+            (path_to_bin : string)
+            (execution_stats : Protocol.Execution_stats.t)];
+          execution_stats
         in
         lift_deferred (Utils.Scheduler.create worker_connections ~process)
         >>=? fun scheduler ->
