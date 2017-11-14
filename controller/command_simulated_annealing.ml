@@ -109,8 +109,6 @@ let command =
        } = Command_params.params
       in
       fun () ->
-        shell_echo_default := true;
-        shell_verbose_default := true;
         Reader.load_sexp config_filename [%of_sexp: Config.t]
         >>=? fun config ->
         Deferred.Or_error.List.map config.worker_configs ~how:`Parallel

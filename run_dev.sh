@@ -4,9 +4,9 @@ set -euo pipefail
 
 scp _build/default/controller/main.exe \
   fyp--controller@0.0.0.0:~/dev/controller.exe
-scp run_dev_on_controller_user.sh \
+scp controller-scripts/run_dev.sh \
   fyp--controller@0.0.0.0:~/dev/run.sh
-scp dev_config.sexp fyp--controller@0.0.0.0:~/dev/dev_config.sexp
+scp dev_config.sexp fyp--controller@0.0.0.0:~/dev/config.sexp
 scp worker/benchmark_binary.sh fyp--controller@0.0.0.0:~/dev/benchmark_binary.sh
 
 echo "Updating experiments repo"
