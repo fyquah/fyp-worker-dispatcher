@@ -64,7 +64,7 @@ module Make(T: Simulated_annealing_intf.T) = struct
     | None   ->
       Log.Global.sexp ~level:`Info
         [%message "Computing energy for state "
-           (t : t)];
+           (s : T.state)];
       (* TODO: ok_exn is NOT okay *)
       let deferred_energy = T.energy t.state >>| ok_exn in
       let energy_cache =
@@ -74,7 +74,7 @@ module Make(T: Simulated_annealing_intf.T) = struct
     | Some deferred_energy ->
       Log.Global.sexp ~level:`Info
         [%message "Loading energy from cache for state "
-           (t : t)];
+           (s : T.state)];
       t, deferred_energy
   ;;
 
@@ -95,14 +95,11 @@ module Make(T: Simulated_annealing_intf.T) = struct
     let current_state = t.state in
     let t, current_energy = query_energy t current_state in
     assert (t.config.workers >= 1);
-    let%bind possible_next_states =
-      Deferred.List.init t.config.workers ~how:`Sequential
-        ~f:(fun (_ : int) ->
-          T.move ~config:t.config ~step:t.step current_state
-          >>| ok_exn)
+    (* TODO: ok_exn here is NOT okay! *)
+    let%bind next_state =
+      T.move ~config:t.config ~step:t.step current_state
+      >>| ok_exn
     in
-    (* TODO: Parallelism? *)
-    let next_state = List.hd_exn possible_next_states in
     let t, next_energy = query_energy t next_state in
     let%map (current_energy, next_energy) =
       Deferred.both current_energy next_energy

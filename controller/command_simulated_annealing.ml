@@ -100,11 +100,14 @@ end) = struct
     ;;
 
     let energy state =
-      Experiment_utils.Scheduler.dispatch M.scheduler state.work_unit
-      >>|? fun result ->
+      let num_workers = Experiment_utils.Scheduler.num_workers M.scheduler in
+      Deferred.Or_error.List.init num_workers ~f:(fun _ ->
+        Experiment_utils.Scheduler.dispatch M.scheduler state.work_unit)
+      >>|? fun results ->
       let mean_exec_time =
         geometric_mean (
-          List.map ~f:Time.Span.to_sec result.raw_execution_time
+          List.concat_map results ~f:(fun r -> r.raw_execution_time)
+          |> List.map ~f:Time.Span.to_sec
         )
       in
       mean_exec_time /. Time.Span.to_sec M.initial_execution_time
@@ -141,13 +144,17 @@ let command =
         let initial_state = Option.value_exn initial_state in
         let process conn work_unit =
           let path_to_bin = work_unit in
-          Experiment_utils.run_binary_on_worker ~config ~conn ~path_to_bin
+          let num_runs =
+            config.num_runs / List.length config.worker_configs
+          in
+          Experiment_utils.run_binary_on_worker
+            ~num_runs ~config ~conn ~path_to_bin
             ~hostname:(Utils.Worker_connection.hostname conn)
             ~bin_args
         in
         lift_deferred (Utils.Scheduler.create worker_connections ~process)
         >>=? fun scheduler ->
-        Deferred.Or_error.List.map ~how:`Parallel worker_connections ~f:(fun _ ->
+        Deferred.Or_error.List.map ~how:`Sequential worker_connections ~f:(fun _ ->
           Utils.Scheduler.dispatch scheduler initial_state.path_to_bin
         )
         >>=? fun initial_execution_times ->

@@ -1,4 +1,4 @@
-((num_runs 5)
+((num_runs 6)
  (worker_configs
    ((Ssh_worker
      ((rundir /home/fyquah/worker-rundir/0)

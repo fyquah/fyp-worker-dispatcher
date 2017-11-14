@@ -91,7 +91,8 @@ let run_binary_on_rpc_worker ~hostname ~worker_connection ~path_to_bin =
   | Failed e -> Deferred.return (Error e)
 ;;
 
-let run_binary_on_ssh_worker ~config ~rundir ~user ~hostname ~path_to_bin ~bin_args =
+let run_binary_on_ssh_worker
+    ~num_runs ~config ~rundir ~user ~hostname ~path_to_bin ~bin_args =
   lift_deferred (Unix.getcwd ())
   >>=? fun dir ->
   shell ~dir "scp"
@@ -103,7 +104,7 @@ let run_binary_on_ssh_worker ~config ~rundir ~user ~hostname ~path_to_bin ~bin_a
     sprintf "%s@%s" user hostname;
     rundir ^/ "benchmark_binary.sh";
     rundir ^/ "binary.exe";
-    Int.to_string (config.Config.num_runs);
+    Int.to_string num_runs;
     bin_args;
   ]
   >>= function
@@ -119,14 +120,14 @@ let run_binary_on_ssh_worker ~config ~rundir ~user ~hostname ~path_to_bin ~bin_a
     )
 ;;
 
-let run_binary_on_worker ~config ~hostname ~conn ~path_to_bin ~bin_args =
+let run_binary_on_worker ~num_runs ~config ~hostname ~conn ~path_to_bin ~bin_args =
   match conn with
   | Worker_connection.Rpc worker_connection ->
     run_binary_on_rpc_worker ~worker_connection ~path_to_bin ~hostname
   | Worker_connection.Ssh (ssh_config : Worker_connection.ssh_conn) ->
     let rundir = ssh_config.rundir in
     let user = ssh_config.user in
-    run_binary_on_ssh_worker ~user ~config ~rundir ~hostname ~path_to_bin ~bin_args
+    run_binary_on_ssh_worker ~num_runs ~user ~config ~rundir ~hostname ~path_to_bin ~bin_args
 ;;
 
 let init_connection ~hostname ~worker_config =
