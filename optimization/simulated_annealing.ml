@@ -40,8 +40,8 @@ module Make(T: Simulated_annealing_intf.T) = struct
 
   let default_config =
     { Common.
-      t_max = 25_000.0;
-      t_min = 2.5;
+      t_max = 0.1;
+      t_min = 0.003;
       updates = 100;
       steps = 1000;
       workers = 1;
