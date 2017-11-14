@@ -139,7 +139,6 @@ let command =
         let module Annealer = Make_annealer(struct
           let bin_name = bin_name
           let exp_dir = exp_dir
-          (* TODO: Measure some kind of initial execution time! *)
           let initial_execution_time = initial_execution_time
           let scheduler = scheduler
         end)
