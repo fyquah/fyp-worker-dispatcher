@@ -13,7 +13,7 @@ module Initial_state = struct
 end
 
 let get_initial_state ~bin_name ~exp_dir ~base_overrides () =
-  shell ~verbose:true ~dir:exp_dir "make" [ "clean" ] >>=? fun () ->
+  shell ~dir:exp_dir "make" [ "clean" ] >>=? fun () ->
   lift_deferred (
     Writer.save_sexp (exp_dir ^/ "overrides.sexp")
       ([%sexp_of: Data_collector.t list] base_overrides)
@@ -26,10 +26,10 @@ let get_initial_state ~bin_name ~exp_dir ~base_overrides () =
   Reader.load_sexp filename [%of_sexp: Data_collector.t list]
   >>=? fun decisions ->
   let filename = Filename.temp_file "fyp-" ("-" ^ bin_name) in
-  shell ~echo:true ~verbose:true ~dir:exp_dir
+  shell ~dir:exp_dir
     "cp" [ (bin_name ^ ".native"); filename ]
   >>=? fun () ->
-  shell ~echo:true ~dir:exp_dir "chmod" [ "755"; filename ]
+  shell ~dir:exp_dir "chmod" [ "755"; filename ]
   >>|? fun () ->
   match decisions with
   | _ :: _ ->
@@ -94,12 +94,12 @@ let run_binary_on_rpc_worker ~hostname ~worker_connection ~path_to_bin =
 let run_binary_on_ssh_worker ~config ~rundir ~hostname ~path_to_bin ~bin_args =
   lift_deferred (Unix.getcwd ())
   >>=? fun dir ->
-  shell ~echo:true ~dir "scp"
+  shell ~dir "scp"
     [ path_to_bin;
       hostname ^ ":" ^ rundir ^/ "binary.exe";
     ]
   >>=? fun () ->
-  Async_shell.run_lines ~echo:true ~working_dir:dir "ssh" [
+  Async_shell.run_lines ~working_dir:dir "ssh" [
     hostname;
     rundir ^/ "benchmark_binary.sh";
     rundir ^/ "binary.exe";

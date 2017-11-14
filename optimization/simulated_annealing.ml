@@ -60,6 +60,9 @@ module Make(T: Simulated_annealing_intf.T) = struct
   let query_energy t s =
     match T.Map.find t.energy_cache s with
     | None   ->
+      Log.Global.sexp ~level:`Info
+        [%message "Computing energy for state "
+           (t : t)];
       (* TODO: ok_exn is NOT okay *)
       let deferred_energy = T.energy t.state >>| ok_exn in
       let energy_cache =
@@ -67,6 +70,9 @@ module Make(T: Simulated_annealing_intf.T) = struct
       in
       { t with energy_cache }, deferred_energy
     | Some deferred_energy ->
+      Log.Global.sexp ~level:`Info
+        [%message "Loading energy from cache for state "
+           (t : t)];
       t, deferred_energy
   ;;
 

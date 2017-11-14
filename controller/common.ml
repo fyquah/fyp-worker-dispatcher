@@ -58,8 +58,13 @@ module Call_site_offset = struct
   let compare a b = Int.compare (to_int a) (to_int b)
 end
 
-let shell ?(env = []) ?(echo = false) ?(verbose = false) ~dir:working_dir
+let shell_echo_default = ref false
+let shell_verbose_default = ref false
+
+let shell ?(env = []) ?(echo) ?(verbose) ~dir:working_dir
     prog args =
+  let echo = Option.value ~default:!shell_echo_default echo in
+  let verbose = Option.value ~default:!shell_verbose_default verbose in
   Monitor.try_with_or_error (fun () ->
       let env = `Extend env in
       Async_shell.run ~echo ~verbose ~working_dir ~env prog args)
@@ -92,7 +97,7 @@ let filter_decisions (decisions : Data_collector.t list) =
 let lift_deferred m = Deferred.(m >>| fun x -> Core.Or_error.return x)
 
 let geometric_mean l =
-  let power = float_of_int (List.length l) in
+  let power = 1.0 /. float_of_int (List.length l) in
   let base = List.fold l ~init:1.0 ~f:(fun a b -> a *. b) in
   base ** power
 ;;

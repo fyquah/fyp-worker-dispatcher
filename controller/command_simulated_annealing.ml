@@ -53,7 +53,7 @@ end) = struct
       let new_tree =
         Inlining_tree.Top_level.flip_several_leaves current_tree [ choice ]
       in
-      shell ~echo:true ~verbose:true ~dir:M.exp_dir "make" [ "clean" ]
+      shell ~dir:M.exp_dir "make" [ "clean" ]
       >>=? fun () ->
       let overrides = Inlining_tree.Top_level.to_override_rules new_tree in
       lift_deferred (
@@ -61,13 +61,13 @@ end) = struct
           ([%sexp_of: Data_collector.t list] overrides)
       )
       >>=? fun () ->
-      shell ~verbose:true ~dir:M.exp_dir "make" [ "all" ]
+      shell ~dir:M.exp_dir "make" [ "all" ]
       >>=? fun () ->
       let filename = Filename.temp_file "fyp-" ("-" ^ M.bin_name) in
-      shell ~echo:true ~verbose:true ~dir:M.exp_dir
+      shell ~dir:M.exp_dir
         "cp" [ (M.bin_name ^ ".native"); filename ]
       >>=? fun () ->
-      shell ~echo:true ~dir:M.exp_dir "chmod" [ "755"; filename ]
+      shell ~dir:M.exp_dir "chmod" [ "755"; filename ]
       >>=? fun () ->
       Reader.load_sexp (M.exp_dir ^/ (M.bin_name ^ ".0.data_collector.sexp"))
         [%of_sexp: Data_collector.t list]
@@ -83,10 +83,12 @@ end) = struct
     let energy state =
       Experiment_utils.Scheduler.dispatch M.scheduler state.work_unit
       >>|? fun result ->
-      geometric_mean (
-        List.map ~f:(fun t -> Time.Span.(t // M.initial_execution_time))
-          result.raw_execution_time
-      )
+      let mean_exec_time =
+        geometric_mean (
+          List.map ~f:Time.Span.to_sec result.raw_execution_time
+        )
+      in
+      mean_exec_time /. Time.Span.to_sec M.initial_execution_time
     ;;
   end
 
@@ -126,7 +128,7 @@ let command =
         in
         lift_deferred (Utils.Scheduler.create worker_connections ~process)
         >>=? fun scheduler ->
-        Deferred.Or_error.List.map worker_connections ~f:(fun _ ->
+        Deferred.Or_error.List.map ~how:`Parallel worker_connections ~f:(fun _ ->
           Utils.Scheduler.dispatch scheduler initial_state.path_to_bin
         )
         >>=? fun initial_execution_times ->
@@ -136,6 +138,8 @@ let command =
           |> geometric_mean
           |> Time.Span.of_sec
         in
+        printf !"Initial Execution Time = %{Time.Span}\n"
+          initial_execution_time;
         let module Annealer = Make_annealer(struct
           let bin_name = bin_name
           let exp_dir = exp_dir

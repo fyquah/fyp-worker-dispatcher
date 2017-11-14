@@ -252,7 +252,14 @@ let add (top_level_tree : Top_level.t) (collected : Data_collector.t) =
         Apply_inlined_function { inlined_function with children }
 
       | Apply_non_inlined_function _ ->
-        failwith "Inconsistent assumption"
+        tree
+        (* It is possible, due to the nature of the [inline] function. It
+         * inlines the contents of the function body before trying to
+         * deciding to inline the function itself.
+         *
+         * In cases as such, the parent takes higher priority (which should
+         * contain an equally pessimistic or more pessimistic decision).
+         *)
 
   and add__call_site
       (tree : t)
@@ -315,7 +322,7 @@ let add (top_level_tree : Top_level.t) (collected : Data_collector.t) =
       Apply_inlined_function { inlined_function with children }
 
     | Apply_non_inlined_function _ ->
-      failwith "Inconsistent assumption"
+      tree
   in
   let closure =
     let ident = Fyp_compiler_lib.Ident.create_persistent "<none>" in
