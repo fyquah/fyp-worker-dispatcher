@@ -26,6 +26,6 @@ cd "$RUNDIR"
 "$CONTROLLER" "$1" \
   -config config.sexp \
   -rundir "$RUNDIR" \
-  -exp-dir ~/prod/experiments/normal/almabench \
-  -bin-name almabench \
-  -args ""
+  -exp-dir ~/prod/experiments/async/async-floating-point \
+  -bin-name async_floating_point \
+  -args "2500000"

@@ -206,6 +206,10 @@ let command =
           let sexp = Annealer.sexp_of_t state in
           printf "Step %d:\n%s\n" state.step (Sexp.to_string_hum sexp);
           Annealer.step state
-          >>| fun next -> `Repeat next
+          >>| fun next ->
+          if next.step >= next.config.steps then
+            `Repeat next
+          else
+            `Finished (Ok ())
         )
     ]
