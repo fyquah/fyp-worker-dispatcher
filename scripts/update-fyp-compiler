@@ -1,0 +1,10 @@
+#!/bin/bash
+
+SCRIPTS_DIR="$(dirname "$0")"
+
+$SCRIPTS_DIR/archive-ocaml
+ssh fyp--controller@0.0.0.0 opam switch system
+ssh fyp--controller@0.0.0.0 opam switch remove 4.05.0+fyp
+ssh fyp--controller@0.0.0.0 opam switch install 4.05.0+fyp
+ssh fyp--controller@0.0.0.0 opam switch 4.05.0+fyp
+ssh fyp--controller@0.0.0.0 "source ~/.bashrc && opam install -y core cohttp.async"
