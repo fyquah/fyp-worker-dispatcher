@@ -88,16 +88,27 @@ end) = struct
       let num_leaves = Inlining_tree.Top_level.count_leaves current_tree in
       (* flip between 1 to 3 leaves *)
       let new_tree =
-        if Random.bool () then
-          let modified_leaves = Int.min num_leaves (Random.int 3 + 1) in
-          let choices =
-            unique_random_from_list ~count:modified_leaves
-              (List.init num_leaves ~f:Fn.id)
-          in
-          Inlining_tree.Top_level.flip_several_leaves current_tree choices
-        else
-          let leaf = Random.int num_leaves in
-          Inlining_tree.Top_level.backtrack_nth_leaf current_tree leaf
+        let rec make () =
+          if Random.bool () then
+            let modified_leaves = Int.min num_leaves (Random.int 3 + 1) in
+            let choices =
+              unique_random_from_list ~count:modified_leaves
+                (List.init num_leaves ~f:Fn.id)
+            in
+            Inlining_tree.Top_level.flip_several_leaves current_tree choices
+          else
+            let leaf = Random.int num_leaves in
+            match
+              Inlining_tree.Top_level.backtrack_nth_leaf current_tree leaf
+            with
+            | None ->
+              Log.Global.sexp ~level:`Info [%message "Failed to backtrack!"];
+              make ()
+            | Some transformed ->
+              Log.Global.sexp ~level:`Info [%message "Back track possible!!"];
+              transformed
+        in
+        make ()
       in
       shell ~dir:M.exp_dir "make" [ "clean" ]
       >>=? fun () ->

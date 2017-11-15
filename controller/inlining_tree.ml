@@ -163,11 +163,11 @@ module Top_level = struct
           | `Leaf_visited i -> `Leaf_visited i
     in
     match loop_nodes ~state:n ~nodes:root with
-    | `Candidate -> failwith "Candidate somehow propogated to top level"
+    | `Candidate -> None
     | `Leaf_visited i ->
       failwithf "Cannot visit leaf %d from in a tree with %d leaves"
         i n ()
-    | `Replaced new_tree -> new_tree
+    | `Replaced new_tree -> Some new_tree
   ;;
 
   let flip_several_leaves root indices =
