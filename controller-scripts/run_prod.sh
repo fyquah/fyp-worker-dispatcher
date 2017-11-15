@@ -29,4 +29,4 @@ cd "$RUNDIR"
   -rundir "$RUNDIR" \
   -exp-dir ~/prod/experiments/normal/floats-in-functor \
   -bin-name b \
-  -args "600000000 3.0"
+  -args "30000000 3.0"
