@@ -100,13 +100,13 @@ let run_binary_on_ssh_worker
       sprintf "%s@%s:%s" user hostname (rundir ^/ "binary.exe");
     ]
   >>=? fun () ->
-  Async_shell.run_lines ~working_dir:dir "ssh" [
+  Async_shell.run_lines ~working_dir:dir "ssh" ([
     sprintf "%s@%s" user hostname;
     rundir ^/ "benchmark_binary.sh";
     rundir ^/ "binary.exe";
     Int.to_string num_runs;
     bin_args;
-  ]
+  ])
   >>= function
   | [] -> Deferred.Or_error.error_s [%message "Something went wrong"]
   | lines ->
