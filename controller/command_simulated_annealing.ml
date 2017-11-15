@@ -168,6 +168,8 @@ end) = struct
       Log.Global.sexp ~level:`Info [%message
         (state : T.state)
         (mean_exec_time : float)];
+      lift_deferred (Async_shell.mkdir ~p:() dump_directory)
+      >>=? fun () ->
       lift_deferred (
         Writer.save_sexp (dump_directory ^/ "results.sexp")
           ([%sexp_of: Protocol.Execution_stats.t list] results)
