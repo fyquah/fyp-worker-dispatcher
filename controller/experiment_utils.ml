@@ -92,7 +92,7 @@ let run_binary_on_rpc_worker ~hostname ~worker_connection ~path_to_bin =
 ;;
 
 let run_binary_on_ssh_worker
-    ~num_runs ~config ~rundir ~user ~hostname ~path_to_bin ~bin_args =
+    ~num_runs ~config:_ ~rundir ~user ~hostname ~path_to_bin ~bin_args =
   lift_deferred (Unix.getcwd ())
   >>=? fun dir ->
   shell ~dir "scp"

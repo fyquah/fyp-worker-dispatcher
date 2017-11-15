@@ -63,14 +63,18 @@ end) = struct
       ignore config;
       let current_tree = state.tree in
       let num_leaves = Inlining_tree.Top_level.count_leaves current_tree in
-      let choices =
-        (* flip between 1 to 3 leaves *)
-        unique_random_from_list
-          ~count:(Int.min num_leaves (Random.int 3 + 1))
-          (List.init num_leaves ~f:Fn.id)
-      in
+      (* flip between 1 to 3 leaves *)
       let new_tree =
-        Inlining_tree.Top_level.flip_several_leaves current_tree choices
+        if Random.bool () then
+          let modified_leaves = Int.min num_leaves (Random.int 3 + 1) in
+          let choices =
+            unique_random_from_list ~count:modified_leaves
+              (List.init num_leaves ~f:Fn.id)
+          in
+          Inlining_tree.Top_level.flip_several_leaves current_tree choices
+        else
+          let leaf = Random.int num_leaves in
+          Inlining_tree.Top_level.backtrack_nth_leaf current_tree leaf
       in
       shell ~dir:M.exp_dir "make" [ "clean" ]
       >>=? fun () ->

@@ -122,6 +122,54 @@ module Top_level = struct
     | `Replaced new_tree -> new_tree
   ;;
 
+  let backtrack_nth_leaf root n =
+    let rec loop ~state ~node =
+      if is_leaf node then begin
+        match state with
+        | 0 -> `Candidate
+        | state -> `Leaf_visited (state - 1)
+      end else begin
+        match node with
+        | Apply_non_inlined_function _ -> assert false
+        | Declaration decl ->
+          begin match loop_nodes ~state ~nodes:decl.children with
+          | `Leaf_visited i -> `Leaf_visited i
+          | `Candidate -> `Candidate
+          | `Replaced children ->
+            `Replaced (Declaration { decl with children })
+          end
+        | Apply_inlined_function inlined ->
+          begin match loop_nodes ~state ~nodes:inlined.children with
+          | `Leaf_visited i -> `Leaf_visited i
+          | `Candidate ->
+            let applied = inlined.applied in
+            let offset = inlined.offset in
+            `Replaced (Apply_non_inlined_function { applied; offset; })
+          | `Replaced children ->
+            `Replaced (Apply_inlined_function { inlined with children })
+          end
+      end
+    and loop_nodes ~state ~nodes =
+      match nodes with
+      | [] -> `Leaf_visited state
+      | hd :: tl ->
+        match loop ~state ~node:hd with
+        | `Candidate -> `Candidate
+        | `Replaced node -> `Replaced (node :: tl)
+        | `Leaf_visited i ->
+          match loop_nodes ~state:i ~nodes:tl with
+          | `Candidate -> `Candidate
+          | `Replaced tl -> `Replaced (hd :: tl)
+          | `Leaf_visited i -> `Leaf_visited i
+    in
+    match loop_nodes ~state:n ~nodes:root with
+    | `Candidate -> failwith "Candidate somehow propogated to top level"
+    | `Leaf_visited i ->
+      failwithf "Cannot visit leaf %d from in a tree with %d leaves"
+        i n ()
+    | `Replaced new_tree -> new_tree
+  ;;
+
   let flip_several_leaves root indices =
     List.fold indices ~init:root ~f:flip_nth_leaf
   ;;
