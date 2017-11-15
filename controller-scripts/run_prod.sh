@@ -26,6 +26,6 @@ cd "$RUNDIR"
 "$CONTROLLER" "$1" \
   -config config.sexp \
   -rundir "$RUNDIR" \
-  -exp-dir ~/prod/experiments/async/async-floating-point \
-  -bin-name async_floating_point \
-  -args "2500000"
+  -exp-dir ~/prod/experiments/normal/floats-in-functor \
+  -bin-name main \
+  -args "500000000 1000.0"
