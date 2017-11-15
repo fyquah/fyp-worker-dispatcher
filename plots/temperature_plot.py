@@ -3,10 +3,10 @@ import math
 import matplotlib.pyplot as plt
 
 
-t_max = 0.100
-t_min = 0.003
-steps = 1000
-expected_change = 0.10
+t_max = 0.04
+t_min = 0.0005
+steps = 300
+expected_change = 0.01
 
 def calc_p(step, change):
   t_factor = -math.log(t_max / t_min)
