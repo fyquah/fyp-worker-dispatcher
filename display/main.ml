@@ -63,7 +63,8 @@ let command_merge_results =
          @ results_2.benchmark.raw_execution_time
        in
        let worker_hostname = None in
-       { Protocol.Execution_stats. worker_hostname; raw_execution_time; }
+       { Protocol.Execution_stats.
+         worker_hostname; raw_execution_time; gc_stats = ""; }
      in
      let merged = { results_1 with path_to_bin = None; benchmark } in
      let stdout = Lazy.force Writer.stdout in

@@ -115,9 +115,14 @@ let run_binary_on_ssh_worker
           Time.Span.of_sec (Float.of_string line))
     in
     let worker_hostname = Some hostname in
-    Deferred.Or_error.return (
-      { Execution_stats. raw_execution_time; worker_hostname; }
-    )
+    Async_shell.run_full ~working_dir:dir "ssh" [
+      sprintf "%s@%s" user hostname;
+      rundir ^/ "get_gc_stats.sh";
+      rundir ^/ "binary.exe";
+      bin_args;
+    ]
+    >>| fun gc_stats ->
+    Ok ({ Execution_stats. raw_execution_time; worker_hostname; gc_stats; })
 ;;
 
 let run_binary_on_worker ~num_runs ~config ~hostname ~conn ~path_to_bin ~bin_args =
@@ -139,6 +144,12 @@ let init_connection ~hostname ~worker_config =
     let user = ssh_config.user in
     let args =
       [ "worker/benchmark_binary.sh";
+        (sprintf "%s@%s:%s" user hostname ssh_config.rundir);
+      ]
+    in
+    shell ~dir:cwd "scp" args >>=? fun () ->
+    let args =
+      [ "worker/get_gc_stats.sh";
         (sprintf "%s@%s:%s" user hostname ssh_config.rundir);
       ]
     in

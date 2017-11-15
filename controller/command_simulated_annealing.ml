@@ -159,9 +159,11 @@ let command =
             ~hostname:(Utils.Worker_connection.hostname conn)
             ~bin_args
           >>|? fun execution_stats ->
+          let raw_execution_time = execution_stats.raw_execution_time in
           Log.Global.sexp ~level:`Info [%message
             (path_to_bin : string)
-            (execution_stats : Protocol.Execution_stats.t)];
+            (raw_execution_time : Time.Span.t list)];
+          Log.Global.info "%s\n" execution_stats.gc_stats;
           execution_stats
         in
         lift_deferred (Utils.Scheduler.create worker_connections ~process)
