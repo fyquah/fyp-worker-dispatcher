@@ -134,12 +134,14 @@ end) = struct
 
       let sub_id = get_sub_id step in
       let dump_directory = dump_directory_name ~step ~sub_id in
+      let copy_with_wildcard src dest =
+        shell ~dir:M.exp_dir "bash" [ "-c"; sprintf "cp -f %s %s" src dest ]
+      in
       lift_deferred (Async_shell.mkdir ~p:() dump_directory)
-      >>=? fun () -> shell ~dir:M.exp_dir "cp" [ data_collector_file; dump_directory ]
-      >>=? fun () -> shell ~dir:M.exp_dir "cp" [ M.exp_dir ^/ "*.s"; dump_directory ]
-      >>=? fun () -> shell ~dir:M.exp_dir "cp" [ M.exp_dir ^/ "flambda.out"; dump_directory ]
+      >>=? fun () -> copy_with_wildcard data_collector_file dump_directory
+      >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "*.s") dump_directory
+      >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "flambda.out") dump_directory
       >>=? fun () ->
-
       (* TODO: This is incredibly expensive -- there is a lot of potential
        * for tree structure sharing here.
        *)
