@@ -8,7 +8,12 @@ module Utils = Experiment_utils
 module SA = Optimization.Simulated_annealing
 
 module Work_unit = struct
-  type t = string [@@deriving sexp]
+  type t =
+    { path_to_bin : string;
+      step : int;
+      sub_id : int;
+    }
+  [@@deriving sexp]
 end
 
 module Make_annealer(M: sig
@@ -19,6 +24,8 @@ module Make_annealer(M: sig
     (Work_unit.t,
      Execution_stats.t Or_error.t,
      Socket.Address.Inet.t) Utils.Scheduler.t
+
+  val run_dir : string
 
   val exp_dir : string
 
@@ -58,6 +65,22 @@ end) = struct
       loop ~choices:(Int.Set.of_list choices) ~left:count
     ;;
 
+    let step_table = Int.Table.create ()
+
+    let get_sub_id step =
+      let r = ref 0 in
+      begin
+      Int.Table.update step_table step ~f:(function
+          | None -> r := 0; 1
+          | Some x -> r := x; x + 1)
+      end;
+      !r
+    ;;
+
+    let dump_directory_name ~step ~sub_id=
+      M.run_dir ^/ "opt_data" ^/ Int.to_string step ^/ Int.to_string sub_id
+    ;;
+
     let move ~(step : int) ~(config: SA.Common.config) state =
       ignore step;
       ignore config;
@@ -92,14 +115,25 @@ end) = struct
       >>=? fun () ->
       shell ~dir:M.exp_dir "chmod" [ "755"; filename ]
       >>=? fun () ->
-      Reader.load_sexp (M.exp_dir ^/ (M.bin_name ^ ".0.data_collector.sexp"))
-        [%of_sexp: Data_collector.t list]
+      let data_collector_file =
+        M.exp_dir ^/ (M.bin_name ^ ".0.data_collector.sexp")
+      in
+      Reader.load_sexp data_collector_file [%of_sexp: Data_collector.t list]
       >>=? fun executed_decisions ->
+
+      let sub_id = get_sub_id step in
+      let dump_directory = dump_directory_name ~step ~sub_id in
+      lift_deferred (Async_shell.mkdir ~p:() dump_directory)
+      >>=? fun () -> shell ~dir:M.exp_dir "cp" [ data_collector_file; dump_directory ]
+      >>=? fun () -> shell ~dir:M.exp_dir "cp" [ M.exp_dir ^/ "*.s"; dump_directory ]
+      >>=? fun () -> shell ~dir:M.exp_dir "cp" [ M.exp_dir ^/ "flambda.out"; dump_directory ]
+      >>=? fun () ->
+
       (* TODO: This is incredibly expensive -- there is a lot of potential
        * for tree structure sharing here.
        *)
       let tree = Inlining_tree.build executed_decisions in
-      let work_unit = filename in
+      let work_unit = { Work_unit. path_to_bin = filename; step; sub_id } in
       Deferred.Or_error.return { T. tree; work_unit; }
     ;;
 
@@ -107,16 +141,25 @@ end) = struct
       let num_workers = Experiment_utils.Scheduler.num_workers M.scheduler in
       Deferred.Or_error.List.init num_workers ~how:`Parallel ~f:(fun _ ->
         Experiment_utils.Scheduler.dispatch M.scheduler state.work_unit)
-      >>|? fun results ->
+      >>=? fun results ->
       let mean_exec_time =
         geometric_mean (
           List.concat_map results ~f:(fun r -> r.raw_execution_time)
           |> List.map ~f:Time.Span.to_sec
         )
       in
+      let work_unit = state.work_unit in
+      let step = work_unit.step in
+      let sub_id = work_unit.sub_id in
+      let dump_directory = dump_directory_name ~step ~sub_id in
       Log.Global.sexp ~level:`Info [%message
         (state : T.state)
         (mean_exec_time : float)];
+      lift_deferred (
+        Writer.save_sexp (dump_directory ^/ "results.sexp")
+          ([%sexp_of: Protocol.Execution_stats.t list] results)
+      )
+      >>|? fun () ->
       mean_exec_time /. Time.Span.to_sec M.initial_execution_time
     ;;
   end
@@ -150,7 +193,7 @@ let command =
         >>=? fun initial_state ->
         let initial_state = Option.value_exn initial_state in
         let process conn work_unit =
-          let path_to_bin = work_unit in
+          let path_to_bin = work_unit.Work_unit.path_to_bin in
           let num_runs =
             config.num_runs / List.length config.worker_configs
           in
@@ -177,7 +220,11 @@ let command =
           Deferred.Or_error.List.init (List.length config.worker_configs)
             ~how:`Parallel
             ~f:(fun _ ->
-              Utils.Scheduler.dispatch scheduler initial_state.path_to_bin))
+              let path_to_bin = initial_state.path_to_bin in
+              let work_unit =
+                { Work_unit. path_to_bin; step = -1; sub_id = 0; }
+              in
+              Utils.Scheduler.dispatch scheduler work_unit))
         >>=? fun initial_execution_times ->
         let initial_execution_times =
           List.concat_no_order initial_execution_times
@@ -195,11 +242,15 @@ let command =
           let exp_dir = exp_dir
           let initial_execution_time = initial_execution_time
           let scheduler = scheduler
+          let run_dir = controller_rundir
         end)
         in
         let state =
           let tree = initial_state.traversal_state.tree_root in
-          let work_unit = initial_state.path_to_bin in
+          let path_to_bin = initial_state.path_to_bin in
+          let work_unit =
+            { Work_unit. path_to_bin; step = 0; sub_id = -1; }
+          in
           let initial = { Annealer.T. tree; work_unit; } in
           let t = Annealer.empty initial in
           let energy_cache =
