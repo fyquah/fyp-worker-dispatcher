@@ -27,5 +27,5 @@ cd "$RUNDIR"
   -config config.sexp \
   -rundir "$RUNDIR" \
   -exp-dir ~/prod/experiments/normal/floats-in-functor \
-  -bin-name main \
+  -bin-name b \
   -args "500000000 1000.0"
