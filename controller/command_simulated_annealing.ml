@@ -208,8 +208,8 @@ let command =
           Annealer.step state
           >>| fun next ->
           if next.step >= next.config.steps then
-            `Repeat next
-          else
             `Finished (Ok ())
+          else
+            `Repeat next
         )
     ]
