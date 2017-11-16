@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "Switching off connection to college network , switching on \
+  local connection"
 nmcli conn down "eduroam"
 nmcli conn down "Imperial-WPA"
 
@@ -10,18 +12,46 @@ sleep 1.0
 # with non fatal errors.
 set -euo pipefail
 
-scp _build/default/controller/main.exe \
-  fyp--controller@0.0.0.0:~/prod/controller.exe
-scp controller-scripts/run_prod.sh \
-  fyp--controller@0.0.0.0:~/prod/run.sh
-scp prod_config.sexp fyp--controller@0.0.0.0:~/prod/config.sexp
-scp worker/benchmark_binary.sh fyp--controller@0.0.0.0:~/prod/benchmark_binary.sh
-scp worker/get_gc_stats.sh fyp--controller@0.0.0.0:~/prod/get_gc_stats.sh
+export OPAMROOT=$HOME/fyp/opam-root/
+eval `opam config env`
+opam switch 4.05.0+fyp
 
-echo "Updating experiments repo"
-ssh fyp--controller@0.0.0.0 "cd /home/fyp--controller/prod/experiments; pwd && git checkout -- . && git pull"
+echo "Default OCAMLOPT = `which ocamlopt`"
+echo "Algorithm = $1"
 
-echo "Running controller"
-ssh fyp--controller@0.0.0.0 \
-  "cd /home/fyp--controller/prod/; pwd; ./run.sh \"$1\""
+if [ "$1" = "" ]; then
+  echo "Must provide controller optimization algorithm"
+  exit 1
+fi
 
+# Don't run production cycle if code doesn't compile --- duh.
+make controller
+
+RUNDIR=~/fyp/prod/rundir/$(ocamlnow)
+EXPERIMENTS_DIR=$RUNDIR/experiments
+
+mkdir -p $RUNDIR
+
+if [ ! -d "$EXPERIMENTS_DIR" ]; then
+  git clone ~/fyp/experiments "$EXPERIMENTS_DIR"
+fi
+
+bash -c "cd $EXPERIMENTS_DIR && git pull"
+
+cp config.sexp $RUNDIR/config.sexp
+
+nohup jbuilder exec controller -- \
+  "$1" \
+  -config "$RUNDIR/config.sexp" \
+  -rundir "$RUNDIR" \
+  -exp-dir "$EXPERIMENTS_DIR/normal/almabench" \
+  -bin-name almabench \
+  -args "" \
+  1>$RUNDIR/stdout.log 2>$RUNDIR/stderr.log &
+
+PID="$!"
+
+echo "$PID" >tmp/controller.pid
+echo "$RUNDIR" >tmp/controller.rundir
+
+echo "Piping controller stdout and stderr to $RUNDIR/stdout.log and $RUNDIR/stderr.log"
