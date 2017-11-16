@@ -17,7 +17,7 @@ echo $PATH
 
 RUNDIR=~/prod/rundir/$(ocamlnow)
 
-mkdir -p tmp/
+mkdir -p tmp/dev/
 
 cp config.sexp $RUNDIR/config.sexp
 
@@ -32,8 +32,8 @@ nohup jbuilder exec controller -- \
 
 PID=$!
 
-echo $PID >tmp/controller.pid
-echo $RUNDIR >tmp/controller.rundir
+echo $PID >tmp/dev/controller.pid
+echo $RUNDIR >tmp/dev/controller.rundir
 
 echo "PID = $PID"
 echo "RUNDIR = $RUNDIR"
