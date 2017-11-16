@@ -1,0 +1,8 @@
+#!/bin/bash
+
+export OPAMROOT=$HOME/fyp/opam-root/
+
+opam init -n
+opam repo add opam-repo-dev $HOME/fyp/opam-repo-dev
+opam switch install 4.05.0+fyp
+opam switch 4.05.0+fyp
