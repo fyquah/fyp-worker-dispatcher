@@ -180,6 +180,18 @@ end) = struct
   end
 
   include SA.Make(T2)
+
+  let step t =
+    let dump_directory = T2.dump_directory_name ~step:t.step ~sub_id:(-1) in
+    let%bind () =
+      Writer.save_sexp (dump_directory ^/ "state.sexp") ([%sexp_of: t] t)
+    in
+    let%bind () =
+      Writer.save_sexp (dump_directory ^/ "inlining_tree.sexp")
+        ([%sexp_of: Inlining_tree.Top_level.t] t.state.tree)
+    in
+    step t
+  ;;
 end
 
 let command =
