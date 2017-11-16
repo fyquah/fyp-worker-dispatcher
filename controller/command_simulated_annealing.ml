@@ -78,7 +78,17 @@ end) = struct
     ;;
 
     let dump_directory_name ~step ~sub_id=
-      M.run_dir ^/ "opt_data" ^/ Int.to_string step ^/ Int.to_string sub_id
+      let step =
+        match step with
+        | -1 -> "initial"
+        | x -> Int.to_string x
+      in
+      let sub_id =
+        match sub_id with
+        | -1 -> "current"
+        | x -> Int.to_string x
+      in
+      M.run_dir ^/ "opt_data" ^/ step ^/ sub_id
     ;;
 
     let move ~(step : int) ~(config: SA.Common.config) state =
