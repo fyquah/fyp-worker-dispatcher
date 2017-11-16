@@ -4,4 +4,4 @@
  ((name        protocol)
   (preprocess (pps (ppx_jane  ppx_driver.runner)))
   (libraries
-    (core async fyp_compiler_lib))))
+    (core async fyp_compiler_lib re2))))

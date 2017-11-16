@@ -64,7 +64,9 @@ let command_merge_results =
        in
        let worker_hostname = None in
        { Protocol.Execution_stats.
-         worker_hostname; raw_execution_time; gc_stats = ""; }
+         worker_hostname; raw_execution_time; gc_stats = "";
+         parsed_gc_stats = None;
+       }
      in
      let merged = { results_1 with path_to_bin = None; benchmark } in
      let stdout = Lazy.force Writer.stdout in
@@ -223,6 +225,7 @@ let command_plot_over_iterations =
     [%map_open
      let filelist = flag "-filelist" (required file) ~doc:"FILE filelist"
      and common_prefix = flag "-common-prefix" (required string) ~doc:"STRING"
+     and output_file = flag "-output" (required file) ~doc:"PATH"
      in
      fun () ->
        let open Deferred.Let_syntax in
@@ -240,7 +243,7 @@ let command_plot_over_iterations =
            | _ -> failwith "bla")
          |> List.sort ~cmp:(fun (_, a1, a2) (_, b1, b2) ->
              let x = Int.compare a1 b1 in
-             if x = 0 then Int.compare b1 b2 else x)
+             if x = 0 then Int.compare a2 b2 else x)
          |> List.map ~f:(fun (a, _, _) -> a)
        in
        let%bind execution_times =
@@ -256,16 +259,29 @@ let command_plot_over_iterations =
              Fyp_stats.geometric_mean result)
        in
        let execution_times = Array.of_list execution_times in
-       Owl.Plot.plot
-         (Bigarray.Array2.of_array
-             Bigarray.float64
-             Bigarray.c_layout
-             (Array.create ~len:1
-               (Array.init (Array.length execution_times) ~f:Float.of_int)))
-         (Bigarray.Array2.of_array
-             Bigarray.float64
-             Bigarray.c_layout
-             (Array.create ~len:1 execution_times));
+       let module Plot = Owl.Plot in
+       let h = Plot.create output_file in
+       let simple_plot ~h ~spec a b =
+        Plot.plot ~h ~spec
+         (Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout
+           (Array.create ~len:1 a))
+         (Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout
+           (Array.create ~len:1 b))
+       in
+       Plot.set_foreground_color h 0 0 0;
+       Plot.set_background_color h 255 255 255;
+       Plot.set_title h "Iteration vs Performance";
+       Plot.set_xlabel h "Iteration";
+       Plot.set_ylabel h "Performance";
+
+       simple_plot ~h ~spec:[ RGB (0, 0, 255); LineStyle 1; Marker "+" ]
+        (Array.init (Array.length execution_times) ~f:float_of_int)
+        execution_times;
+
+       Plot.(legend_on h ~position:NorthEast
+          [|"energy ([runtime] / [initial runtime])"|]);
+
+       Plot.output h;
        Deferred.unit
     ]
 
