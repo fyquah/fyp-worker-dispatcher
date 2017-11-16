@@ -16,6 +16,7 @@ scp controller-scripts/run_prod.sh \
   fyp--controller@0.0.0.0:~/prod/run.sh
 scp prod_config.sexp fyp--controller@0.0.0.0:~/prod/config.sexp
 scp worker/benchmark_binary.sh fyp--controller@0.0.0.0:~/prod/benchmark_binary.sh
+scp worker/get_gc_stats.sh fyp--controller@0.0.0.0:~/prod/get_gc_stats.sh
 
 echo "Updating experiments repo"
 ssh fyp--controller@0.0.0.0 "cd /home/fyp--controller/prod/experiments; pwd && git checkout -- . && git pull"

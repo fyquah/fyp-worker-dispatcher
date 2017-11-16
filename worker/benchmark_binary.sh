@@ -2,7 +2,9 @@
 
 PATH_TO_BINARY="$1"
 NUM_RUNS="$2"
-ARGS="$3"
+shift
+shift
+ARGS="$@"
 
 set -euo pipefail
 

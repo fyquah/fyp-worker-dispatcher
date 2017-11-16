@@ -29,6 +29,8 @@ module Top_level : sig
 
   val count_leaves : t -> int
 
+  val backtrack_nth_leaf : t -> int -> t option
+
   val flip_nth_leaf : t -> int -> t
 
   val flip_several_leaves : t -> int list -> t

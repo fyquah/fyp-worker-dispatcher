@@ -92,7 +92,7 @@ let run_binary_on_rpc_worker ~hostname ~worker_connection ~path_to_bin =
 ;;
 
 let run_binary_on_ssh_worker
-    ~num_runs ~config ~rundir ~user ~hostname ~path_to_bin ~bin_args =
+    ~num_runs ~config:_ ~rundir ~user ~hostname ~path_to_bin ~bin_args =
   lift_deferred (Unix.getcwd ())
   >>=? fun dir ->
   shell ~dir "scp"
@@ -100,13 +100,13 @@ let run_binary_on_ssh_worker
       sprintf "%s@%s:%s" user hostname (rundir ^/ "binary.exe");
     ]
   >>=? fun () ->
-  Async_shell.run_lines ~working_dir:dir "ssh" [
+  Async_shell.run_lines ~working_dir:dir "ssh" ([
     sprintf "%s@%s" user hostname;
     rundir ^/ "benchmark_binary.sh";
     rundir ^/ "binary.exe";
     Int.to_string num_runs;
     bin_args;
-  ]
+  ])
   >>= function
   | [] -> Deferred.Or_error.error_s [%message "Something went wrong"]
   | lines ->
@@ -115,9 +115,14 @@ let run_binary_on_ssh_worker
           Time.Span.of_sec (Float.of_string line))
     in
     let worker_hostname = Some hostname in
-    Deferred.Or_error.return (
-      { Execution_stats. raw_execution_time; worker_hostname; }
-    )
+    Async_shell.run_full ~working_dir:dir "ssh" [
+      sprintf "%s@%s" user hostname;
+      rundir ^/ "get_gc_stats.sh";
+      rundir ^/ "binary.exe";
+      bin_args;
+    ]
+    >>| fun gc_stats ->
+    Ok ({ Execution_stats. raw_execution_time; worker_hostname; gc_stats; })
 ;;
 
 let run_binary_on_worker ~num_runs ~config ~hostname ~conn ~path_to_bin ~bin_args =
@@ -139,6 +144,12 @@ let init_connection ~hostname ~worker_config =
     let user = ssh_config.user in
     let args =
       [ "worker/benchmark_binary.sh";
+        (sprintf "%s@%s:%s" user hostname ssh_config.rundir);
+      ]
+    in
+    shell ~dir:cwd "scp" args >>=? fun () ->
+    let args =
+      [ "worker/get_gc_stats.sh";
         (sprintf "%s@%s:%s" user hostname ssh_config.rundir);
       ]
     in

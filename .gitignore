@@ -2,3 +2,5 @@ _build
 worker_dispatcher.install
 *.merlin
 tmp/
+*/__pycache__/
+log/
