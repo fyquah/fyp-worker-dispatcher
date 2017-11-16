@@ -183,6 +183,7 @@ end) = struct
 
   let step t =
     let dump_directory = T2.dump_directory_name ~step:t.step ~sub_id:(-1) in
+    let%bind () = Async_shell.mkdir ~p:() dump_directory in
     let%bind () =
       Writer.save_sexp (dump_directory ^/ "state.sexp") ([%sexp_of: t] t)
     in
