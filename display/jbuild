@@ -12,6 +12,7 @@
 
      ; project libs
      protocol
+     fyp_stats
 
      ; external libs
      owl

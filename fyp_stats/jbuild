@@ -1,0 +1,6 @@
+(jbuild_version 1)
+
+(library
+  ((name    fyp_stats)
+   (preprocess (pps (ppx_jane  ppx_driver.runner)))
+   (libraries (core))))
