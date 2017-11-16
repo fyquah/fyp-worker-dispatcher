@@ -2,15 +2,38 @@
 
 set -euo pipefail
 
-scp _build/default/controller/main.exe \
-  fyp--controller@0.0.0.0:~/dev/controller.exe
-scp controller-scripts/run_dev.sh \
-  fyp--controller@0.0.0.0:~/dev/run.sh
-scp dev_config.sexp fyp--controller@0.0.0.0:~/dev/config.sexp
-scp worker/benchmark_binary.sh fyp--controller@0.0.0.0:~/dev/benchmark_binary.sh
+export OPAM_ROOT=$HOME/fyp/opam-root/
+eval `opam config env`
+opam switch 4.05.0+fyp
 
-echo "Updating experiments repo"
-ssh fyp--controller@0.0.0.0 "cd /home/fyp--controller/dev/experiments; pwd && git pull"
+echo "Algorithm = $1"
 
-echo "Running controller"
-ssh fyp--controller@0.0.0.0 "cd /home/fyp--controller/dev/; pwd; ./run.sh \"$1\""
+if [ "$1" = "" ]; then
+  echo "Must provide algorithm"
+  exit 1
+fi
+
+echo $PATH
+
+RUNDIR=~/prod/rundir/$(ocamlnow)
+
+mkdir -p tmp/
+
+cp config.sexp $RUNDIR/config.sexp
+
+nohup jbuilder exec controller -- \
+  "$1" \
+  -config "$RUNDIR/config.sexp" \
+  -rundir "$RUNDIR" \
+  -exp-dir ~/prod/experiments/normal/almabench \
+  -bin-name almabench \
+  -args "" \
+  1>stdout.log 2>stderr.log &
+
+PID=$!
+
+echo $PID >tmp/controller.pid
+echo $RUNDIR >tmp/controller.rundir
+
+echo "PID = $PID"
+echo "RUNDIR = $RUNDIR"
