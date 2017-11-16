@@ -14,27 +14,23 @@ if [ "$1" = "" ]; then
   exit 1
 fi
 
-echo $PATH
+RUNDIR=~/fyp/dev/rundir
+EXPERIMENTS_DIR=$RUNDIR/experiments
 
-RUNDIR=~/fyp/dev/rundir/
+mkdir -p $RUNDIR
 
-mkdir -p tmp/dev/
+if [ ! -d "$EXPERIMENTS_DIR" ]; then
+  git clone ~/fyp/experiments "$EXPERIMENTS_DIR"
+fi
+
+bash -c "cd $EXPERIMENTS_DIR && git pull"
 
 cp config.sexp $RUNDIR/config.sexp
 
-nohup jbuilder exec controller -- \
+jbuilder exec controller -- \
   "$1" \
   -config "$RUNDIR/config.sexp" \
   -rundir "$RUNDIR" \
-  -exp-dir ~/fyp/prod/experiments/normal/almabench \
+  -exp-dir "$EXPERIMENTS_DIR/normal/almabench" \
   -bin-name almabench \
-  -args "" \
-  1>$RUNDIR/stdout.log 2>$RUNDIR/stderr.log &
-
-PID=$!
-
-echo $PID >tmp/dev/controller.pid
-echo $RUNDIR >tmp/dev/controller.rundir
-
-echo "PID = $PID"
-echo "RUNDIR = $RUNDIR"
+  -args ""
