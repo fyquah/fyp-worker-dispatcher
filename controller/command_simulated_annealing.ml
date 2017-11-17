@@ -343,6 +343,8 @@ let command_plot =
      let steps = flag "-steps" (required int) ~doc:"INT"
      and common_prefix = flag "-prefix" (required string) ~doc:"STRING"
      and output_file = flag "-output" (required file) ~doc:"PATH"
+     and legend_position =
+       flag "-legend" (optional string) ~doc:"Legend position"
      in
      fun () ->
        let open Deferred.Let_syntax in
@@ -410,7 +412,29 @@ let command_plot =
            (Array.create ~len:1 b))
        in
        let iters = Array.init steps ~f:float_of_int in
-
+       let legend_position =
+         match legend_position with
+         | Some "NorthEast" -> Plot.NorthEast
+         | _ -> Plot.SouthWest
+       in
+       let plot initial proposal =
+        simple_plot ~h ~spec:[ RGB (0, 0, 255); LineStyle 1 ]
+          iters initial;
+        simple_plot ~h ~spec:[ RGB (0, 255, 0); LineStyle 1 ]
+          iters proposal;
+        let min =
+          Float.min
+            (Option.value_exn (Array.min_elt initial ~cmp:Float.compare))
+            (Option.value_exn (Array.min_elt proposal ~cmp:Float.compare))
+        in
+        let max =
+          Float.max
+            (Option.value_exn (Array.max_elt initial ~cmp:Float.compare))
+            (Option.value_exn (Array.max_elt proposal ~cmp:Float.compare))
+        in
+        let buffer = (max -. min) /. 10.0 in
+        Plot.set_yrange h (min -. buffer) (max +. buffer);
+       in
        Plot.set_background_color h 0 0 0;
 
        (* Execution times *)
@@ -419,13 +443,9 @@ let command_plot =
        Plot.set_title h "Iteration vs Execution time (s)";
        Plot.set_xlabel h "Iteration";
        Plot.set_ylabel h "Execution time (s)";
-       Plot.set_yrange h 7.9 11.8;
-
-       simple_plot ~h ~spec:[ RGB (0, 0, 255); LineStyle 1 ]
-         iters (execution_times ~f:get_initial);
-       simple_plot ~h ~spec:[ RGB (0, 255, 0); LineStyle 1 ]
-         iters (execution_times ~f:get_proposal);
-       Plot.(legend_on h ~position:SouthWest
+       plot (execution_times ~f:get_initial)
+         (execution_times ~f:get_proposal);
+       Plot.(legend_on h ~position:legend_position
           [|"current"; "proposal"; |]);
 
        (* Major collections *)
@@ -434,12 +454,11 @@ let command_plot =
        Plot.set_title h "Iteration vs Major Collections";
        Plot.set_xlabel h "Iteration";
        Plot.set_ylabel h "Major Collections";
-       Plot.set_yrange h 100. 780.0;
 
-       simple_plot ~h ~spec:[ RGB (0, 0, 255); LineStyle 1 ]
-         iters (major_collections ~f:get_initial);
-       simple_plot ~h ~spec:[ RGB (0, 255, 0); LineStyle 1 ]
-         iters (major_collections ~f:get_proposal);
+       plot (major_collections ~f:get_initial)
+         (major_collections ~f:get_proposal);
+       Plot.(legend_on h ~position:legend_position
+          [|"current"; "proposal"; |]);
 
        (* Minor collections *)
        Plot.subplot h 1 1;
@@ -448,12 +467,9 @@ let command_plot =
        Plot.set_xlabel h "Iteration";
        Plot.set_ylabel h "Minor Collections";
 
-       simple_plot ~h ~spec:[ RGB (0, 0, 255); LineStyle 1 ]
-         iters (minor_collections ~f:get_initial);
-       simple_plot ~h ~spec:[ RGB (0, 255, 0); LineStyle 1 ]
-         iters (minor_collections ~f:get_proposal);
+       plot (minor_collections ~f:get_initial) (minor_collections ~f:get_proposal);
 
-       Plot.(legend_on h ~position:SouthWest
+       Plot.(legend_on h ~position:legend_position
           [|"current"; "proposal"; |]);
 
        Plot.output h;

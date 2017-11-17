@@ -3,11 +3,20 @@
 set -euo pipefail
 set -x
 
-PREFIX="../experiment-results/2017-11-17T08:53:52.139189Z/opt_data"
+PREFIX_1="../experiment-results/2017-11-17T08:53:52.139189Z/opt_data"
+PREFIX_2="../experiment-results/2017-11-17T12:16:07.408085Z/opt_data"
 
 jbuilder build controller/main.exe
+
 jbuilder exec controller -- \
   simulated-annealing plot \
   -steps 300 \
-  -prefix "$PREFIX" \
-  -output ./output.pdf
+  -prefix "$PREFIX_1" \
+  -output ./experiment-plots/simulated-annealing-async-floating-point-1.pdf
+
+jbuilder exec controller -- \
+  simulated-annealing plot \
+  -legend NorthEast \
+  -steps 300 \
+  -prefix "$PREFIX_2" \
+  -output ./experiment-plots/simulated-annealing-async-floating-point-2.pdf
