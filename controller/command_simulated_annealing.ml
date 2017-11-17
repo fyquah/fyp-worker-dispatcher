@@ -16,6 +16,29 @@ module Work_unit = struct
   [@@deriving sexp]
 end
 
+module Base_state_energy = struct
+  type energy = Execution_stats.t [@@deriving sexp]
+
+  type state =
+    { tree        : Inlining_tree.Top_level.t;
+      work_unit   : Work_unit.t;
+    }
+  [@@deriving sexp]
+
+  type t = state [@@deriving sexp]
+
+  (* We don't want debugging messages to contain the entire tree. *)
+  let sexp_of_state state = Work_unit.sexp_of_t state.work_unit
+end
+
+module Step = struct
+  type state = Base_state_energy.state [@@deriving sexp]
+  type energy = Base_state_energy.energy [@@deriving sexp]
+
+  type t = (state, energy) Optimization.Simulated_annealing_intf.Step.t
+  [@@deriving sexp]
+end
+
 module Make_annealer(M: sig
 
   val initial_execution_time : Time.Span.t
@@ -32,19 +55,15 @@ module Make_annealer(M: sig
   val bin_name : string
 
 end) = struct
-  module T = struct
-    type energy = Execution_stats.t [@@deriving sexp]
+  module T1 = struct
+    include Base_state_energy
 
-    type state =
-      { tree        : Inlining_tree.Top_level.t;
-        work_unit   : Work_unit.t;
-      }
-    [@@deriving sexp]
+    let compare a b = List.compare Inlining_tree.compare a.tree b.tree
+  end
 
-    type t = state [@@deriving sexp]
-
-    (* We don't want debugging messages to contain the entire tree. *)
-    let sexp_of_state state = Work_unit.sexp_of_t state.work_unit
+  module T2 = struct
+    include T1
+    include Comparable.Make(T1)
 
     let energy_to_float (e : energy) =
       let a =
@@ -52,13 +71,6 @@ end) = struct
       in
       a /. Time.Span.to_sec M.initial_execution_time
     ;;
-
-    let compare a b = List.compare Inlining_tree.compare a.tree b.tree
-  end
-
-  module T2 = struct
-    include T
-    include Comparable.Make(T)
 
     let unique_random_from_list ~count choices =
       let rec loop ~choices ~(left : int) =
@@ -166,7 +178,7 @@ end) = struct
        *)
       let tree = Inlining_tree.build executed_decisions in
       let work_unit = { Work_unit. path_to_bin = filename; step; sub_id } in
-      Deferred.Or_error.return { T. tree; work_unit; }
+      Deferred.Or_error.return { T1. tree; work_unit; }
     ;;
 
     let energy state =
@@ -215,7 +227,7 @@ end) = struct
   ;;
 end
 
-let command =
+let command_run =
   let open Command.Let_syntax in
   Command.async_or_error' ~summary:"Command"
     [%map_open
@@ -307,7 +319,7 @@ let command =
           let work_unit =
             { Work_unit. path_to_bin; step = 0; sub_id = -1; }
           in
-          let initial = { Annealer.T. tree; work_unit; } in
+          let initial = { Annealer.T1. tree; work_unit; } in
           Annealer.empty initial initial_execution_stats
         in
         Deferred.repeat_until_finished state (fun state ->
@@ -318,4 +330,83 @@ let command =
           else
             `Repeat next
         )
+    ]
+
+let command_plot =
+  let open Command.Let_syntax in
+  Command.async' ~summary:"Display"
+    [%map_open
+     let steps = flag "-steps" (required int) ~doc:"INT"
+     and common_prefix = flag "-prefix" (required string) ~doc:"STRING"
+     and output_file = flag "-output" (required file) ~doc:"PATH"
+     in
+     fun () ->
+       let open Deferred.Let_syntax in
+       let module Execution_stats = Protocol.Execution_stats in
+       let files =
+         List.init steps ~f:(fun i ->
+           common_prefix ^/ Int.to_string i ^/ "current/step.sexp")
+       in
+       let%bind results =
+         Deferred.List.map files ~how:(`Max_concurrent_jobs 32)
+           ~f:(fun file ->
+             Reader.load_sexp_exn file [%of_sexp: Step.t])
+       in
+       let execution_times =
+         List.map results ~f:(fun result ->
+             let result =
+               List.map ~f:Time.Span.to_sec
+                 (snd result.initial).raw_execution_time
+             in
+             Fyp_stats.geometric_mean result)
+       in
+       let execution_times = Array.of_list execution_times in
+       let major_collections =
+         List.map results ~f:(fun result ->
+           let result = snd result.initial in
+           let gc_stats =
+            match result.parsed_gc_stats with
+            | None ->
+              Option.value_exn (
+                Execution_stats.Gc_stats.parse (
+                  String.split_lines result.gc_stats)
+              )
+            | Some x -> x
+           in
+           Float.of_int gc_stats.major_collections /. 100.0)
+         |> Array.of_list
+       in
+       let module Plot = Owl.Plot in
+       let h = Plot.create output_file in
+       let simple_plot ~h ~spec a b =
+        Plot.plot ~h ~spec
+         (Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout
+           (Array.create ~len:1 a))
+         (Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout
+           (Array.create ~len:1 b))
+       in
+       Plot.set_title h "Iteration vs Performance";
+       Plot.set_xlabel h "Iteration";
+       Plot.set_ylabel h "Performance";
+       Plot.set_zlabel h "bla";
+
+       let iters = Array.init steps ~f:float_of_int in
+       simple_plot ~h ~spec:[ RGB (0, 0, 255); LineStyle 1 ]
+         iters execution_times;
+       simple_plot ~h ~spec:[ RGB (0, 255, 0); LineStyle 2 ]
+         iters major_collections;
+
+       Plot.(legend_on h ~position:SouthWest
+          [|"energy ([runtime] / [initial runtime])";
+            "major collections (* 100)";
+          |]);
+
+       Plot.output h;
+       Deferred.unit
+    ]
+
+let command =
+  Command.group ~summary:"Simulated Annealing"
+    [("plot", command_plot);
+     ("run",  command_run);
     ]

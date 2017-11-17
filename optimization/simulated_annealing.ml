@@ -40,13 +40,8 @@ module Make(T: Simulated_annealing_intf.T) = struct
   ;;
 
   module Step = struct
-    type t =
-      { initial         : (T.state * T.energy);
-        proposal        : (T.state * T.energy);
-        step            : int;
-        decision        : [ `Accepted | `Rejected ]
-      }
-    [@@deriving sexp_of]
+    type t = (T.state, T.energy) Simulated_annealing_intf.Step.t
+    [@@deriving sexp]
   end
 
   let default_config =
@@ -133,7 +128,7 @@ module Make(T: Simulated_annealing_intf.T) = struct
     if d_e > 0.0 && probability <. rand then begin
       Log.Global.sexp ~level:`Info [%message (step : int) "Rejecting change!"];
       let step =
-        { Step.
+        { Simulated_annealing_intf.Step.
           initial  = (current_state, current_energy);
           proposal = (next_state, next_energy);
           step     = t.step;
@@ -145,7 +140,7 @@ module Make(T: Simulated_annealing_intf.T) = struct
       let accepts = t.accepts + 1 in
       let improves = if d_e <. 0.0 then t.improves + 1 else t.improves in
       let step_description =
-        { Step.
+        { Simulated_annealing_intf.Step.
           initial  = (current_state, current_energy);
           proposal = (next_state, next_energy);
           step     = t.step;

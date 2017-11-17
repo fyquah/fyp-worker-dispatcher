@@ -10,10 +10,20 @@ type config =
   }
 [@@deriving sexp_of]
 
-module type T = sig
-  type state [@@deriving sexp_of]
+module Step = struct
+  type ('state, 'energy) t =
+    { initial         : ('state * 'energy);
+      proposal        : ('state * 'energy);
+      step            : int;
+      decision        : [ `Accepted | `Rejected ]
+    }
+  [@@deriving sexp]
+end
 
-  type energy [@@deriving sexp_of]
+module type T = sig
+  type state [@@deriving sexp]
+
+  type energy [@@deriving sexp]
 
   val energy : state -> energy Deferred.Or_error.t
 
@@ -45,13 +55,7 @@ module type S = sig
   [@@deriving sexp_of]
 
   module Step : sig
-    type t =
-      { initial         : (T.state * T.energy);
-        proposal        : (T.state * T.energy);
-        step            : int;
-        decision        : [ `Accepted | `Rejected ]
-      }
-    [@@deriving sexp_of]
+    type t = (T.state, T.energy) Step.t [@@deriving sexp]
   end
 
   val empty : ?config: config -> T.state -> T.energy -> t

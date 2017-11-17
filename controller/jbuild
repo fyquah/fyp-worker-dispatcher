@@ -11,6 +11,7 @@
 
      protocol
      fyp_compiler_lib
+     fyp_stats
      optimization
 
      owl
