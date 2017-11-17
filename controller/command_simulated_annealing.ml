@@ -29,6 +29,10 @@ module Base_state_energy = struct
 
   (* We don't want debugging messages to contain the entire tree. *)
   let sexp_of_state state = Work_unit.sexp_of_t state.work_unit
+
+  let state_of_sexp sexp =
+    { tree = []; work_unit = Work_unit.t_of_sexp sexp; }
+  ;;
 end
 
 module Step = struct
@@ -352,18 +356,28 @@ let command_plot =
            ~f:(fun file ->
              Reader.load_sexp_exn file [%of_sexp: Step.t])
        in
-       let execution_times =
+       let get_initial (r : Step.t)
+           : (Base_state_energy.state * Execution_stats.t) =
+         r.initial
+       in
+       let get_proposal (r : Step.t)
+           : (Base_state_energy.state * Execution_stats.t) =
+         r.proposal
+       in
+       let execution_times
+           ~(f : Step.t -> (Base_state_energy.state * Execution_stats.t)) =
          List.map results ~f:(fun result ->
              let result =
                List.map ~f:Time.Span.to_sec
-                 (snd result.initial).raw_execution_time
+                 (snd (f result)).raw_execution_time
              in
              Fyp_stats.geometric_mean result)
+         |> Array.of_list
        in
-       let execution_times = Array.of_list execution_times in
-       let major_collections =
+       let gc_stats
+           ~(f : Step.t -> (Base_state_energy.state * Execution_stats.t)) =
          List.map results ~f:(fun result ->
-           let result = snd result.initial in
+           let result = snd (f result) in
            let gc_stats =
             match result.parsed_gc_stats with
             | None ->
@@ -373,11 +387,21 @@ let command_plot =
               )
             | Some x -> x
            in
-           Float.of_int gc_stats.major_collections /. 100.0)
+           gc_stats)
          |> Array.of_list
        in
+       let major_collections
+           ~(f : Step.t -> (Base_state_energy.state * Execution_stats.t)) =
+         Array.map (gc_stats ~f) ~f:(fun (gc : Execution_stats.Gc_stats.t) ->
+           Float.of_int gc.major_collections)
+       in
+       let minor_collections
+           ~(f : Step.t -> (Base_state_energy.state * Execution_stats.t)) =
+         Array.map (gc_stats ~f) ~f:(fun (gc : Execution_stats.Gc_stats.t) ->
+           Float.of_int gc.minor_collections)
+       in
        let module Plot = Owl.Plot in
-       let h = Plot.create output_file in
+       let h = Plot.create ~m:2 ~n:2 output_file in
        let simple_plot ~h ~spec a b =
         Plot.plot ~h ~spec
          (Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout
@@ -385,21 +409,52 @@ let command_plot =
          (Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout
            (Array.create ~len:1 b))
        in
-       Plot.set_title h "Iteration vs Performance";
-       Plot.set_xlabel h "Iteration";
-       Plot.set_ylabel h "Performance";
-       Plot.set_zlabel h "bla";
-
        let iters = Array.init steps ~f:float_of_int in
+
+       Plot.set_background_color h 0 0 0;
+
+       (* Execution times *)
+       Plot.subplot h 0 0;
+       Plot.set_foreground_color h 255 255 255;
+       Plot.set_title h "Iteration vs Execution time (s)";
+       Plot.set_xlabel h "Iteration";
+       Plot.set_ylabel h "Execution time (s)";
+       Plot.set_yrange h 7.9 11.8;
+
        simple_plot ~h ~spec:[ RGB (0, 0, 255); LineStyle 1 ]
-         iters execution_times;
-       simple_plot ~h ~spec:[ RGB (0, 255, 0); LineStyle 2 ]
-         iters major_collections;
+         iters (execution_times ~f:get_initial);
+       simple_plot ~h ~spec:[ RGB (0, 255, 0); LineStyle 1 ]
+         iters (execution_times ~f:get_proposal);
+       Plot.(legend_on h ~position:SouthWest
+          [|"current"; "proposal"; |]);
+
+       (* Major collections *)
+       Plot.subplot h 1 0;
+       Plot.set_foreground_color h 255 255 255;
+       Plot.set_title h "Iteration vs Major Collections";
+       Plot.set_xlabel h "Iteration";
+       Plot.set_ylabel h "Major Collections";
+       Plot.set_yrange h 100. 780.0;
+
+       simple_plot ~h ~spec:[ RGB (0, 0, 255); LineStyle 1 ]
+         iters (major_collections ~f:get_initial);
+       simple_plot ~h ~spec:[ RGB (0, 255, 0); LineStyle 1 ]
+         iters (major_collections ~f:get_proposal);
+
+       (* Minor collections *)
+       Plot.subplot h 1 1;
+       Plot.set_foreground_color h 255 255 255;
+       Plot.set_title h "Iteration vs Minor Collections";
+       Plot.set_xlabel h "Iteration";
+       Plot.set_ylabel h "Minor Collections";
+
+       simple_plot ~h ~spec:[ RGB (0, 0, 255); LineStyle 1 ]
+         iters (minor_collections ~f:get_initial);
+       simple_plot ~h ~spec:[ RGB (0, 255, 0); LineStyle 1 ]
+         iters (minor_collections ~f:get_proposal);
 
        Plot.(legend_on h ~position:SouthWest
-          [|"energy ([runtime] / [initial runtime])";
-            "major collections (* 100)";
-          |]);
+          [|"current"; "proposal"; |]);
 
        Plot.output h;
        Deferred.unit
