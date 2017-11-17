@@ -44,8 +44,17 @@ module type S = sig
     }
   [@@deriving sexp_of]
 
+  module Step : sig
+    type t =
+      { initial         : (T.state * T.energy);
+        proposal        : (T.state * T.energy);
+        step            : int;
+        decision        : [ `Accepted | `Rejected ]
+      }
+    [@@deriving sexp_of]
+  end
+
   val empty : ?config: config -> T.state -> T.energy -> t
 
-  val step : t -> t Deferred.t
+  val step : t -> (Step.t * t) Deferred.t
 end
-

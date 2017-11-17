@@ -173,27 +173,7 @@ end) = struct
       let num_workers = Experiment_utils.Scheduler.num_workers M.scheduler in
       Deferred.Or_error.List.init num_workers ~how:`Parallel ~f:(fun _ ->
         Experiment_utils.Scheduler.dispatch M.scheduler state.work_unit)
-      >>=? fun results ->
-      let mean_exec_time =
-        geometric_mean (
-          List.concat_map results ~f:(fun r -> r.raw_execution_time)
-          |> List.map ~f:Time.Span.to_sec
-        )
-      in
-      let work_unit = state.work_unit in
-      let step = work_unit.step in
-      let sub_id = work_unit.sub_id in
-      let dump_directory = dump_directory_name ~step ~sub_id in
-      Log.Global.sexp ~level:`Info [%message
-        (state : T.state)
-        (mean_exec_time : float)];
-      lift_deferred (Async_shell.mkdir ~p:() dump_directory)
-      >>=? fun () ->
-      lift_deferred (
-        Writer.save_sexp (dump_directory ^/ "results.sexp")
-          ([%sexp_of: Protocol.Execution_stats.t list] results)
-      )
-      >>|? fun () ->
+      >>|? fun results ->
       let raw_execution_time =
         List.concat_map results ~f:(fun r -> r.raw_execution_time)
       in
@@ -201,7 +181,12 @@ end) = struct
       let gc_stats = (List.hd_exn results).gc_stats in
       let parsed_gc_stats = None in
       let worker_hostname = None in
-      { Execution_stats. raw_execution_time; worker_hostname ; gc_stats; parsed_gc_stats }
+      { Execution_stats.
+        raw_execution_time;
+        worker_hostname;
+        gc_stats;
+        parsed_gc_stats;
+      }
     ;;
   end
 
@@ -213,11 +198,20 @@ end) = struct
     let%bind () =
       Writer.save_sexp (dump_directory ^/ "state.sexp") ([%sexp_of: t] t)
     in
+    let%bind (description, next) = step t in
     let%bind () =
-      Writer.save_sexp (dump_directory ^/ "inlining_tree.sexp")
-        ([%sexp_of: Inlining_tree.Top_level.t] t.state.tree)
+      Writer.save_sexp (dump_directory ^/ "step.sexp")
+        ([%sexp_of: Step.t] description)
     in
-    step t
+    let%bind () =
+      Writer.save_sexp (dump_directory ^/ "initial_tree.sexp")
+        ([%sexp_of: Inlining_tree.Top_level.t] (fst description.initial).tree)
+    in
+    let%bind () =
+      Writer.save_sexp (dump_directory ^/ "proposal_tree.sexp")
+        ([%sexp_of: Inlining_tree.Top_level.t] (fst description.proposal).tree)
+    in
+    return (description, next)
   ;;
 end
 
@@ -317,10 +311,8 @@ let command =
           Annealer.empty initial initial_execution_stats
         in
         Deferred.repeat_until_finished state (fun state ->
-          let sexp = Annealer.sexp_of_t state in
-          printf "Step %d:\n%s\n" state.step (Sexp.to_string_hum sexp);
           Annealer.step state
-          >>| fun next ->
+          >>| fun ((_ : Annealer.Step.t), next) ->
           if next.step >= next.config.steps then
             `Finished (Ok ())
           else

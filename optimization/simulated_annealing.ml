@@ -39,6 +39,16 @@ module Make(T: Simulated_annealing_intf.T) = struct
     sexp_of_t { t with energy_cache = T.Map.empty }
   ;;
 
+  module Step = struct
+    type t =
+      { initial         : (T.state * T.energy);
+        proposal        : (T.state * T.energy);
+        step            : int;
+        decision        : [ `Accepted | `Rejected ]
+      }
+    [@@deriving sexp_of]
+  end
+
   let default_config =
     { Common.
       t_max = 0.04;
@@ -122,16 +132,33 @@ module Make(T: Simulated_annealing_intf.T) = struct
         (next_energy : T.energy)];
     if d_e > 0.0 && probability <. rand then begin
       Log.Global.sexp ~level:`Info [%message (step : int) "Rejecting change!"];
-      return { t with step = t.step + 1 }
+      let step =
+        { Step.
+          initial  = (current_state, current_energy);
+          proposal = (next_state, next_energy);
+          step     = t.step;
+          decision = `Rejected
+        }
+      in
+      return (step, { t with step = t.step + 1 })
     end else begin
       let accepts = t.accepts + 1 in
       let improves = if d_e <. 0.0 then t.improves + 1 else t.improves in
-      let step = t.step + 1 in
+      let step_description =
+        { Step.
+          initial  = (current_state, current_energy);
+          proposal = (next_state, next_energy);
+          step     = t.step;
+          decision = `Accepted
+        }
+      in
       let state = next_state in
       Log.Global.sexp ~level:`Info
         [%message (step: int) "Accepting change to new state!"];
-      return { t with state; step; accepts; improves;
-                      current_energy = next_energy; }
+      return (
+        step_description,
+        { t with state; step = t.step + 1; accepts; improves;
+                      current_energy = next_energy; })
     end
   ;;
 end
