@@ -38,10 +38,10 @@ fi
 
 bash -c "cd $EXPERIMENTS_DIR && git pull"
 
-cp config.sexp $RUNDIR/config.sexp
+cp prod_config.sexp $RUNDIR/config.sexp
 
 nohup jbuilder exec controller -- \
-  "$1" \
+  "$1" run \
   -config "$RUNDIR/config.sexp" \
   -rundir "$RUNDIR" \
   -exp-dir "$EXPERIMENTS_REPO/$EXPERIMENT_DIR" \

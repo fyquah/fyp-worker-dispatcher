@@ -28,7 +28,7 @@ bash -c "cd $EXPERIMENTS_REPO && git pull"
 cp dev_config.sexp $RUNDIR/config.sexp
 
 jbuilder exec controller -- \
-  "$1" \
+  "$1" run \
   -config "$RUNDIR/config.sexp" \
   -rundir "$RUNDIR" \
   -exp-dir "$EXPERIMENTS_REPO/$EXPERIMENT_DIR" \
