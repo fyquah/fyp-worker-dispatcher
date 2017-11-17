@@ -15,22 +15,22 @@ if [ "$1" = "" ]; then
 fi
 
 RUNDIR=~/fyp/dev/rundir
-EXPERIMENTS_DIR=$RUNDIR/experiments
+EXPERIMENTS_REPO=$RUNDIR/experiments
 
 mkdir -p $RUNDIR
 
-if [ ! -d "$EXPERIMENTS_DIR" ]; then
-  git clone ~/fyp/experiments "$EXPERIMENTS_DIR"
+if [ ! -d "$EXPERIMENTS_REPO" ]; then
+  git clone ~/fyp/experiments "$EXPERIMENTS_REPO"
 fi
 
-bash -c "cd $EXPERIMENTS_DIR && git pull"
+bash -c "cd $EXPERIMENTS_REPO && git pull"
 
-cp config.sexp $RUNDIR/config.sexp
+cp dev_config.sexp $RUNDIR/config.sexp
 
 jbuilder exec controller -- \
   "$1" \
   -config "$RUNDIR/config.sexp" \
   -rundir "$RUNDIR" \
-  -exp-dir "$EXPERIMENTS_DIR/normal/almabench" \
-  -bin-name almabench \
-  -args ""
+  -exp-dir "$EXPERIMENTS_REPO/$EXPERIMENT_DIR" \
+  -bin-name "$EXPERIMENT_BIN_NAME" \
+  -args "$EXPERIMENT_BIN_ARGS"

@@ -44,9 +44,9 @@ nohup jbuilder exec controller -- \
   "$1" \
   -config "$RUNDIR/config.sexp" \
   -rundir "$RUNDIR" \
-  -exp-dir "$EXPERIMENTS_DIR/normal/almabench" \
-  -bin-name almabench \
-  -args "" \
+  -exp-dir "$EXPERIMENTS_REPO/$EXPERIMENT_DIR" \
+  -bin-name "$EXPERIMENT_BIN_NAME" \
+  -args "$EXPERIMENT_BIN_ARGS" \
   1>$RUNDIR/stdout.log 2>$RUNDIR/stderr.log &
 
 PID="$!"
