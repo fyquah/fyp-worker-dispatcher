@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -euo pipefail
+set -x
+
+PREFIX="../experiment-results/2017-11-16T18:07:28.498998Z/opt_data/"
+
+jbuilder build display/main.exe
+jbuilder exec display -- plot-over-iterations \
+  -filelist <(find $PREFIX . -name "*results.sexp") \
+  -common-prefix "$PREFIX" \
+  -output ./output.pdf

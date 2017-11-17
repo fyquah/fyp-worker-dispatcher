@@ -23,12 +23,13 @@ module Make(T: Simulated_annealing_intf.T) = struct
 
   type t =
     { state          : T.state;
+      current_energy : T.energy;
       step           : int;
       accepts        : int;
       improves       : int;
 
-      energy_cache   : float Deferred.t T.Map.t;
-      best_solution  : (T.state * float) option;
+      energy_cache   : T.energy Deferred.t T.Map.t;
+      best_solution  : T.state * T.energy;
 
       config         : Common.config;
     }
@@ -47,14 +48,15 @@ module Make(T: Simulated_annealing_intf.T) = struct
       workers = 1;
     }
 
-  let empty ?(config = default_config) state =
+  let empty ?(config = default_config) state current_energy =
     { state;
+      current_energy;
       step = 0;
       accepts = 0;
       improves = 0;
 
       energy_cache = T.Map.empty;
-      best_solution = None;
+      best_solution = (state, current_energy);
 
       config;
     }
@@ -79,12 +81,10 @@ module Make(T: Simulated_annealing_intf.T) = struct
   ;;
 
   let bump_best_solution t state energy =
-    match t.best_solution with
-    | None -> { t with best_solution = Some (state, energy) }
-    | Some (best_soln, best_energy) ->
-      if energy <. best_energy
-      then { t with best_solution = Some (state, energy) }
-      else t
+    let (best_soln, best_energy) = t.best_solution in
+    if T.energy_to_float energy <. T.energy_to_float best_energy
+    then { t with best_solution = state, energy }
+    else t
   ;;
 
   let step t =
@@ -93,7 +93,7 @@ module Make(T: Simulated_annealing_intf.T) = struct
       [%message (t_step : int) "Calling step" (t : t)];
     let temperature = Common.temperature t.config t.step in
     let current_state = t.state in
-    let t, current_energy = query_energy t current_state in
+    let current_energy = t.current_energy in
     assert (t.config.workers >= 1);
     (* TODO: ok_exn here is NOT okay! *)
     let%bind next_state =
@@ -101,12 +101,12 @@ module Make(T: Simulated_annealing_intf.T) = struct
       >>| ok_exn
     in
     let t, next_energy = query_energy t next_state in
-    let%map (current_energy, next_energy) =
-      Deferred.both current_energy next_energy
-    in
+    let%bind next_energy = next_energy in
     let t = bump_best_solution t current_state current_energy in
     let t = bump_best_solution t next_state next_energy in
-    let d_e = next_energy -. current_energy in
+    let d_e =
+      T.energy_to_float next_energy -. T.energy_to_float current_energy
+    in
     let rand = Random.float 1.0 in
     let probability =
       if d_e <= 0.0 then 1.0
@@ -118,11 +118,11 @@ module Make(T: Simulated_annealing_intf.T) = struct
         (step : int)
         (probability : float)
         (rand : float)
-        (current_energy : float)
-        (next_energy : float)];
+        (current_energy : T.energy)
+        (next_energy : T.energy)];
     if d_e > 0.0 && probability <. rand then begin
       Log.Global.sexp ~level:`Info [%message (step : int) "Rejecting change!"];
-      { t with step = t.step + 1 }
+      return { t with step = t.step + 1 }
     end else begin
       let accepts = t.accepts + 1 in
       let improves = if d_e <. 0.0 then t.improves + 1 else t.improves in
@@ -130,7 +130,8 @@ module Make(T: Simulated_annealing_intf.T) = struct
       let state = next_state in
       Log.Global.sexp ~level:`Info
         [%message (step: int) "Accepting change to new state!"];
-      { t with state; step; accepts; improves; }
+      return { t with state; step; accepts; improves;
+                      current_energy = next_energy; }
     end
   ;;
 end

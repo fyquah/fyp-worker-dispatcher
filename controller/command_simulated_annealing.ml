@@ -33,6 +33,8 @@ module Make_annealer(M: sig
 
 end) = struct
   module T = struct
+    type energy = Execution_stats.t [@@deriving sexp]
+
     type state =
       { tree        : Inlining_tree.Top_level.t;
         work_unit   : Work_unit.t;
@@ -43,6 +45,13 @@ end) = struct
 
     (* We don't want debugging messages to contain the entire tree. *)
     let sexp_of_state state = Work_unit.sexp_of_t state.work_unit
+
+    let energy_to_float (e : energy) =
+      let a =
+        geometric_mean (List.map e.raw_execution_time ~f:Time.Span.to_sec)
+      in
+      a /. Time.Span.to_sec M.initial_execution_time
+    ;;
 
     let compare a b = List.compare Inlining_tree.compare a.tree b.tree
   end
@@ -185,7 +194,14 @@ end) = struct
           ([%sexp_of: Protocol.Execution_stats.t list] results)
       )
       >>|? fun () ->
-      mean_exec_time /. Time.Span.to_sec M.initial_execution_time
+      let raw_execution_time =
+        List.concat_map results ~f:(fun r -> r.raw_execution_time)
+      in
+      (* One would imagine that the GC stats are the same across all runs *)
+      let gc_stats = (List.hd_exn results).gc_stats in
+      let parsed_gc_stats = None in
+      let worker_hostname = None in
+      { Execution_stats. raw_execution_time; worker_hostname ; gc_stats; parsed_gc_stats }
     ;;
   end
 
@@ -263,13 +279,21 @@ let command =
                 { Work_unit. path_to_bin; step = -1; sub_id = 0; }
               in
               Utils.Scheduler.dispatch scheduler work_unit))
-        >>=? fun initial_execution_times ->
+        >>=? fun stats ->
+        let stats = List.concat_no_order stats in
         let initial_execution_times =
-          List.concat_no_order initial_execution_times
+          List.concat_map stats ~f:(fun stat -> stat.raw_execution_time)
+        in
+        let initial_execution_stats =
+          { Execution_stats.
+            raw_execution_time = initial_execution_times;
+            worker_hostname = None;
+            gc_stats = (List.hd_exn stats).gc_stats;
+            parsed_gc_stats = None;
+          }
         in
         let initial_execution_time =
-          List.concat_map initial_execution_times ~f:(fun stat ->
-            List.map ~f:Time.Span.to_sec stat.raw_execution_time)
+          List.map ~f:Time.Span.to_sec initial_execution_times
           |> geometric_mean
           |> Time.Span.of_sec
         in
@@ -290,12 +314,7 @@ let command =
             { Work_unit. path_to_bin; step = 0; sub_id = -1; }
           in
           let initial = { Annealer.T. tree; work_unit; } in
-          let t = Annealer.empty initial in
-          let energy_cache =
-            Annealer.T2.Map.add t.energy_cache
-              ~key:initial ~data:(Deferred.return 1.0)
-          in
-          { t with energy_cache }
+          Annealer.empty initial initial_execution_stats
         in
         Deferred.repeat_until_finished state (fun state ->
           let sexp = Annealer.sexp_of_t state in

@@ -122,7 +122,8 @@ let run_binary_on_ssh_worker
       bin_args;
     ]
     >>| fun gc_stats ->
-    Ok ({ Execution_stats. raw_execution_time; worker_hostname; gc_stats; })
+    Ok { Execution_stats. raw_execution_time; worker_hostname; gc_stats;
+         parsed_gc_stats = None}
 ;;
 
 let run_binary_on_worker ~num_runs ~config ~hostname ~conn ~path_to_bin ~bin_args =

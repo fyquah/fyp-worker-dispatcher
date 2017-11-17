@@ -4,6 +4,7 @@ open Core
 open Async
 
 module Results = Protocol.Results
+module Execution_stats = Protocol.Execution_stats
 
 type simple_stats = { mean : Time.Span.t; sd : Time.Span.t; }
 
@@ -246,12 +247,13 @@ let command_plot_over_iterations =
              if x = 0 then Int.compare a2 b2 else x)
          |> List.map ~f:(fun (a, _, _) -> a)
        in
-       let%bind execution_times =
+       let%bind results =
          Deferred.List.map files ~how:(`Max_concurrent_jobs 32)
            ~f:(fun file ->
-             let%map result =
-               Reader.load_sexp_exn file [%of_sexp: Execution_stats.t list]
-             in
+             Reader.load_sexp_exn file [%of_sexp: Execution_stats.t list])
+       in
+       let execution_times =
+         List.map results ~f:(fun result ->
              let result =
                List.concat_map result ~f:(fun r ->
                  List.map r.raw_execution_time ~f:Time.Span.to_sec)
@@ -259,6 +261,20 @@ let command_plot_over_iterations =
              Fyp_stats.geometric_mean result)
        in
        let execution_times = Array.of_list execution_times in
+       let major_collections =
+         List.map results ~f:(fun results ->
+           let r = List.hd_exn results in
+           let gc_stats =
+            match r.parsed_gc_stats with
+            | None ->
+              Option.value_exn (
+                Execution_stats.Gc_stats.parse (String.split_lines r.gc_stats)
+              )
+            | Some x -> x
+           in
+           Float.of_int gc_stats.major_collections /. 100.0)
+         |> Array.of_list
+       in
        let module Plot = Owl.Plot in
        let h = Plot.create output_file in
        let simple_plot ~h ~spec a b =
@@ -268,18 +284,23 @@ let command_plot_over_iterations =
          (Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout
            (Array.create ~len:1 b))
        in
-       Plot.set_foreground_color h 0 0 0;
-       Plot.set_background_color h 255 255 255;
        Plot.set_title h "Iteration vs Performance";
        Plot.set_xlabel h "Iteration";
        Plot.set_ylabel h "Performance";
+       Plot.set_zlabel h "bla";
 
-       simple_plot ~h ~spec:[ RGB (0, 0, 255); LineStyle 1; Marker "+" ]
-        (Array.init (Array.length execution_times) ~f:float_of_int)
-        execution_times;
+       let iters =
+         Array.init (Array.length execution_times) ~f:float_of_int
+       in
+       simple_plot ~h ~spec:[ RGB (0, 0, 255); LineStyle 1 ]
+         iters execution_times;
+       simple_plot ~h ~spec:[ RGB (0, 255, 0); LineStyle 2 ]
+         iters major_collections;
 
-       Plot.(legend_on h ~position:NorthEast
-          [|"energy ([runtime] / [initial runtime])"|]);
+       Plot.(legend_on h ~position:SouthWest
+          [|"energy ([runtime] / [initial runtime])";
+            "major collections (* 100)";
+          |]);
 
        Plot.output h;
        Deferred.unit
