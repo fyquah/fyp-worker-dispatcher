@@ -30,4 +30,9 @@ let params =
        Common.shell_echo_default := true;
        Common.shell_verbose_default := true;
      end;
+     Random.init (
+        (Time.to_span_since_epoch (Time.now ()))
+        |> Time.Span.to_sec
+        |> Float.to_int
+     );
      { config_filename; controller_rundir; exp_dir; bin_name; bin_args }]
