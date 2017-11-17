@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -euo pipefail
+set -x
+
+PREFIX_1="../experiment-results/2017-11-17T15:50:09.728791Z/opt_data"
+
+jbuilder build controller/main.exe
+
+jbuilder exec controller -- \
+  simulated-annealing plot \
+  -steps 300 \
+  -prefix "$PREFIX_1" \
+  -legend NorthEast \
+  -output ./experiment-plots/simulated-annealing-almabench-1.pdf

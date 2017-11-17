@@ -376,6 +376,11 @@ let command_plot =
              Fyp_stats.geometric_mean result)
          |> Array.of_list
        in
+       let relative_runtime ~f =
+         let arr = execution_times ~f in
+         let base = arr.(0) in
+         Array.map arr ~f:(fun a -> a /. base)
+       in
        let gc_stats
            ~(f : Step.t -> (Base_state_energy.state * Execution_stats.t)) =
          List.map results ~f:(fun result ->
@@ -445,6 +450,17 @@ let command_plot =
        Plot.set_ylabel h "Execution time (s)";
        plot (execution_times ~f:get_initial)
          (execution_times ~f:get_proposal);
+       Plot.(legend_on h ~position:legend_position
+          [|"current"; "proposal"; |]);
+
+       (* Execution times *)
+       Plot.subplot h 0 1;
+       Plot.set_foreground_color h 255 255 255;
+       Plot.set_title h "Iteration vs Relative Runtime";
+       Plot.set_xlabel h "Iteration";
+       Plot.set_ylabel h "Relative Runtime";
+       plot (relative_runtime ~f:get_initial)
+         (relative_runtime ~f:get_proposal);
        Plot.(legend_on h ~position:legend_position
           [|"current"; "proposal"; |]);
 
