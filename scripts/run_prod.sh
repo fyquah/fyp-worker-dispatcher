@@ -12,6 +12,9 @@ sleep 1.0
 # with non fatal errors.
 set -euo pipefail
 
+# Don't run production cycle if code doesn't compile --- duh.
+make controller
+
 export OPAMROOT=$HOME/fyp/opam-root/
 eval `opam config env`
 opam switch 4.05.0+fyp
@@ -24,21 +27,20 @@ if [ "$1" = "" ]; then
   exit 1
 fi
 
-# Don't run production cycle if code doesn't compile --- duh.
-make controller
-
 RUNDIR=~/fyp/prod/rundir/$(ocamlnow)
-EXPERIMENTS_DIR=$RUNDIR/experiments
+EXPERIMENTS_REPO=$RUNDIR/experiments
 
 mkdir -p $RUNDIR
 
-if [ ! -d "$EXPERIMENTS_DIR" ]; then
-  git clone ~/fyp/experiments "$EXPERIMENTS_DIR"
+if [ ! -d "$EXPERIMENTS_REPO" ]; then
+  git clone ~/fyp/experiments "$EXPERIMENTS_REPO"
 fi
 
-bash -c "cd $EXPERIMENTS_DIR && git pull"
+bash -c "cd $EXPERIMENTS_REPO && git pull"
 
 cp prod_config.sexp $RUNDIR/config.sexp
+
+mkdir -p tmp
 
 nohup jbuilder exec controller -- \
   "$1" run \
