@@ -16,4 +16,4 @@ jbuilder exec controller -- \
   -output /dev/stdout \
   | python3 plots/simulated_annealing_plot.py \
       --title "Simulated Annealing (Almabench)" \
-      --pdf experiment-plots/simulated-annealing-almabench-1.pdf
+      --output experiment-plots/simulated-annealing-almabench-1.pdf

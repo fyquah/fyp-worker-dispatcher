@@ -15,7 +15,7 @@ jbuilder exec controller -- \
   -output /dev/stdout \
   | python3 plots/simulated_annealing_plot.py \
       --title "Simulated Annealing (Async Floating Point) - Run 1" \
-      --pdf experiment-plots/simulated-annealing-async-floating-point-1.pdf
+      --output experiment-plots/simulated-annealing-async-floating-point-1.pdf
 
 jbuilder exec controller -- \
   simulated-annealing plot \
@@ -24,4 +24,4 @@ jbuilder exec controller -- \
   -output /dev/stdout \
   | python3 plots/simulated_annealing_plot.py \
       --title "Simulated Annealing (Async Floating Point) - Run 2" \
-      --pdf experiment-plots/simulated-annealing-async-floating-point-2.pdf
+      --output experiment-plots/simulated-annealing-async-floating-point-2.pdf
