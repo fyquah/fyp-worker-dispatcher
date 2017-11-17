@@ -12,4 +12,4 @@ jbuilder exec controller -- \
   -steps 300 \
   -prefix "$PREFIX_1" \
   -legend NorthEast \
-  -output ./experiment-plots/simulated-annealing-almabench-1.pdf
+  -output ./experiment-plots/simulated-annealing-almabench-1.svg

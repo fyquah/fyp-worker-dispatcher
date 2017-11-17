@@ -12,11 +12,11 @@ jbuilder exec controller -- \
   simulated-annealing plot \
   -steps 300 \
   -prefix "$PREFIX_1" \
-  -output ./experiment-plots/simulated-annealing-async-floating-point-1.pdf
+  -output ./experiment-plots/simulated-annealing-async-floating-point-1.svg
 
 jbuilder exec controller -- \
   simulated-annealing plot \
   -legend NorthEast \
   -steps 300 \
   -prefix "$PREFIX_2" \
-  -output ./experiment-plots/simulated-annealing-async-floating-point-2.pdf
+  -output ./experiment-plots/simulated-annealing-async-floating-point-2.svg
