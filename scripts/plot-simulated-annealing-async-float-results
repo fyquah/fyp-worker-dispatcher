@@ -12,11 +12,16 @@ jbuilder exec controller -- \
   simulated-annealing plot \
   -steps 300 \
   -prefix "$PREFIX_1" \
-  -output ./experiment-plots/simulated-annealing-async-floating-point-1.svg
+  -output /dev/stdout \
+  | python3 plots/simulated_annealing_plot.py \
+      --title "Simulated Annealing (Async Floating Point) - Run 1" \
+      --pdf experiment-plots/simulated-annealing-async-floating-point-1.pdf
 
 jbuilder exec controller -- \
   simulated-annealing plot \
-  -legend NorthEast \
   -steps 300 \
   -prefix "$PREFIX_2" \
-  -output ./experiment-plots/simulated-annealing-async-floating-point-2.svg
+  -output /dev/stdout \
+  | python3 plots/simulated_annealing_plot.py \
+      --title "Simulated Annealing (Async Floating Point) - Run 2" \
+      --pdf experiment-plots/simulated-annealing-async-floating-point-2.pdf
