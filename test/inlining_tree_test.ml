@@ -37,6 +37,7 @@ module T1 = struct
       let leaves = Inlining_tree.Top_level.count_leaves tree in
       Inlining_tree.Top_level.flip_nth_leaf tree (leaves - 1)
     in
+    printf "flipped tree:\n%s" (Format.asprintf "%a" Inlining_tree.Top_level.pp modified_tree);
     let%bind () = compile_with_decisions modified_tree in
     let%bind tree = load_decision_tree () in
     printf "tree 2:\n%s" (Format.asprintf "%a" Inlining_tree.Top_level.pp tree);

@@ -6,4 +6,5 @@ let rec factorial n =
 ;;
 
 let () =
+  Format.printf "%d\n" (List.length []);
   Format.printf "Hello world %d" (factorial (int_of_string (Sys.argv.(1))))
