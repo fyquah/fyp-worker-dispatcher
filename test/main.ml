@@ -1,8 +1,12 @@
-open Core
+open Async
+
+open Regex_test
+open Inlining_tree_test
 
 let () =
-  let regex = Re2.Regex.create_exn "^(\\d+\\.\\d+)\\s*user" in
-  let haystack = "1.84user 0.00system 0:01.84elapsed 100%CPU (0avgtext+0avgdata 18832maxresident)"
-  in
-  let m = Re2.Regex.first_match_exn regex haystack in
-  printf "%s" (Re2.Regex.Match.get_exn ~sub:(`Index 0) m)
+  Command.async' ~summary:"Execute tests"
+    (Command.Param.return (fun () ->
+      Deferred.unit >>= fun () ->
+      Testlib.run ()))
+  |> Command.run
+;;

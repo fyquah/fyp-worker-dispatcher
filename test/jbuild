@@ -1,10 +1,18 @@
 (jbuild_version 1)
 
+(alias
+ ((name runtest)
+  (action (run ${exe:main.exe}))))
+
 (executables
  ((names (main))
   (preprocess (pps (ppx_jane  ppx_driver.runner)))
   (libraries
     (core
      core_extended
+     async
+
      re2
+
+     protocol
      ))))

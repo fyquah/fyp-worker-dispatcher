@@ -17,3 +17,8 @@ test:
 .PHONY: display
 display:
 	jbuilder build display/main.exe
+	
+.PHONY: test
+test:
+	jbuilder build test/main.exe
+	jbuilder runtest test
