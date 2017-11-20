@@ -1,7 +1,7 @@
 [@@@ocaml.warning "+a-4-9-30-40-41-42-44"]
 
 open Core
-open Common
+open Shadow_fyp_compiler_lib
 
 exception Build_error
 

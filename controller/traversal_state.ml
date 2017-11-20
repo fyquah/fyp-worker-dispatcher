@@ -5,7 +5,6 @@ open Async
 
 open Common
 
-
 type state =
   | Original
   | Override

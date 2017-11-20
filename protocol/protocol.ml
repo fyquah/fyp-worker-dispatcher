@@ -4,6 +4,8 @@ open Async
 module Relpath = Relpath
 module Results = Results
 module Execution_stats = Execution_stats
+module Inlining_tree = Inlining_tree
+module Shadow_fyp_compiler_lib = Shadow_fyp_compiler_lib
 
 module Compile_params = struct
   type t =

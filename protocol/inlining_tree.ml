@@ -2,8 +2,7 @@
 
 open Core
 open Async
-
-open Common
+open Shadow_fyp_compiler_lib
 
 exception Build_error
 
