@@ -4,6 +4,8 @@ open Async
 
 let all_tests = ref []
 
+let repo_root = "../../.."
+
 let register (module M: Test_intf.S) =
   all_tests := (module M : Test_intf.S) :: !all_tests
 ;;

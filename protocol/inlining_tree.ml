@@ -213,6 +213,31 @@ module Top_level = struct
       loop_node ~source:None ~call_stack:[] ~node)
   ;;
 
+  let pp ppf (tree : root) =
+    let mk_indent indent = String.make indent ' ' in
+    let fprintf = Format.fprintf in
+    let rec pp t ~indent =
+      match (t : t) with
+      | Declaration decl ->
+        fprintf ppf "%s| Declaration { %s }\n"
+          (mk_indent indent)
+          (Caml.Format.asprintf "%a" Closure_id.print decl.closure);
+        List.iter decl.children ~f:(fun a -> pp a ~indent:(indent + 1))
+      | Apply_inlined_function inlined ->
+        fprintf ppf "%s| [%d] Inlined { %s }\n"
+          (mk_indent indent)
+          (Call_site_offset.to_int inlined.offset)
+          (Caml.Format.asprintf "%a" Closure_id.print inlined.applied);
+        List.iter inlined.children ~f:(fun a -> pp a ~indent:(indent + 1))
+      | Apply_non_inlined_function non_inlined ->
+        fprintf ppf "%s| [%d] Not inlined { %s }\n"
+          (mk_indent indent)
+          (Call_site_offset.to_int non_inlined.offset)
+          (Caml.Format.asprintf "%a" Closure_id.print non_inlined.applied)
+    in
+    List.iter tree ~f:(fun t -> pp t ~indent:0);
+  ;;
+
   type t = root [@@deriving sexp]
 end
 

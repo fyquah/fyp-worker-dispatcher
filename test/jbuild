@@ -11,6 +11,7 @@
     (core
      core_extended
      async
+     async_shell
 
      re2
 

@@ -21,4 +21,5 @@ display:
 .PHONY: test
 test:
 	jbuilder build test/main.exe
-	jbuilder runtest test
+	OPAMROOT=~/fyp/opam-root opam switch 4.05.0+fyp
+	OPAMROOT=~/fyp/opam-root jbuilder runtest test

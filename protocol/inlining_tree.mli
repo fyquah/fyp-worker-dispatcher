@@ -36,6 +36,8 @@ module Top_level : sig
   val flip_several_leaves : t -> int list -> t
 
   val to_override_rules : t -> Data_collector.t list
+
+  val pp : Format.formatter -> t -> unit
 end
 
 module Diff : sig
