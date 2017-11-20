@@ -38,6 +38,16 @@ module Top_level : sig
   val to_override_rules : t -> Data_collector.t list
 end
 
+module Diff : sig
+  type nonrec t =
+    { common_ancestor : t list; (* Arbitary choice between the left and right *)
+      left            : [ `Left of t ]  list;
+      right           : [ `Right of t ] list;
+    }
+end
+
+val diff : left: Top_level.t -> right: Top_level.t -> Diff.t list
+
 val shallow_sexp_of_t : t -> Sexp.t
 
 val fuzzy_equal : t -> t -> bool

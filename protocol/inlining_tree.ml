@@ -395,3 +395,73 @@ let add (top_level_tree : Top_level.t) (collected : Data_collector.t) =
 let build (decisions : Data_collector.t list) : Top_level.t =
   let (init : Top_level.t) = [] in
   List.fold decisions ~init ~f:add
+
+module Diff = struct
+  type nonrec t =
+    { common_ancestor : t list; (* Arbitary choice between the left and right *)
+      left            : [ `Left of t  ] list;
+      right           : [ `Right of t ] list;
+    }
+  [@@deriving sexp]
+end
+
+let diff ~(left : Top_level.t) ~(right : Top_level.t) =
+  let shallow_diff ~left ~right =
+    let same = ref [] in
+    let left_only = ref [] in
+    let right_only = ref [] in
+    List.iter left ~f:(fun t ->
+      if List.exists right ~f:(fuzzy_equal t) then
+        same := t :: !same
+      else
+        left_only := t :: !left_only);
+    List.iter right ~f:(fun t ->
+      if not (List.exists left ~f:(fuzzy_equal t)) then
+        right_only := t :: !right_only;
+    );
+    (`Same !same, `Left_only !left_only, `Right_only !right_only)
+  in
+  let rec loop ~(left : t list) ~(right : t list) =
+    let (`Same same, `Left_only left_only, `Right_only right_only) =
+      shallow_diff ~left ~right
+    in
+    let descent =
+      let left =
+        List.filter left ~f:(fun l -> List.exists same ~f:(fuzzy_equal l))
+      in
+      let right =
+        List.filter right ~f:(fun r -> List.exists same ~f:(fuzzy_equal r))
+      in
+      List.map2_exn left right ~f:(fun l r ->
+        let diffs =
+          match l, r with
+          | Declaration l_decl, Declaration r_decl ->
+            loop ~left:l_decl.children ~right:r_decl.children
+          | Apply_inlined_function l_inlined, Apply_inlined_function r_inlined ->
+            loop ~left:l_inlined.children ~right:r_inlined.children
+          | Apply_non_inlined_function _, Apply_non_inlined_function _ ->
+            []
+          | _, _ -> assert false
+        in
+        List.map diffs ~f:(fun (diff : Diff.t) ->
+          let common_ancestor = diff.common_ancestor in
+          { diff with common_ancestor = l :: common_ancestor }))
+      |> List.concat_no_order
+    in
+    let current =
+      match left, right with
+      | [], [] -> None
+      | _, _ ->
+        Some {
+          Diff.
+          left  = List.map left_only ~f:(fun x -> `Left x);
+          right = List.map right_only ~f:(fun x -> `Right x);
+          common_ancestor = [];
+        }
+    in
+    match current with
+    | Some hd -> hd :: descent
+    | None -> descent
+  in
+  loop ~left ~right
+;;
