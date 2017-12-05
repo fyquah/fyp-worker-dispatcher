@@ -14,7 +14,6 @@ let command_pp =
        let%bind tree =
          Reader.load_sexp_exn file [%of_sexp: Inlining_tree.Top_level.t]
        in
-       List.iter tree ~f:(fun t -> pp t ~indent:0);
        Deferred.unit
     ]
 
