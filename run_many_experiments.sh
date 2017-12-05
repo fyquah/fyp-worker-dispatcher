@@ -23,6 +23,15 @@ wait_for_completion() {
 
 BATCH_EXECUTOR_LOG=tmp/batch_executor.log
 
+for script in $@; do
+  if [ ! -f "$script" ]; then
+    echo "$script doesn't exists!"
+    exit 1
+  fi
+
+  echo "Checked $script"
+done
+
 while true; do
   for script in $@; do
     echo "[BATCH EXECUTOR] RUNNING $script!"
@@ -35,7 +44,7 @@ while true; do
     # ## end of testbed
   
     RUNDIR=$(cat tmp/controller.rundir)
-    echo "$script,$RUNDIR" >$BATCH_EXECUTOR_LOG
+    echo "$script,$RUNDIR" >>$BATCH_EXECUTOR_LOG
   
     wait_for_completion
   done
