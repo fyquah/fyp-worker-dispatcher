@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 cd ../
 
 export EXPERIMENT_DIR="normal/lexifi-g2pp_benchmark"
-export EXPERIMENT_BIN_NAME="lexifi-g2pp_benchmark"
+export EXPERIMENT_BIN_NAME="main"
 export EXPERIMENT_BIN_ARGS=""
 
 if [ "$1" = "dev" ]; then

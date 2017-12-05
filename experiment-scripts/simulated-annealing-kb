@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 cd ../
 
 export EXPERIMENT_DIR="normal/kb_benchmark"
-export EXPERIMENT_BIN_NAME="kb_benchmark"
+export EXPERIMENT_BIN_NAME="kb"
 export EXPERIMENT_BIN_ARGS="400"
 
 if [ "$1" = "dev" ]; then
