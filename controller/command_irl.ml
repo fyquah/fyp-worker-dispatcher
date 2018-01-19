@@ -113,63 +113,67 @@ module RL = struct
     ;;
   end
 
-(*
-
-  type trajectory =
-    { entries: (S.t * A.t) list;
-      terminal_state: S.t;
-      reward: float;
-    }
-
-  type transition =
-    RL.state -> RL.action -> [`Leaf of RL.state | `Node of RL.state]
-
-  let optimization_loop
-      ~(num_rollouts: int)
-      ~(root_state: RL.state)
-      ~(transition: transition)
-      ~(rollout_policy: RL.state -> RL.action) =
-    let (mcts_tree : Q.t ref) = ref RL.MCTS.empty in
-    Deferred.List.init mcts_runs (fun (_ : a) ->
-      let rec loop state ~policy ~acc =
-        let action = policy state in
-        match transition state action with
-        | `Leaf state ->
-          next_state, (List.reverse acc)
-        | `Node next_state ->
-          loop next_state ~policy ~acc:((state,  action) :: acc)
-      in
-  
-      (* phase 1, Choose action using MCTS *)
-      let mcts_terminal, mcts_trajectory = 
-        loop root_state ~policy:(Staged.unstage (MCTS.mk_policy ~tree:mcts_tree)) ~acc:[]
-      in
-  
-      (* phase 2, 3, use the [rollout_policy] *)
-      let rollout_terminal, rollout_trajectory =
-        loop mcts_terminal ~policy:rollout_policy ~acc:[]
-      in
-  
-      let%bind base_execution_time = f () in
-      let%bind execution_time = f () in
-      let reward = -execution_time /. base_execution_time in
-      let entries = mcts_trajectory @ rollout_trajectory in
-  
-      (* phase 4: Backprop MCTS *)
-      mcts_tree := ref (
-          RL.MCTS.backprop !mcts_tree ~trajectory:entries ~reward
-            ~terminal:rollout_terminal
-      )
-  
-      Deferred.return ({
-            entries: entries;
-            terminal_state: rollout_terminal;
-            reward: reward;
-      }))
-  ;;
-  *)
-
+  module Trajectory = struct
+    type t =
+      { entries: (S.t * A.t) list;
+        terminal_state: S.t;
+        reward: float;
+      }
+    [@@deriving sexp]
+  end
 end
+
+
+type transition = RL.S.t -> RL.A.t -> [`Leaf of RL.S.t | `Node of RL.S.t ]
+
+let mcts_loop
+    ~(root_state: RL.S.t)
+    ~(transition: transition)
+    ~(rollout_policy: RL.S.t -> RL.A.t)
+    ~(mcts: RL.MCTS.t)
+    ~(reward_of_exec_time: Time.Span.t -> float) =
+
+  let rec loop state ~policy ~acc =
+    let action = policy state in
+    match transition state action with
+    | `Leaf terminal_state ->
+      (terminal_state, (List.rev ((state, action) :: acc)))
+    | `Node next_state ->
+      loop next_state ~policy ~acc:((state, action) :: acc)
+  in
+
+  (* phase 1, Choose action using MCTS *)
+  let mcts_terminal, mcts_trajectory = 
+    let policy = Staged.unstage (RL.MCTS.mk_policy mcts) in
+    loop root_state ~policy ~acc:[]
+  in
+
+  (* phase 2, 3, use the [rollout_policy] *)
+  let rollout_terminal, rollout_trajectory =
+    let policy = rollout_policy in
+    loop mcts_terminal ~policy ~acc:[]
+  in
+
+  (* TODO(fyquah): Actually execute code! *)
+  let%bind execution_time = Deferred.return (Time.Span.of_sec 2.0) in
+  let reward = reward_of_exec_time execution_time in
+  let entries = mcts_trajectory @ rollout_trajectory in
+
+  (* phase 4: Backprop MCTS *)
+  let mcts = 
+    RL.MCTS.backprop mcts ~trajectory:entries ~reward
+      ~terminal:rollout_terminal
+  in
+  let trajectory =
+    { RL.Trajectory.
+      entries  = entries;
+      terminal_state = rollout_terminal;
+      reward = reward;
+    }
+  in
+  Deferred.return (mcts, trajectory)
+;;
+
 
 let command =
   let open Command.Let_syntax in
