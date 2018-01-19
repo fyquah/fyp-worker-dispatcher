@@ -4,3 +4,4 @@ worker_dispatcher.install
 tmp/
 */__pycache__/
 log/
+*.inlining.org
