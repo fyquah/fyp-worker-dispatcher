@@ -5,22 +5,21 @@ open Common
 module RL = Rl
 
 type node =
-  { inline: Closure_id.t option;
-    no_inline: Closure_id.t option;
+  { inline: RL.S.t option;
+    no_inline: RL.S.t option;
   }
 
 type t =
-  { node_map: node Closure_id.Map.t;
-    root: Closure_id.t;
+  { node_map: node RL.S.Map.t;
+    root: RL.S.t;
   }
 
 let transition t clos action =
-  Option.bind (Closure_id.Map.find_opt clos t.node_map) ~f:(fun node ->
-      match action with
-      | RL.A.Inline    -> node.inline
-      | RL.A.No_inline -> node.no_inline)
+  let node = RL.S.Map.find_exn t.node_map clos in
+  match action with
+  | RL.A.Inline    -> node.inline
+  | RL.A.No_inline -> node.no_inline
 ;;
-
 
 let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
   let filter_children_ids children =
@@ -33,7 +32,7 @@ let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
     let rec loop tree_node ~acc =
       let update_map clos children =
         let children_ids = filter_children_ids children in
-        let init = Closure_id.Map.add clos children_ids acc in
+        let init = Rl.S.Map.add acc ~key:clos ~data:children_ids in
         List.fold_left children ~init ~f:(fun b a -> 
             loop tree_node ~acc:b)
       in
@@ -44,11 +43,11 @@ let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
       | Apply_inlined_function inlined ->
         update_map inlined.applied inlined.children
     in
-    List.fold_left top_level ~init:Closure_id.Map.empty
+    List.fold_left top_level ~init:RL.S.Map.empty
         ~f:(fun acc tree_node -> loop tree_node ~acc)
   in
   let rec loop
-      ~(acc : node Closure_id.Map.t)
+      ~(acc : node RL.S.Map.t)
       ~(tree_node : (Closure_id.t * Closure_id.t list))
       ~next_stack =
     let backtracked =
@@ -64,9 +63,9 @@ let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
     let no_inline = backtracked in
     let key = fst tree_node in
     let data = { inline; no_inline; } in
-    let acc = Closure_id.Map.add key data acc in
+    let acc = RL.S.Map.add acc ~key ~data in
     List.fold_left (snd tree_node) ~init:acc ~f:(fun b key ->
-        match Closure_id.Map.find_opt key children_lookup with
+        match RL.S.Map.find children_lookup key with
         | Some children ->
           let tree_node = (key, children) in
           loop ~acc:b ~tree_node ~next_stack
@@ -76,13 +75,13 @@ let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
   in
   let children_ids = filter_children_ids top_level in
   let node_map =
-    List.fold_left children_ids ~init:Closure_id.Map.empty
-      ~f:(fun b clos_id ->
+    List.fold_left children_ids ~init:RL.S.Map.empty
+      ~f:(fun acc clos_id ->
           let tree_node =
-            (clos_id, Closure_id.Map.find clos_id children_lookup)
+            (clos_id, RL.S.Map.find_exn children_lookup clos_id)
           in
           let next_stack = [] in
-          loop ~acc:b ~tree_node ~next_stack)
+          loop ~acc  ~tree_node ~next_stack)
   in
   let root = List.hd_exn children_ids in
   { node_map; root; }

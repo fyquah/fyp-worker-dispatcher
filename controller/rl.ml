@@ -2,11 +2,21 @@ open Core
 open Common
 
 module S = struct 
-  type t = Closure_id.t [@@deriving compare, sexp]
+  module T = struct
+    type t = Closure_id.t [@@deriving compare, sexp]
+  end
+
+  include T
+  include Comparable.Make(T)
 end
 
 module A = struct
-  type t = Inline | No_inline [@@deriving compare, sexp]
+  module T = struct
+    type t = Inline | No_inline [@@deriving compare, sexp]
+  end
+
+  include T
+  include Comparable.Make(T)
 end
 
 module SA_pair = struct

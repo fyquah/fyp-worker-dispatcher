@@ -3,10 +3,14 @@ open Common
 
 module S : sig
   type t = Closure_id.t [@@deriving compare, sexp]
+
+  include Comparable.S with type t := t
 end
 
 module A : sig
   type t = Inline | No_inline [@@deriving compare, sexp]
+
+  include Comparable.S with type t := t
 end
 
 module MCTS : sig 
