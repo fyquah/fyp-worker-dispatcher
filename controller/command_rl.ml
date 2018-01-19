@@ -16,6 +16,7 @@ open Common
  *)
 
 module RL = Rl  (* RL is much nicer alias than Rl :) *)
+module Cfg = Cfg
 
 let mcts_loop
     ~(root_state: RL.S.t)
