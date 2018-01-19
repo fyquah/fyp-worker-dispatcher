@@ -6,5 +6,6 @@ let () =
   Command.group ~summary:"Controller code"
     [ ("t-test-search", Command_t_test_search.command);
       ("simulated-annealing", Command_simulated_annealing.command);
+      ("irl", Command_irl.command);
     ]
   |> Command.run

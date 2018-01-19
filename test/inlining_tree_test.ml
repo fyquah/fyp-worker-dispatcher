@@ -25,7 +25,7 @@ module T1 = struct
       Writer.save_sexp (datadir ^/ "overrides.sexp")
         ([%sexp_of: Data_collector.t list] decisions)
     in
-    Async_shell.run ~expect:[ 0 ] ~working_dir
+    Async_shell.run ~echo:true ~verbose:true ~expect:[ 0 ] ~working_dir
       "bash" [ "-c"; "eval `opam config env` && make all" ]
   ;;
 
