@@ -45,7 +45,8 @@ let command =
             let hostname = Protocol.Config.hostname worker_config in
             Experiment_utils.init_connection ~hostname ~worker_config)
         >>=? fun worker_connections ->
-        Experiment_utils.get_initial_state ~bin_name ~exp_dir
+        let env = [("FYP_OCAML_FLAGS", "-exhaustive-inlining")] in
+        Experiment_utils.get_initial_state ~env ~bin_name ~exp_dir
             ~base_overrides:[] ()
         >>=? fun initial_state ->
         let initial_state = Option.value_exn initial_state in
@@ -65,8 +66,7 @@ let command =
         lift_deferred (EU.Scheduler.create worker_connections ~process)
         >>=? fun scheduler ->
 
-        EU.run_in_all_workers ~scheduler ~config ~bin_args
-            ~worker_connections ~initial_state
+        EU.run_in_all_workers ~times:3 ~scheduler ~config ~initial_state
         >>=? fun initial_execution_stats ->
 
         let exec_time = gmean_exec_time initial_execution_stats in

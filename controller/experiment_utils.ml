@@ -23,16 +23,14 @@ module Initial_state = struct
     }
 end
 
-let get_initial_state ~bin_name ~exp_dir ~base_overrides () =
+let get_initial_state ?(env = []) ~bin_name ~exp_dir ~base_overrides () =
   shell ~dir:exp_dir "make" [ "clean" ] >>=? fun () ->
   lift_deferred (
     Writer.save_sexp (exp_dir ^/ "overrides.sexp")
       ([%sexp_of: Data_collector.t list] base_overrides)
   )
   >>=? fun () ->
-  shell ~dir:exp_dir "make" [ "all" ] >>=? fun () ->
-  (* TODO(fyquah): Run the program in workers to get exec time information.
-   *)
+  shell ~env:env ~dir:exp_dir "make" [ "all" ] >>=? fun () ->
   let filename = exp_dir ^/ (bin_name ^ ".0.data_collector.sexp") in
   Reader.load_sexp filename [%of_sexp: Data_collector.t list]
   >>=? fun decisions ->
@@ -277,22 +275,17 @@ let compile_binary ~dir ~bin_name overrides =
 ;;
 
 (** Useful to get a stable estimate of the baseline runtime **)
-let run_in_all_workers
-    ~(scheduler)
-    ~(config: Common.Config.t)
-    ~(bin_args: string)
-    ~(worker_connections: 'a Worker_connection.t list)
-    ~(initial_state: Initial_state.t) =
+let run_in_all_workers ~scheduler ~times ~config ~initial_state =
   (* We run this 3 more times than the others to gurantee
    * stability of the distribution of initial execution times.
    *)
-  Deferred.Or_error.List.init ~how:`Sequential 3 ~f:(fun i ->
+  Deferred.Or_error.List.init ~how:`Sequential times ~f:(fun i ->
     Log.Global.sexp ~level:`Info
       [%message "Initial state run " (i : int)];
-    Deferred.Or_error.List.init (List.length config.worker_configs)
+    Deferred.Or_error.List.init (List.length config.Config.worker_configs)
       ~how:`Parallel
       ~f:(fun _ ->
-        let path_to_bin = initial_state.path_to_bin in
+        let path_to_bin = initial_state.Initial_state.path_to_bin in
         let work_unit =
           { Work_unit. path_to_bin; step = -1; sub_id = 0; }
         in
