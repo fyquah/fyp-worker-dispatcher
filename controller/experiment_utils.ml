@@ -257,6 +257,26 @@ let process_work_unit
   execution_stats
 ;;
 
+let compile_binary ~dir tree =
+  shell ~dir "make" [ "clean" ]
+  >>=? fun () ->
+  let overrides = Inlining_tree.Top_level.to_override_rules tree in
+  lift_deferred (
+    Writer.save_sexp (M.exp_dir ^/ "overrides.sexp")
+      ([%sexp_of: Data_collector.t list] overrides)
+  )
+  >>=? fun () ->
+  shell ~dir "make" [ "all" ]
+  >>=? fun () ->
+  let filename = Filename.temp_file "fyp-" ("-" ^ M.bin_name) in
+  shell ~dir:M.exp_dir
+    "cp" [ (M.bin_name ^ ".native"); filename ]
+  >>=? fun () ->
+  shell ~dir:M.exp_dir "chmod" [ "755"; filename ]
+  >>=? fun () ->
+  Deferred.Or_error.return filename
+;;
+
 (** Useful to get a stable estimate of the baseline runtime **)
 let run_in_all_workers
     ~(scheduler)
