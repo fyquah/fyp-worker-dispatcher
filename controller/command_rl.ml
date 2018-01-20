@@ -20,13 +20,12 @@ module Cfg = Cfg
 module EU = Experiment_utils
 
 let mcts_loop
-    ~scheduler
     ~(root_state: RL.S.t)
     ~(transition: RL.transition)
     ~(rollout_policy: RL.S.t -> RL.A.t)
     ~(mcts: RL.MCTS.t)
-    ~(compile_binary:
-        (dir: string -> Inlining_tree.Top_level.t -> string Deferred.Or_error.t))
+    ~(compile_binary: (RL.Pending_trajectory.t -> string Deferred.Or_error.t))
+    ~(execute_work_unit: EU.Work_unit.t -> Execution_stats.t Deferred.Or_error.t)
     ~(reward_of_exec_time: Time.Span.t -> float) =
 
   let rec loop state ~policy ~acc =
@@ -49,30 +48,30 @@ let mcts_loop
     let policy = rollout_policy in
     loop mcts_terminal ~policy ~acc:[]
   in
+  let trajectory_entries = mcts_trajectory @ rollout_trajectory in
+
+  (* TODO(fyq14): Change [step] and [sub_id] to sensible values! *)
+  let step = 0 in
+  let sub_id = 1 in
+  compile_binary (trajectory_entries, rollout_terminal)
+  >>=? fun path_to_bin ->
+  let work_unit = { EU.Work_unit. path_to_bin; step; sub_id } in
+  execute_work_unit work_unit
+
+  >>|? fun execution_time ->
+  let reward = reward_of_exec_time (gmean_exec_time execution_time) in
   let trajectory =
     { RL.Trajectory.
-      entries  = entries;
+      entries  = trajectory_entries;
       terminal_state = rollout_terminal;
       reward = reward;
     }
   in
 
-  (* TODO(fyquah): Actually execute code! *)
-  let%bind execution_time =
-    let inlining_tree_instance =
-      Cfg.inlining_tree_of_trajectory t trajectory
-
-    in
-    compile_binary tree
-    let work_unit = 1 in
-    EU.Scheduler.dispatch scheduler work_unit
-  in
-  let reward = reward_of_exec_time execution_time in
-  let entries = mcts_trajectory @ rollout_trajectory in
 
   (* phase 4: Backprop MCTS *)
   let mcts =
-    RL.MCTS.backprop mcts ~trajectory:entries ~reward
+    RL.MCTS.backprop mcts ~trajectory:trajectory_entries ~reward
       ~terminal:rollout_terminal
   in
   Deferred.return (mcts, trajectory)
@@ -142,8 +141,10 @@ let command =
           else
             (-1.0) *. slowdown
         in
-        let compile_binary tree = EU.compile_binary ~dir:exp_dir tree in
-
+        let compile_binary pending_trajectory =
+          EU.compile_binary ~dir:exp_dir (
+            Cfg.overrides_of_pending_trajectory cfg pending_trajectory)
+        in
         Deferred.Or_error.return ()
     ]
   ;;

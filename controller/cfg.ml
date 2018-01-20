@@ -7,6 +7,13 @@ module RL = Rl
 module Closure_id = Protocol.Shadow_fyp_compiler_lib.Closure_id
 module Call_site = Protocol.Shadow_fyp_compiler_lib.Call_site
 
+let zip_with_delay l =
+  match l with
+  | [] -> []
+  | _ :: tl ->
+    List.zip_exn l ((List.map ~f:(fun x -> Some x) tl) @ [None])
+;;
+
 module Function_call = struct
   module T = struct
     type t =
@@ -19,6 +26,41 @@ module Function_call = struct
 
   include T
   include Comparable.Make(T)
+
+  let override_of_t t action =
+    let call_stack =
+      List.map (zip_with_delay t.call_stack)
+        ~f:(fun ((source, offset), after)->
+          let applied =
+            match after with
+            | None -> t.applied
+            | Some (clos, _) -> clos
+          in
+          let source = Some source in
+          let at_call_site = { Call_site. source; offset; applied; } in
+          Call_site.At_call_site at_call_site
+      )
+    in
+    let top_level_call_site =
+      let source = None in
+      let offset = t.top_level_offset in
+      let applied =
+        match t.call_stack with
+        | [] -> t.applied
+        | (clos, _) :: _ -> clos
+      in
+      let at_call_site = { Call_site. source; offset; applied; } in
+      Call_site.At_call_site at_call_site
+    in
+    let call_stack = call_stack @ [top_level_call_site] in
+    let applied = t.applied in
+    let decision =
+      match action with
+      | RL.A.Inline -> true
+      | RL.A.No_inline -> false
+    in
+    { Data_collector. call_stack; applied; decision; }
+  ;;
 end
 
 type node =
@@ -39,18 +81,16 @@ let transition t clos action =
   | RL.A.No_inline -> node.no_inline
 ;;
 
-let zip_with_delay l =
-  match l with
-  | [] -> []
-  | _ :: tl ->
-    List.zip_exn l ((List.map ~f:(fun x -> Some x) tl) @ [None])
-;;
-
 let is_empty_list = function
   | [] -> true
   | _  -> false
 ;;
 
+let overrides_of_pending_trajectory (t : t) (pending_trajectory : RL.Pending_trajectory.t) =
+  List.map (fst pending_trajectory) ~f:(fun (s, a) ->
+    let function_call = RL.S.Map.find_exn t.function_calls s in
+    Function_call.override_of_t function_call a)
+;;
 
 let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
   let filter_children_clos children =

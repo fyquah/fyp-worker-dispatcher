@@ -42,5 +42,10 @@ module Trajectory : sig
   [@@deriving sexp]
 end
 
+module Pending_trajectory : sig
+  type t = ((S.t * A.t) list * S.t) [@@deriving sexp]
+end
+
+
 type transition = S.t -> A.t -> [`Leaf of S.t | `Node of S.t ]
 

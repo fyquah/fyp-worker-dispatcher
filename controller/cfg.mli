@@ -34,7 +34,7 @@ type t = private
 
 val t_of_inlining_tree : Inlining_tree.Top_level.t -> t
 
-val inlining_tree_of_trajectory : t -> RL.Trajectory.t -> Inlining_tree.t
+val overrides_of_pending_trajectory : t -> RL.Pending_trajectory.t -> Data_collector.t list
 
 (* [None] indicates termination *)
 val transition : t -> RL.S.t -> RL.A.t -> RL.S.t option

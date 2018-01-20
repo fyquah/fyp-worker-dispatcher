@@ -239,7 +239,8 @@ module Scheduler = struct
 end
 
 let process_work_unit
-    ~(config: Config.t) ~(bin_args: string) (conn: 'a Worker_connection.t) (work_unit: Work_unit.t) =
+    ~(config: Config.t) ~(bin_args: string)
+    (conn: 'a Worker_connection.t) (work_unit: Work_unit.t) =
   let path_to_bin = work_unit.Work_unit.path_to_bin in
   let num_runs =
     config.num_runs / List.length config.worker_configs
@@ -257,22 +258,20 @@ let process_work_unit
   execution_stats
 ;;
 
-let compile_binary ~dir tree =
+let compile_binary ~dir ~bin_name overrides =
   shell ~dir "make" [ "clean" ]
   >>=? fun () ->
-  let overrides = Inlining_tree.Top_level.to_override_rules tree in
   lift_deferred (
-    Writer.save_sexp (M.exp_dir ^/ "overrides.sexp")
+    Writer.save_sexp (dir ^/ "overrides.sexp")
       ([%sexp_of: Data_collector.t list] overrides)
   )
   >>=? fun () ->
   shell ~dir "make" [ "all" ]
   >>=? fun () ->
-  let filename = Filename.temp_file "fyp-" ("-" ^ M.bin_name) in
-  shell ~dir:M.exp_dir
-    "cp" [ (M.bin_name ^ ".native"); filename ]
+  let filename = Filename.temp_file "fyp-" ("-" ^ bin_name) in
+  shell ~dir "cp" [ (bin_name ^ ".native"); filename ]
   >>=? fun () ->
-  shell ~dir:M.exp_dir "chmod" [ "755"; filename ]
+  shell ~dir "chmod" [ "755"; filename ]
   >>=? fun () ->
   Deferred.Or_error.return filename
 ;;
