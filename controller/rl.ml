@@ -3,7 +3,7 @@ open Common
 
 module S = struct 
   module T = struct
-    type t = Closure_id.t [@@deriving compare, sexp]
+    type t = Data_collector.t [@@deriving compare, sexp]
   end
 
   include T

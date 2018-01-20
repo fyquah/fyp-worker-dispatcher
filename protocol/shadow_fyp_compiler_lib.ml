@@ -24,11 +24,6 @@ end) = struct
   let t_of_sexp sexp = M.t_of_sexp (comp_sexp_of_core_sexp sexp)
 end
 
-module Data_collector = struct
-  include Fyp_compiler_lib.Data_collector
-  include Make_core_sexp(Fyp_compiler_lib.Data_collector)
-end
-
 module Closure_id = struct
   include Fyp_compiler_lib.Closure_id
   include Make_core_sexp(Fyp_compiler_lib.Closure_id)
@@ -37,7 +32,15 @@ end
 module Call_site = struct
   include Fyp_compiler_lib.Call_site
   include Make_core_sexp(Fyp_compiler_lib.Call_site)
+end
 
+module Data_collector = struct
+  include Fyp_compiler_lib.Data_collector
+  include Make_core_sexp(Fyp_compiler_lib.Data_collector)
+
+  (* TODO(fyq14): This is bad for perf! *)
+  let compare (a : t) (b : t) =
+    Sexp.compare (sexp_of_t a) (sexp_of_t b)
 end
 
 module Call_site_offset = struct

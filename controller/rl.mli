@@ -2,7 +2,7 @@ open Core
 open Common
 
 module S : sig
-  type t = Closure_id.t [@@deriving compare, sexp]
+  type t [@@deriving compare, sexp]
 
   include Comparable.S with type t := t
 end
@@ -39,3 +39,4 @@ module Trajectory : sig
 end
 
 type transition = S.t -> A.t -> [`Leaf of S.t | `Node of S.t ]
+
