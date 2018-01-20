@@ -27,9 +27,9 @@ type node =
   }
 
 type t = private
-  { transition_map: node RL.S.Map.t;
+  { transitions: node RL.S.Map.t;
     root:           RL.S.t;
-    node_to_stack:  Function_call.t RL.S.Map.t
+    function_calls:  Function_call.t RL.S.Map.t
   }
 
 val t_of_inlining_tree : Inlining_tree.Top_level.t -> t

@@ -3,8 +3,15 @@ open Common
 
 module S = struct 
   module T = struct
-    type t = Data_collector.t [@@deriving compare, sexp]
+    type t = int [@@deriving compare, sexp]
   end
+
+  let make =
+    let r = ref (-1) in
+    fun () ->
+      r := !r + 1;
+      !r
+  ;;
 
   include T
   include Comparable.Make(T)

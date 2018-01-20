@@ -22,17 +22,18 @@ module Function_call = struct
 end
 
 type node =
-  { inline: int option;
-    no_inline: int option;
+  { inline:    RL.S.t option;
+    no_inline: RL.S.t option;
   }
 
 type t =
-  { node_map: node Int.Map.t;
-    root: int;
+  { transitions: node RL.S.Map.t;
+    root: RL.S.t;
+    function_calls: Function_call.t RL.S.Map.t;
   }
 
 let transition t clos action =
-  let node = Int.Map.find_exn t.node_map clos in
+  let node = RL.S.Map.find_exn t.transitions clos in
   match action with
   | RL.A.Inline    -> node.inline
   | RL.A.No_inline -> node.no_inline
@@ -59,17 +60,11 @@ let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
         | Apply_non_inlined_function a -> Some (a.offset, a.applied))
   in
   let (top_level_ids, tree_map, call_map) =
-    let (tree_map : int list Int.Map.t ref) = ref Int.Map.empty in
-    let (call_map : Function_call.t Int.Map.t ref) = ref Int.Map.empty in
-    let make_new_id =
-      let r = ref (-1) in
-      fun () ->
-        r := !r + 1;
-        !r
-    in
+    let (tree_map : RL.S.t list RL.S.Map.t ref) = ref RL.S.Map.empty in
+    let (call_map : Function_call.t RL.S.Map.t ref) = ref RL.S.Map.empty in
     let rec loop tree_node ~call_stack ~foo =
       let update_map offset applied children =
-        let id = make_new_id () in
+        let id = RL.S.make () in
         let call_stack =
           match foo with
           | None -> call_stack
@@ -99,8 +94,8 @@ let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
                 ~foo:(Some (top_level_offset, applied))
             )
         in
-        call_map := Int.Map.add !call_map ~key:id ~data:function_call;
-        tree_map := Int.Map.add !tree_map ~key:id ~data:children_ids;
+        call_map := RL.S.Map.add !call_map ~key:id ~data:function_call;
+        tree_map := RL.S.Map.add !tree_map ~key:id ~data:children_ids;
         id
       in
       match (tree_node : Inlining_tree.t) with
@@ -116,8 +111,8 @@ let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
     in
     (top_level_ids, !tree_map, !call_map)
   in
-  let rec loop ~(acc : node Int.Map.t) ~(tree_node : int) ~backtrack =
-    let child_nodes = Int.Map.find_exn tree_map tree_node in
+  let rec loop ~(acc : node RL.S.Map.t) ~(tree_node : RL.S.t) ~backtrack =
+    let child_nodes = RL.S.Map.find_exn tree_map tree_node in
     let backtracked =
       match backtrack with
       | hd :: _ -> Some hd
@@ -130,7 +125,7 @@ let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
     in
     let no_inline = backtracked in
     let data = { inline; no_inline; } in
-    let acc = Int.Map.add acc ~key:tree_node ~data in
+    let acc = RL.S.Map.add acc ~key:tree_node ~data in
     List.fold_left (zip_with_delay child_nodes) ~init:acc
       ~f:(fun acc (child, maybe_next) ->
           let backtrack =
@@ -140,8 +135,8 @@ let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
           in
           loop ~acc ~tree_node:child ~backtrack)
   in
-  let node_map =
-    List.fold_left (zip_with_delay top_level_ids) ~init:Int.Map.empty
+  let transitions =
+    List.fold_left (zip_with_delay top_level_ids) ~init:RL.S.Map.empty
       ~f:(fun acc (top_level_id, next_id) ->
           let backtrack =
             Option.map next_id ~f:(fun x -> [x])
@@ -150,5 +145,5 @@ let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
           loop ~acc ~tree_node:top_level_id ~backtrack)
   in
   let root = List.hd_exn top_level_ids in
-  { node_map; root; }
+  { transitions; root; function_calls = call_map; }
 ;;

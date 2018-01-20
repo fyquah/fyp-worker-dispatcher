@@ -5,6 +5,8 @@ module S : sig
   type t [@@deriving compare, sexp]
 
   include Comparable.S with type t := t
+
+  val make : unit -> t
 end
 
 module A : sig
