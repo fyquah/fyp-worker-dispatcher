@@ -64,8 +64,8 @@ module Function_call = struct
 end
 
 type node =
-  { inline:    RL.S.t option;
-    no_inline: RL.S.t option;
+  { inline:    RL.S.t;
+    no_inline: RL.S.t;
   }
 
 type t =
@@ -93,12 +93,6 @@ let overrides_of_pending_trajectory (t : t) (pending_trajectory : RL.Pending_tra
 ;;
 
 let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
-  let filter_children_clos children =
-    List.filter_map children ~f:(function
-        | Inlining_tree.Declaration _ -> None
-        | Apply_inlined_function a -> Some (a.offset, a.applied)
-        | Apply_non_inlined_function a -> Some (a.offset, a.applied))
-  in
   let (top_level_ids, tree_map, call_map) =
     let (tree_map : RL.S.t list RL.S.Map.t ref) = ref RL.S.Map.empty in
     let (call_map : Function_call.t RL.S.Map.t ref) = ref RL.S.Map.empty in
@@ -153,17 +147,12 @@ let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
   in
   let rec loop ~(acc : node RL.S.Map.t) ~(tree_node : RL.S.t) ~backtrack =
     let child_nodes = RL.S.Map.find_exn tree_map tree_node in
-    let backtracked =
-      match backtrack with
-      | hd :: _ -> Some hd
-      | _ -> None
-    in
     let inline =
       match child_nodes with
-      | [] -> backtracked
-      | hd :: _ -> Some hd
+      | [] -> backtrack
+      | hd :: _ -> hd
     in
-    let no_inline = backtracked in
+    let no_inline = backtrack in
     let data = { inline; no_inline; } in
     let acc = RL.S.Map.add acc ~key:tree_node ~data in
     List.fold_left (zip_with_delay child_nodes) ~init:acc
@@ -171,7 +160,7 @@ let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
           let backtrack =
             match maybe_next with
             | None -> backtrack
-            | Some x -> x :: backtrack
+            | Some x -> x
           in
           loop ~acc ~tree_node:child ~backtrack)
   in
@@ -179,8 +168,7 @@ let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
     List.fold_left (zip_with_delay top_level_ids) ~init:RL.S.Map.empty
       ~f:(fun acc (top_level_id, next_id) ->
           let backtrack =
-            Option.map next_id ~f:(fun x -> [x])
-            |> Option.value ~default:[]
+            Option.value ~default:RL.S.terminal next_id
           in
           loop ~acc ~tree_node:top_level_id ~backtrack)
   in
@@ -189,14 +177,9 @@ let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
 ;;
 
 let pprint ?(with_legend: unit option) t =
-  let outward_to_string s =
-    match s with
-    | None -> "TERM"
-    | Some s -> "[" ^ RL.S.to_string s ^ "]"
-  in
   RL.S.Map.to_alist t.transitions
   |> List.map ~f:(fun (s, node) ->
-      sprintf !"[%{RL.S}] (%{outward_to_string}, %{outward_to_string})"
+      sprintf !"[%{RL.S}] (%{RL.S}, %{RL.S})"
         s node.inline node.no_inline)
   |> String.concat ~sep:"\n"
 ;;

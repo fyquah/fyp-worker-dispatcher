@@ -17,11 +17,12 @@ let run_one_iteration
 
   let rec loop state ~policy ~acc =
     let action = policy state in
-    match transition state action with
-    | `Leaf terminal_state ->
-      (terminal_state, (List.rev ((state, action) :: acc)))
-    | `Node next_state ->
-      loop next_state ~policy ~acc:((state, action) :: acc)
+    let next_state = transition state action in
+    let acc = (state, action) :: acc in
+    if RL.S.is_terminal next_state then
+      (next_state, (List.rev acc))
+    else
+      loop next_state ~policy ~acc
   in
 
   (* phase 1, Choose action using MCTS *)

@@ -8,7 +8,11 @@ module S : sig
 
   val make : unit -> t
 
+  val terminal : t
+
   val to_string : t -> string
+
+  val is_terminal : t -> bool
 end
 
 module A : sig
@@ -30,7 +34,7 @@ module Pending_trajectory : sig
   type t = ((S.t * A.t) list * S.t) [@@deriving sexp]
 end
 
-type transition = S.t -> A.t -> [`Leaf of S.t | `Node of S.t ]
+type transition = S.t -> A.t -> S.t
 
 module MCTS : sig
   type t

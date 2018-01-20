@@ -97,13 +97,7 @@ let command =
         let execute_work_unit work_unit =
           EU.Scheduler.dispatch scheduler work_unit
         in
-        let transition state action =
-          let map = cfg.transitions in
-          let node = RL.S.Map.find_exn map state in
-          match action with
-          | RL.A.Inline -> Option.value_exn node.inline
-          | No_inline   -> Option.value_exn node.no_inline
-        in
+        let transition state action = Cfg.transition cfg state action in
         Async_mcts.learn ~parallelism:(List.length worker_connections)
           ~num_iterations:num_iterations
           ~root_state:cfg.root

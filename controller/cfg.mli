@@ -22,8 +22,8 @@ module Function_call : sig
 end
 
 type node =
-  { inline:    RL.S.t option;
-    no_inline: RL.S.t option;
+  { inline:    RL.S.t;
+    no_inline: RL.S.t;
   }
 
 type t = private
@@ -37,6 +37,6 @@ val t_of_inlining_tree : Inlining_tree.Top_level.t -> t
 val overrides_of_pending_trajectory : t -> RL.Pending_trajectory.t -> Data_collector.t list
 
 (* [None] indicates termination *)
-val transition : t -> RL.S.t -> RL.A.t -> RL.S.t option
+val transition : t -> RL.S.t -> RL.A.t -> RL.S.t
 
 val pprint : ?with_legend:unit -> t -> string

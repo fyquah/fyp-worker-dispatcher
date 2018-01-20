@@ -3,17 +3,25 @@ open Common
 
 module S = struct
   module T = struct
-    type t = int [@@deriving compare, sexp]
+    type t =
+      | State of int
+      | Terminal [@@deriving compare, sexp]
 
-    let to_string = Int.to_string
+    let to_string t = Sexp.to_string ([%sexp_of: t] t)
+
+    let is_terminal = function
+      | Terminal -> true
+      | State _  -> false
   end
 
   let make =
     let r = ref (-1) in
     fun () ->
       r := !r + 1;
-      !r
+      T.State !r
   ;;
+
+  let terminal = T.Terminal
 
   include T
   include Comparable.Make(T)
@@ -51,8 +59,7 @@ module Pending_trajectory = struct
   type t = ((S.t * A.t) list * S.t) [@@deriving sexp]
 end
 
-type transition =
-  S.t -> A.t -> [`Leaf of S.t | `Node of S.t ]
+type transition = S.t -> A.t -> S.t
 
 module MCTS = struct
 
