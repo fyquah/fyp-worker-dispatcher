@@ -7,6 +7,8 @@ module S : sig
   include Comparable.S with type t := t
 
   val make : unit -> t
+
+  val to_string : t -> string
 end
 
 module A : sig
@@ -15,7 +17,7 @@ module A : sig
   include Comparable.S with type t := t
 end
 
-module MCTS : sig 
+module MCTS : sig
   type t
 
   val empty : t

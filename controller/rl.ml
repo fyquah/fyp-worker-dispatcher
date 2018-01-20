@@ -1,9 +1,11 @@
 open Core
 open Common
 
-module S = struct 
+module S = struct
   module T = struct
     type t = int [@@deriving compare, sexp]
+
+    let to_string = Int.to_string
   end
 
   let make =
@@ -84,11 +86,11 @@ module MCTS = struct
     let rec loop trajectory ~acc =
       match trajectory with
       | hd :: tl ->
-        begin match SA_pair.Map.find acc hd with 
+        begin match SA_pair.Map.find acc hd with
         | None ->
           SA_pair.Map.add acc ~key:hd
             ~data:{ total_reward = reward; visits = 1 }
-        | Some entry -> 
+        | Some entry ->
           let update_entry { total_reward; visits; } =
             { total_reward = total_reward +. reward; visits = visits + 1; }
           in

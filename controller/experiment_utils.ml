@@ -4,6 +4,17 @@ open Core
 open Async
 open Common
 
+
+module Work_unit = struct
+  type t =
+    { path_to_bin : string;
+      step : int;
+      sub_id : int;
+    }
+  [@@deriving sexp]
+end
+
+
 module Initial_state = struct
   type t =
     { decisions : Data_collector.t list;
@@ -226,3 +237,58 @@ module Scheduler = struct
 
   let terminate t = Mvar.set t.queue Completed
 end
+
+
+(** Useful to get a stable estimate of the baseline runtime **)
+let run_in_all_workers
+    ~(config: Common.Config.t)
+    ~(bin_args: string)
+    ~(worker_connections: 'a Worker_connection.t list)
+    ~(initial_state: Initial_state.t) =
+  let process conn work_unit =
+    let path_to_bin = work_unit.Work_unit.path_to_bin in
+    let num_runs =
+      config.num_runs / List.length config.worker_configs
+    in
+    run_binary_on_worker
+      ~num_runs ~config ~conn ~path_to_bin
+      ~hostname:(Worker_connection.hostname conn)
+      ~bin_args
+    >>|? fun execution_stats ->
+    let raw_execution_time = execution_stats.raw_execution_time in
+    Log.Global.sexp ~level:`Info [%message
+      (path_to_bin : string)
+      (raw_execution_time : Time.Span.t list)];
+    Log.Global.info "%s\n" execution_stats.gc_stats;
+    execution_stats
+  in
+  lift_deferred (Scheduler.create worker_connections ~process)
+  >>=? fun scheduler ->
+  (* We run this 3 more times than the others to gurantee
+   * stability of the distribution of initial execution times.
+   *)
+  Deferred.Or_error.List.init ~how:`Sequential 3 ~f:(fun i ->
+    Log.Global.sexp ~level:`Info
+      [%message "Initial state run " (i : int)];
+    Deferred.Or_error.List.init (List.length config.worker_configs)
+      ~how:`Parallel
+      ~f:(fun _ ->
+        let path_to_bin = initial_state.path_to_bin in
+        let work_unit =
+          { Work_unit. path_to_bin; step = -1; sub_id = 0; }
+        in
+        Scheduler.dispatch scheduler work_unit))
+  >>=? fun stats ->
+  let stats = List.concat_no_order stats in
+  let initial_execution_times =
+    List.concat_map stats ~f:(fun stat -> stat.raw_execution_time)
+  in
+  let execution_stats =
+    { Execution_stats.
+      raw_execution_time = initial_execution_times;
+      worker_hostname = None;
+      gc_stats = (List.hd_exn stats).gc_stats;
+      parsed_gc_stats = None;
+    }
+  in
+  Deferred.Or_error.return execution_stats

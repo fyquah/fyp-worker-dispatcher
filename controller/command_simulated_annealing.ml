@@ -6,15 +6,7 @@ open Common
 
 module Utils = Experiment_utils
 module SA = Optimization.Simulated_annealing
-
-module Work_unit = struct
-  type t =
-    { path_to_bin : string;
-      step : int;
-      sub_id : int;
-    }
-  [@@deriving sexp]
-end
+module Work_unit = Experiment_utils.Work_unit
 
 module Base_state_energy = struct
   type energy = Execution_stats.t [@@deriving sexp]

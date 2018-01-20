@@ -50,7 +50,7 @@ let is_empty_list = function
   | [] -> true
   | _  -> false
 ;;
-  
+
 
 let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
   let filter_children_clos children =
@@ -146,4 +146,17 @@ let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
   in
   let root = List.hd_exn top_level_ids in
   { transitions; root; function_calls = call_map; }
+;;
+
+let pprint ?(with_legend: unit option) t =
+  let outward_to_string s =
+    match s with
+    | None -> "TERM"
+    | Some s -> "[" ^ RL.S.to_string s ^ "]"
+  in
+  RL.S.Map.to_alist t.transitions
+  |> List.map ~f:(fun (s, node) ->
+      sprintf !"[%{RL.S}] (%{outward_to_string}, %{outward_to_string})"
+        s node.inline node.no_inline)
+  |> String.concat ~sep:"\n"
 ;;

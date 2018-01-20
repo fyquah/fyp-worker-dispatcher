@@ -57,3 +57,10 @@ let geometric_mean l =
   let base = List.fold l ~init:1.0 ~f:(fun a b -> a *. b) in
   base ** power
 ;;
+
+let gmean_exec_time t =
+  t.Execution_stats.raw_execution_time
+  |> List.map ~f:Time.Span.to_sec
+  |> geometric_mean
+  |> Time.Span.of_sec
+;;

@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -euo pipefail
+set -x
+
+PREFIX_1="$1"
+TEMPFILE=$(mktemp /tmp/fyp-plot-XXXXXX.csv)
+
+jbuilder build controller/main.exe
+
+jbuilder exec controller -- \
+  simulated-annealing plot \
+  -steps 300 \
+  -prefix "$PREFIX_1" \
+  -output /dev/stdout  >"$TEMPFILE"
+
+cat "$TEMPFILE" | python3 plots/simulated_annealing_plot.py --title "$PREFIX_1"

@@ -17,6 +17,7 @@ open Common
 
 module RL = Rl  (* RL is much nicer alias than Rl :) *)
 module Cfg = Cfg
+module EU = Experiment_utils
 
 let mcts_loop
     ~(root_state: RL.S.t)
@@ -35,7 +36,7 @@ let mcts_loop
   in
 
   (* phase 1, Choose action using MCTS *)
-  let mcts_terminal, mcts_trajectory = 
+  let mcts_terminal, mcts_trajectory =
     let policy = Staged.unstage (RL.MCTS.mk_policy mcts) in
     loop root_state ~policy ~acc:[]
   in
@@ -52,7 +53,7 @@ let mcts_loop
   let entries = mcts_trajectory @ rollout_trajectory in
 
   (* phase 4: Backprop MCTS *)
-  let mcts = 
+  let mcts =
     RL.MCTS.backprop mcts ~trajectory:entries ~reward
       ~terminal:rollout_terminal
   in
@@ -76,14 +77,29 @@ let command =
   let open Command.Let_syntax in
   Command.async_or_error' ~summary:"Command"
     [%map_open
-      let common_params = Command_params.params
+      let { Command_params.
+        config_filename; controller_rundir; exp_dir; bin_name; bin_args;
+      } = Command_params.params
       and opt_method =
         flag "-method" (required string) ~doc:"STRING optimization method"
       in
       fun () ->
+        Reader.load_sexp config_filename [%of_sexp: Config.t]
+        >>=? fun config ->
         let opt_method =
           Sexp.of_string_conv_exn opt_method Opt_method.t_of_sexp
         in
+        Deferred.Or_error.List.map config.worker_configs ~how:`Parallel
+          ~f:(fun worker_config ->
+            let hostname = Protocol.Config.hostname worker_config in
+            Experiment_utils.init_connection ~hostname ~worker_config)
+        >>=? fun worker_connections ->
+        Experiment_utils.get_initial_state ~bin_name ~exp_dir
+            ~base_overrides:[] ()
+        >>=? fun initial_state ->
+        let initial_state = Option.value_exn initial_state in
+        let inlining_tree = Inlining_tree.build initial_state.decisions in
+        let cfg = Cfg.t_of_inlining_tree inlining_tree in
         let random_policy = fun (_ : RL.S.t) ->
           let r = Random.int 2 in
           if r = 0 then
@@ -93,6 +109,10 @@ let command =
           else
             assert false
         in
-        match opt_method with
-        | MCTS -> Deferred.Or_error.return ()
+        EU.run_in_all_workers ~config ~bin_args ~worker_connections
+            ~initial_state
+        >>=? fun initial_execution_stats ->
+        let exec_time = gmean_exec_time initial_execution_stats in
+        Deferred.Or_error.return ()
     ]
+  ;;
