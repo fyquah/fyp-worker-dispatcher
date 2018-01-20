@@ -45,7 +45,7 @@ let command =
             let hostname = Protocol.Config.hostname worker_config in
             Experiment_utils.init_connection ~hostname ~worker_config)
         >>=? fun worker_connections ->
-        let env = [("OCAMLOPTFLAGS", "-exhaustive-inlining")] in
+        let env = [("OCAMLPARAM", "_,exhaustive-inlining=1")] in
         Experiment_utils.get_initial_state ~env ~bin_name ~exp_dir
             ~base_overrides:[] ()
         >>=? fun initial_state ->
