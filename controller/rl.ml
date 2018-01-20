@@ -45,11 +45,16 @@ module MCTS = struct
       visits:       int;
     }
 
-  type t = value SA_pair.Map.t
+  type t =
+    { q_values:       value SA_pair.Map.t;
+      rollout_policy: S.t -> A.t;
+    }
+
+  let rollout_policy t = Staged.stage t.rollout_policy
 
   let alpha = 0.01
 
-  let empty = SA_pair.Map.empty
+  let init ~rollout_policy = { q_values = SA_pair.Map.empty; rollout_policy }
 
   let mk_policy t =
     let delta = 0.02 in (* probability that we go wrong *)
@@ -69,10 +74,10 @@ module MCTS = struct
     Staged.stage (fun s ->
         let default = { total_reward = 0.0; visits = 0 } in
         let inline =
-          Option.value ~default (SA_pair.Map.find t (s, A.Inline))
+          Option.value ~default (SA_pair.Map.find t.q_values (s, A.Inline))
         in
         let no_inline =
-          Option.value ~default (SA_pair.Map.find t (s, A.No_inline))
+          Option.value ~default (SA_pair.Map.find t.q_values (s, A.No_inline))
         in
         let inline_value = estimate_value inline in
         let no_inline_value = estimate_value no_inline in
@@ -100,7 +105,7 @@ module MCTS = struct
         end
       | [] -> acc
     in
-    loop trajectory ~acc:t
+    { t with q_values = loop trajectory ~acc:t.q_values }
   ;;
 end
 

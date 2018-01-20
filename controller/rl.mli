@@ -20,9 +20,11 @@ end
 module MCTS : sig
   type t
 
-  val empty : t
+  val init : rollout_policy: (S.t -> A.t) -> t
 
   val mk_policy : t -> (S.t -> A.t) Staged.t
+
+  val rollout_policy : t -> (S.t -> A.t) Staged.t
 
   val backprop
      : t

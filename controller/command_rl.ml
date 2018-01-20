@@ -22,7 +22,6 @@ module EU = Experiment_utils
 let mcts_loop
     ~(root_state: RL.S.t)
     ~(transition: RL.transition)
-    ~(rollout_policy: RL.S.t -> RL.A.t)
     ~(mcts: RL.MCTS.t)
     ~(compile_binary: (RL.Pending_trajectory.t -> string Deferred.Or_error.t))
     ~(execute_work_unit: EU.Work_unit.t -> Execution_stats.t Deferred.Or_error.t)
@@ -45,7 +44,7 @@ let mcts_loop
 
   (* phase 2, 3, use the [rollout_policy] *)
   let rollout_terminal, rollout_trajectory =
-    let policy = rollout_policy in
+    let policy = Staged.unstage (RL.MCTS.rollout_policy mcts) in
     loop mcts_terminal ~policy ~acc:[]
   in
   let trajectory_entries = mcts_trajectory @ rollout_trajectory in
