@@ -48,7 +48,9 @@ let mcts_loop
   in
 
   (* TODO(fyquah): Actually execute code! *)
-  let%bind execution_time = Deferred.return (Time.Span.of_sec 2.0) in
+  let%bind execution_time =
+    Deferred.return (Time.Span.of_sec 2.0)
+  in
   let reward = reward_of_exec_time execution_time in
   let entries = mcts_trajectory @ rollout_trajectory in
 
@@ -82,6 +84,8 @@ let command =
       } = Command_params.params
       and opt_method =
         flag "-method" (required string) ~doc:"STRING optimization method"
+      and log_rewards =
+        flag "-log-rewards" (required bool) ~doc:"BOOL logarithmic speedups as reward"
       in
       fun () ->
         Reader.load_sexp config_filename [%of_sexp: Config.t]
@@ -109,10 +113,27 @@ let command =
           else
             assert false
         in
-        EU.run_in_all_workers ~config ~bin_args ~worker_connections
-            ~initial_state
+
+        let process = Experiment_utils.process_work_unit ~config ~bin_args in
+        lift_deferred (EU.Scheduler.create worker_connections ~process)
+        >>=? fun scheduler ->
+
+        EU.run_in_all_workers ~scheduler ~config ~bin_args
+            ~worker_connections ~initial_state
         >>=? fun initial_execution_stats ->
+
+
         let exec_time = gmean_exec_time initial_execution_stats in
+        let reward_of_exec_time (time : Time.Span.t) =
+          (* The relative difference in performance *)
+          let slowdown =
+            Time.Span.to_sec exec_time /. Time.Span.to_sec time
+          in
+          if log_rewards then
+            (-1.0) *. (Float.log slowdown)
+          else
+            (-1.0) *. slowdown
+        in
         Deferred.Or_error.return ()
     ]
   ;;

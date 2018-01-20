@@ -238,32 +238,32 @@ module Scheduler = struct
   let terminate t = Mvar.set t.queue Completed
 end
 
+let process_work_unit
+    ~(config: Config.t) ~(bin_args: string) (conn: 'a Worker_connection.t) (work_unit: Work_unit.t) =
+  let path_to_bin = work_unit.Work_unit.path_to_bin in
+  let num_runs =
+    config.num_runs / List.length config.worker_configs
+  in
+  run_binary_on_worker
+    ~num_runs ~config ~conn ~path_to_bin
+    ~hostname:(Worker_connection.hostname conn)
+    ~bin_args
+  >>|? fun execution_stats ->
+  let raw_execution_time = execution_stats.raw_execution_time in
+  Log.Global.sexp ~level:`Info [%message
+    (path_to_bin : string)
+    (raw_execution_time : Time.Span.t list)];
+  Log.Global.info "%s\n" execution_stats.gc_stats;
+  execution_stats
+;;
 
 (** Useful to get a stable estimate of the baseline runtime **)
 let run_in_all_workers
+    ~(scheduler)
     ~(config: Common.Config.t)
     ~(bin_args: string)
     ~(worker_connections: 'a Worker_connection.t list)
     ~(initial_state: Initial_state.t) =
-  let process conn work_unit =
-    let path_to_bin = work_unit.Work_unit.path_to_bin in
-    let num_runs =
-      config.num_runs / List.length config.worker_configs
-    in
-    run_binary_on_worker
-      ~num_runs ~config ~conn ~path_to_bin
-      ~hostname:(Worker_connection.hostname conn)
-      ~bin_args
-    >>|? fun execution_stats ->
-    let raw_execution_time = execution_stats.raw_execution_time in
-    Log.Global.sexp ~level:`Info [%message
-      (path_to_bin : string)
-      (raw_execution_time : Time.Span.t list)];
-    Log.Global.info "%s\n" execution_stats.gc_stats;
-    execution_stats
-  in
-  lift_deferred (Scheduler.create worker_connections ~process)
-  >>=? fun scheduler ->
   (* We run this 3 more times than the others to gurantee
    * stability of the distribution of initial execution times.
    *)
@@ -281,7 +281,7 @@ let run_in_all_workers
   >>=? fun stats ->
   let stats = List.concat_no_order stats in
   let initial_execution_times =
-    List.concat_map stats ~f:(fun stat -> stat.raw_execution_time)
+    List.concat_map stats ~f:(fun (stat : Execution_stats.t) -> stat.raw_execution_time)
   in
   let execution_stats =
     { Execution_stats.
