@@ -22,14 +22,14 @@ module Function_call : sig
 end
 
 type node =
-  { inline: RL.S.t option;
+  { inline:    RL.S.t option;
     no_inline: RL.S.t option;
   }
 
 type t = private
-  { transitions: node RL.S.Map.t;
+  { transitions:    node RL.S.Map.t;
     root:           RL.S.t;
-    function_calls:  Function_call.t RL.S.Map.t
+    function_calls: Function_call.t RL.S.Map.t
   }
 
 val t_of_inlining_tree : Inlining_tree.Top_level.t -> t

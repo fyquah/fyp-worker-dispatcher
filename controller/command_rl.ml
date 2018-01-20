@@ -2,85 +2,28 @@ open Core
 open Async
 open Common
 
-(* The algorithm vaguely corresponds to the following:
+(* The availble algorithms in RL are as follows:
  *
- * policy <- random_selection()
+ * MCTS_WITH_IRL
+ *   policy <- initial_sensible_policy
  *
- * loop until timeout {
- *   trajectories <- sample N trajectories with MCTS using policy
- *   learn reward function using trajectories (basically, do IRL)
- *   policy <- solve optimal policy using reward function (with simple DP)
- * }
+ *   loop until timeout {
+ *     trajectories <- sample N trajectories with MCTS using policy
+ *     learn reward function using trajectories (basically, do IRL)
+ *     policy <- solve optimal policy using reward function (with simple DP)
+ *   }
  *
- * result <- argmax(policy)
+ *   result <- argmax(policy)
+ *
+ * Asynchronous MCTS
+ *   MCTS as described in AlphaGo's paper, but without using value or policy
+ *   networks
  *)
 
 module RL = Rl  (* RL is much nicer alias than Rl :) *)
 module Cfg = Cfg
 module EU = Experiment_utils
-
-let mcts_loop
-    ~(root_state: RL.S.t)
-    ~(transition: RL.transition)
-    ~(mcts: RL.MCTS.t)
-    ~(compile_binary: (RL.Pending_trajectory.t -> string Deferred.Or_error.t))
-    ~(execute_work_unit: EU.Work_unit.t -> Execution_stats.t Deferred.Or_error.t)
-    ~(reward_of_exec_time: Time.Span.t -> float) =
-
-  let rec loop state ~policy ~acc =
-    let action = policy state in
-    match transition state action with
-    | `Leaf terminal_state ->
-      (terminal_state, (List.rev ((state, action) :: acc)))
-    | `Node next_state ->
-      loop next_state ~policy ~acc:((state, action) :: acc)
-  in
-
-  (* phase 1, Choose action using MCTS *)
-  let mcts_terminal, mcts_trajectory =
-    let policy = Staged.unstage (RL.MCTS.mk_policy mcts) in
-    loop root_state ~policy ~acc:[]
-  in
-
-  (* phase 2, 3, use the [rollout_policy] *)
-  let rollout_terminal, rollout_trajectory =
-    let policy = Staged.unstage (RL.MCTS.rollout_policy mcts) in
-    loop mcts_terminal ~policy ~acc:[]
-  in
-  let trajectory_entries = mcts_trajectory @ rollout_trajectory in
-
-  (* TODO(fyq14): Change [step] and [sub_id] to sensible values! *)
-  let step = 0 in
-  let sub_id = 1 in
-  compile_binary (trajectory_entries, rollout_terminal)
-  >>=? fun path_to_bin ->
-  let work_unit = { EU.Work_unit. path_to_bin; step; sub_id } in
-  execute_work_unit work_unit
-
-  >>|? fun execution_time ->
-  let reward = reward_of_exec_time (gmean_exec_time execution_time) in
-  let trajectory =
-    { RL.Trajectory.
-      entries  = trajectory_entries;
-      terminal_state = rollout_terminal;
-      reward = reward;
-    }
-  in
-
-
-  (* phase 4: Backprop MCTS *)
-  let mcts =
-    RL.MCTS.backprop mcts ~trajectory:trajectory_entries ~reward
-      ~terminal:rollout_terminal
-  in
-  Deferred.return (mcts, trajectory)
-;;
-
-module Opt_method = struct
-  type t =
-    | MCTS
-  [@@deriving sexp]
-end
+module Async_MCTS = Async_mcts
 
 let command =
   let open Command.Let_syntax in
@@ -89,17 +32,14 @@ let command =
       let { Command_params.
         config_filename; controller_rundir; exp_dir; bin_name; bin_args;
       } = Command_params.params
-      and opt_method =
-        flag "-method" (required string) ~doc:"STRING optimization method"
       and log_rewards =
         flag "-log-rewards" (required bool) ~doc:"BOOL logarithmic speedups as reward"
+      and num_iterations =
+        flag "-num-iterations" (required int) ~doc:"INT Number of iterations"
       in
       fun () ->
         Reader.load_sexp config_filename [%of_sexp: Config.t]
         >>=? fun config ->
-        let opt_method =
-          Sexp.of_string_conv_exn opt_method Opt_method.t_of_sexp
-        in
         Deferred.Or_error.List.map config.worker_configs ~how:`Parallel
           ~f:(fun worker_config ->
             let hostname = Protocol.Config.hostname worker_config in
@@ -140,10 +80,37 @@ let command =
           else
             (-1.0) *. slowdown
         in
-        let compile_binary pending_trajectory =
-          EU.compile_binary ~dir:exp_dir (
-            Cfg.overrides_of_pending_trajectory cfg pending_trajectory)
+        let compile_binary =
+          (* Lock required because we don't want to processes to be
+           * compiling code at the same time -- it'd cause a recase in
+           * the available data structures
+           *)
+          let lock = Nano_mutex.create () in
+          fun pending_trajectory ->
+            Nano_mutex.lock_exn lock;
+            EU.compile_binary ~dir:exp_dir ~bin_name:bin_name (
+              Cfg.overrides_of_pending_trajectory cfg pending_trajectory)
+            >>|? fun s ->
+            Nano_mutex.unlock_exn lock;
+            s
         in
-        Deferred.Or_error.return ()
+        let execute_work_unit work_unit =
+          EU.Scheduler.dispatch scheduler work_unit
+        in
+        let transition state action =
+          let map = cfg.transitions in
+          let node = RL.S.Map.find_exn map state in
+          match action with
+          | RL.A.Inline -> Option.value_exn node.inline
+          | No_inline   -> Option.value_exn node.no_inline
+        in
+        Async_mcts.learn ~parallelism:(List.length worker_connections)
+          ~num_iterations:num_iterations
+          ~root_state:cfg.root
+          ~transition
+          ~rollout_policy:random_policy  (* TODO(fyq14): Use Flambda's default? But how? *)
+          ~compile_binary
+          ~execute_work_unit
+          ~reward_of_exec_time
     ]
   ;;

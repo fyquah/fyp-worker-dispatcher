@@ -38,6 +38,22 @@ module SA_pair = struct
   module Map = Map.Make(T)
 end
 
+module Trajectory = struct
+  type t =
+    { entries: (S.t * A.t) list;
+      terminal_state: S.t;
+      reward: float;
+    }
+  [@@deriving sexp]
+end
+
+module Pending_trajectory = struct
+  type t = ((S.t * A.t) list * S.t) [@@deriving sexp]
+end
+
+type transition =
+  S.t -> A.t -> [`Leaf of S.t | `Node of S.t ]
+
 module MCTS = struct
 
   type value =
@@ -87,7 +103,10 @@ module MCTS = struct
           A.No_inline)
   ;;
 
-  let backprop t ~trajectory ~terminal ~reward =
+  let backprop t ~trajectory =
+    let { Trajectory. entries = trajectory; terminal_state = terminal; reward } =
+      trajectory
+    in
     let rec loop trajectory ~acc =
       match trajectory with
       | hd :: tl ->
@@ -109,19 +128,3 @@ module MCTS = struct
   ;;
 end
 
-module Trajectory = struct
-  type t =
-    { entries: (S.t * A.t) list;
-      terminal_state: S.t;
-      reward: float;
-    }
-  [@@deriving sexp]
-end
-
-module Pending_trajectory = struct
-  type t = ((S.t * A.t) list * S.t) [@@deriving sexp]
-end
-
-
-type transition =
-  S.t -> A.t -> [`Leaf of S.t | `Node of S.t ]
