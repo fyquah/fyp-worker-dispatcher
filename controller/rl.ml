@@ -88,7 +88,7 @@ module MCTS = struct
     let delta = 0.02 in (* probability that we go wrong *)
     let estimate_value (v: value) =
       if v.visits = 0 then
-        1000000.0 (* a proxy for inifinity *)
+        `Unvisited
       else
       let q = v.total_reward /. float_of_int v.visits in
       let upper_bound =
@@ -97,22 +97,33 @@ module MCTS = struct
           (2. /. float_of_int v.visits) *. Float.log (1. /. delta)
         )
       in
-      q +. upper_bound
+      `Value (q +. upper_bound)
     in
     Staged.stage (fun s ->
-        let default = { total_reward = 0.0; visits = 0 } in
-        let inline =
-          Option.value ~default (SA_pair.Map.find t.q_values (s, A.Inline))
-        in
-        let no_inline =
-          Option.value ~default (SA_pair.Map.find t.q_values (s, A.No_inline))
-        in
-        let inline_value = estimate_value inline in
-        let no_inline_value = estimate_value no_inline in
-        if inline_value >. no_inline_value then
-          A.Inline
-        else
-          A.No_inline)
+        let inline = SA_pair.Map.find t.q_values (s, A.Inline) in
+        let no_inline = SA_pair.Map.find t.q_values (s, A.No_inline) in
+        match inline, no_inline with
+        | None   , None   -> None
+        | Some _ , None   -> Some A.No_inline  (* Expand to unvisited node *)
+        | None   , Some _ -> Some A.Inline
+        | Some inline, Some no_inline ->
+          let inline_value = estimate_value inline in
+          let no_inline_value = estimate_value no_inline in
+
+          (* This tedious matching is required in the asynchronous case
+           * where expansion doesn't necessarily mean that the node has
+           * been backprop-ed -- implying that visits == 0 is possible
+           *)
+          begin match inline_value, no_inline_value with
+          | `Unvisited, `Unvisited
+          | `Unvisited, `Value _ -> Some A.Inline
+          | `Value _, `Unvisited -> Some A.No_inline
+          | `Value inline_value, `Value no_inline_value ->
+            if inline_value >. no_inline_value then
+              Some A.Inline
+            else
+              Some A.No_inline
+          end)
   ;;
 
   let backprop t ~trajectory =
@@ -123,9 +134,7 @@ module MCTS = struct
       match trajectory with
       | hd :: tl ->
         begin match SA_pair.Map.find acc hd with
-        | None ->
-          SA_pair.Map.add acc ~key:hd
-            ~data:{ total_reward = reward; visits = 1 }
+        | None -> acc
         | Some entry ->
           let update_entry { total_reward; visits; } =
             { total_reward = total_reward +. reward; visits = visits + 1; }
@@ -137,6 +146,23 @@ module MCTS = struct
       | [] -> acc
     in
     { t with q_values = loop trajectory ~acc:t.q_values }
+  ;;
+
+  let expand t ~path:original_path =
+    let q_values = t.q_values in
+    let rec loop path =
+      match path with
+      | hd :: tl ->
+        begin match SA_pair.Map.find q_values hd with
+        | None ->
+          let key = hd in
+          let data = { total_reward = 0.0; visits = 0 } in
+          SA_pair.Map.add q_values ~key ~data
+        | Some _ -> loop tl
+        end
+      | [] -> q_values
+    in
+    { t with q_values = loop original_path }
   ;;
 end
 

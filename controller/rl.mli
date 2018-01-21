@@ -44,9 +44,11 @@ module MCTS : sig
 
   val init : rollout_policy: (S.t -> A.t) -> t
 
-  val mk_policy : t -> (S.t -> A.t) Staged.t
+  val mk_policy : t -> (S.t -> A.t option) Staged.t
 
   val rollout_policy : t -> (S.t -> A.t) Staged.t
 
   val backprop : t -> trajectory: 'a Trajectory.t -> t
+
+  val expand : t -> path: (S.t * A.t) list -> t
 end
