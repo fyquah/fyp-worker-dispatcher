@@ -268,11 +268,16 @@ let process_work_unit
   Log.Global.sexp ~level:`Info [%message
     (path_to_bin : string)
     (raw_execution_time : Time.Span.t list)];
-  let lines =
-    List.map (String.split_lines execution_stats.gc_stats) ~f:(fun line ->
-        "[" ^ path_to_bin ^ " GC STATS] " ^ line)
+  let stats =
+    Option.value_exn (
+      Execution_stats.Gc_stats.parse
+        (String.split_lines execution_stats.gc_stats)
+    )
   in
-  List.iter lines ~f:(fun line -> Log.Global.info "%s" line);
+  let prefix = "[" ^ path_to_bin ^ " GC STATS]" in
+  Log.Global.info "%s major collections: %d" prefix stats.major_collections;
+  Log.Global.info "%s minor collections: %d" prefix stats.minor_collections;
+  Log.Global.info "%s compactions: %d" prefix stats.compactions;
   execution_stats
 ;;
 
