@@ -115,7 +115,11 @@ module MCTS = struct
            * been backprop-ed -- implying that visits == 0 is possible
            *)
           begin match inline_value, no_inline_value with
-          | `Unvisited, `Unvisited
+          | `Unvisited, `Unvisited ->
+            begin
+              if Random.bool () then Some A.Inline
+              else Some A.No_inline
+            end
           | `Unvisited, `Value _ -> Some A.Inline
           | `Value _, `Unvisited -> Some A.No_inline
           | `Value inline_value, `Value no_inline_value ->
