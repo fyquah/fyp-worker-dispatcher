@@ -24,6 +24,7 @@ module Initial_state = struct
 end
 
 let get_initial_state ?(env = []) ~bin_name ~exp_dir ~base_overrides () =
+  Log.Global.info "Compiling first version of source tree.";
   shell ~dir:exp_dir "make" [ "clean" ] >>=? fun () ->
   lift_deferred (
     Writer.save_sexp (exp_dir ^/ "overrides.sexp")
@@ -61,7 +62,12 @@ module Worker_connection = struct
       rpc_connection : Rpc.Connection.t
     }
 
-  type ssh_conn = { user: string; hostname: string; rundir: string; }
+  type ssh_conn =
+    { user: string;
+      hostname: string;
+      rundir: string;
+      processor: int option;
+    }
 
   type 'a t =
     | Rpc : 'a rpc_conn -> 'a t
@@ -71,6 +77,11 @@ module Worker_connection = struct
     match t with
     | Rpc c -> c.hostname
     | Ssh c -> c.hostname
+
+  let processor t =
+    match t with
+    | Rpc _ -> None
+    | Ssh c -> c.processor
 end
 
 let run_binary_on_rpc_worker ~hostname ~worker_connection ~path_to_bin =
@@ -101,7 +112,7 @@ let run_binary_on_rpc_worker ~hostname ~worker_connection ~path_to_bin =
 ;;
 
 let run_binary_on_ssh_worker
-    ~num_runs ~rundir ~user ~hostname ~path_to_bin ~bin_args =
+    ~num_runs ~processor ~rundir ~user ~hostname ~path_to_bin ~bin_args =
   lift_deferred (Unix.getcwd ())
   >>=? fun dir ->
   shell ~dir "scp"
@@ -109,10 +120,12 @@ let run_binary_on_ssh_worker
       sprintf "%s@%s:%s" user hostname (rundir ^/ "binary.exe");
     ]
   >>=? fun () ->
+  let processor = Option.value ~default:0 processor in
   Async_shell.run_lines ~working_dir:dir "ssh" ([
     sprintf "%s@%s" user hostname;
     rundir ^/ "benchmark_binary.sh";
     rundir ^/ "binary.exe";
+    sprintf "0x%x" (1 lsl processor);
     Int.to_string num_runs;
     bin_args;
   ])
@@ -135,14 +148,14 @@ let run_binary_on_ssh_worker
          parsed_gc_stats = None}
 ;;
 
-let run_binary_on_worker ~num_runs ~hostname ~conn ~path_to_bin ~bin_args =
+let run_binary_on_worker ~num_runs ~processor ~hostname ~conn ~path_to_bin ~bin_args =
   match conn with
   | Worker_connection.Rpc worker_connection ->
     run_binary_on_rpc_worker ~worker_connection ~path_to_bin ~hostname
   | Worker_connection.Ssh (ssh_config : Worker_connection.ssh_conn) ->
     let rundir = ssh_config.rundir in
     let user = ssh_config.user in
-    run_binary_on_ssh_worker ~num_runs ~user ~rundir ~hostname ~path_to_bin ~bin_args
+    run_binary_on_ssh_worker ~processor ~num_runs ~user ~rundir ~hostname ~path_to_bin ~bin_args
 ;;
 
 let init_connection ~hostname ~worker_config =
@@ -166,7 +179,8 @@ let init_connection ~hostname ~worker_config =
     shell ~dir:cwd "scp" args >>|? fun () ->
     let rundir = ssh_config.rundir in
     let user = ssh_config.user in
-    Worker_connection.Ssh { user; rundir; hostname; }
+    let processor = ssh_config.processor in
+    Worker_connection.Ssh { user; rundir; hostname; processor; }
     end
   | Protocol.Config.Rpc_worker rpc_config ->
     lift_deferred (
@@ -240,7 +254,8 @@ let process_work_unit
     ~(num_runs : int) ~(bin_args: string)
     (conn: 'a Worker_connection.t) (work_unit: Work_unit.t) =
   let path_to_bin = work_unit.Work_unit.path_to_bin in
-  run_binary_on_worker
+  let processor = Worker_connection.processor conn in
+  run_binary_on_worker ~processor
     ~num_runs ~conn ~path_to_bin
     ~hostname:(Worker_connection.hostname conn)
     ~bin_args

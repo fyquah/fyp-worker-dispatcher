@@ -25,6 +25,17 @@ module Cfg = Cfg
 module EU = Experiment_utils
 module Async_MCTS = Async_mcts
 
+
+let random_policy = fun (_ : RL.S.t) ->
+  let r = Random.int 2 in
+  if r = 0 then
+    RL.A.Inline
+  else if r = 1 then
+    RL.A.No_inline
+  else
+    assert false
+;;
+
 let command_run =
   let open Command.Let_syntax in
   Command.async_or_error' ~summary:"Command"
@@ -40,19 +51,32 @@ let command_run =
       fun () ->
         Reader.load_sexp config_filename [%of_sexp: Config.t]
         >>=? fun config ->
+        Log.Global.sexp ~level:`Info [%message
+          "Initializing Worker connections!"
+            (config: Config.t)];
         Deferred.Or_error.List.map config.worker_configs ~how:`Parallel
           ~f:(fun worker_config ->
             let hostname = Protocol.Config.hostname worker_config in
             Experiment_utils.init_connection ~hostname ~worker_config)
         >>=? fun worker_connections ->
         let env = [("OCAMLPARAM", "_,exhaustive-inlining=1")] in
+
+        Log.Global.sexp ~level:`Info [%message
+          "Initializing Worker connections!"
+            (config: Config.t)];
         Experiment_utils.get_initial_state ~env ~bin_name ~exp_dir
             ~base_overrides:[] ()
         >>=? fun initial_state ->
+
         let initial_state = Option.value_exn initial_state in
+
+        Log.Global.info "Constructing inlining tree";
         let inlining_tree = Inlining_tree.build initial_state.decisions in
+
+        Log.Global.info "Constructing CFG";
         let cfg = Cfg.t_of_inlining_tree inlining_tree in
 
+        Log.Global.info "Saving CFG and inlining tree to rundir";
         lift_deferred (
           Writer.save_sexp (controller_rundir ^/ "cfg.sexp")
             ([%sexp_of: Cfg.t] cfg)
@@ -62,16 +86,6 @@ let command_run =
           Writer.save_sexp (controller_rundir ^/ "inlining_tree.sexp")
             ([%sexp_of: Inlining_tree.Top_level.t] inlining_tree))
         >>=? fun () ->
-
-        let random_policy = fun (_ : RL.S.t) ->
-          let r = Random.int 2 in
-          if r = 0 then
-            RL.A.Inline
-          else if r = 1 then
-            RL.A.No_inline
-          else
-            assert false
-        in
 
         (* It is okay to run just twice (or even once?), I believe.
          *

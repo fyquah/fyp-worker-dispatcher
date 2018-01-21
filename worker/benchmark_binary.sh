@@ -2,6 +2,8 @@
 
 PATH_TO_BINARY="$1"
 NUM_RUNS="$2"
+TASKSET_MASK="$3"
+shift
 shift
 shift
 ARGS="$@"
@@ -14,7 +16,7 @@ function extract_time {
 }
 
 for i in $(seq 1 "$NUM_RUNS"); do
-  { time taskset 0x1 "$PATH_TO_BINARY" $ARGS 2>&1 1>/dev/null ; } 2>out_time.txt
+  { time taskset "$TASKSET_MASK" "$PATH_TO_BINARY" $ARGS 2>&1 1>/dev/null ; } 2>out_time.txt
   cat out_time.txt | extract_time
   echo ""
 done

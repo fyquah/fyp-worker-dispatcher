@@ -89,6 +89,7 @@ let slide_over_decisions
           let path_to_bin = work_unit.path_to_bin in
           printf "Running %s\n" path_to_bin;
           Experiment_utils.run_binary_on_worker
+            ~processor:(Experiment_utils.Worker_connection.processor conn)
             ~num_runs:config.num_runs
             ~conn ~path_to_bin ~hostname ~bin_args
           >>= function

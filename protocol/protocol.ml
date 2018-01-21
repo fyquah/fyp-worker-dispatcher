@@ -97,10 +97,11 @@ module Config = struct
 
   module Ssh_worker_config = struct
     type t =
-      { rundir   : string; (* We will setup overselves *)
-        hostname : string;
-        user     : string;
-      }
+      { rundir    : string; (* We will setup overselves *)
+        hostname  : string;
+        user      : string;
+        processor : int sexp_option;
+     }
     [@@deriving sexp]
   end
 
