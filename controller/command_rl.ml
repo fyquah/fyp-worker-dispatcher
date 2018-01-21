@@ -101,11 +101,11 @@ let command_run =
         EU.run_in_all_workers ~times:3 ~scheduler ~config ~path_to_bin:basic_path_to_bin
         >>=? fun initial_execution_stats ->
 
-        let exec_time = gmean_exec_time initial_execution_stats in
+        let baseline_exec_time = gmean_exec_time initial_execution_stats in
         let reward_of_exec_time (time : Time.Span.t) =
           (* The relative difference in performance *)
           let slowdown =
-            Time.Span.to_sec exec_time /. Time.Span.to_sec time
+             Time.Span.to_sec time /. Time.Span.to_sec baseline_exec_time
           in
           if log_rewards then
             (-1.0) *. (Float.log slowdown)
