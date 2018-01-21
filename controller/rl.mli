@@ -24,10 +24,11 @@ module A : sig
 end
 
 module Trajectory : sig
-  type t =
+  type 'a t =
     { entries: (S.t * A.t) list;
       terminal_state: S.t;
       reward: float;
+      metadata: 'a;
     }
   [@@deriving sexp]
 end
@@ -47,5 +48,5 @@ module MCTS : sig
 
   val rollout_policy : t -> (S.t -> A.t) Staged.t
 
-  val backprop : t -> trajectory: Trajectory.t -> t
+  val backprop : t -> trajectory: 'a Trajectory.t -> t
 end

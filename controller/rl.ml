@@ -51,10 +51,11 @@ module SA_pair = struct
 end
 
 module Trajectory = struct
-  type t =
+  type 'a t =
     { entries: (S.t * A.t) list;
       terminal_state: S.t;
       reward: float;
+      metadata: 'a;
     }
   [@@deriving sexp]
 end

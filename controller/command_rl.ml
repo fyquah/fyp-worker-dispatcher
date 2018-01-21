@@ -142,13 +142,13 @@ let command_run =
           Log.Global.info !"%{RL.S} -> %{RL.S}" state next;
           next
         in
-        let record_trajectory ~iter (trajectory: RL.Trajectory.t) =
+        let record_trajectory ~iter (trajectory: Execution_stats.t RL.Trajectory.t) =
           let dirname = controller_rundir ^/ "opt_data" ^/ Int.to_string iter in
           let filename = dirname ^/ "trajectory.sexp" in
           lift_deferred (Async_shell.mkdir ~p:() dirname)
           >>=? fun () ->
           lift_deferred (
-            Writer.save_sexp filename ([%sexp_of: RL.Trajectory.t] trajectory)
+            Writer.save_sexp filename ([%sexp_of: Execution_stats.t RL.Trajectory.t] trajectory)
           )
         in
         Async_mcts.learn ~parallelism:(List.length worker_connections)

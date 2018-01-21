@@ -41,17 +41,18 @@ let run_one_iteration ~iter_id
   generate_work_unit (trajectory_entries, rollout_terminal)
   >>=? fun work_unit ->
   execute_work_unit work_unit
-  >>|? fun execution_time ->
-  let reward = reward_of_exec_time (gmean_exec_time execution_time) in
+  >>|? fun execution_stats ->
+  let reward = reward_of_exec_time (gmean_exec_time execution_stats) in
   let trajectory = 
     { RL.Trajectory.
       entries  = trajectory_entries;
       terminal_state = rollout_terminal;
       reward = reward;
+      metadata = execution_stats;
     }
   in
   Log.Global.info !"Iteration %d (time: %{Time.Span}) (reward: %.3f)" \
-    iter_id (gmean_exec_time execution_time) reward;
+    iter_id (gmean_exec_time execution_stats) reward;
   trajectory
 
   (* Phase 4 (backprop) is executed asynchronously *)
