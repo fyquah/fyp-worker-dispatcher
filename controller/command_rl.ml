@@ -139,7 +139,6 @@ let command_run =
         in
         let transition state action =
           let next = Cfg.transition cfg state action in
-          Log.Global.info !"| %{RL.S} -> %{RL.S}" state next;
           next
         in
         let record_trajectory ~iter (trajectory: Execution_stats.t RL.Trajectory.t) =

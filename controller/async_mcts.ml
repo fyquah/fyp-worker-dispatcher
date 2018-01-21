@@ -7,6 +7,41 @@ module EU = Experiment_utils
 module Work_unit = EU.Work_unit
 
 
+let zip_with_delay l =
+  match l with
+  | [] -> []
+  | _ :: tl ->
+    List.zip_exn l ((List.map ~f:(fun x -> Some x) tl) @ [None])
+;;
+
+let log_trajectory ~iter ~trajectory ~terminal =
+  let pprint_action = function
+    | RL.A.Inline -> "INLINE"
+    | RL.A.No_inline -> "BRANCH"
+  in
+  let messages = 
+    zip_with_delay trajectory
+    |> List.map ~f:(fun ((s, a), s') ->
+        let s' =
+          match s' with
+          | Some x -> fst x
+          | None -> terminal
+        in
+        sprintf !"%{RL.S.pprint} ---%{pprint_action}--> %{RL.S.pprint}" s a s')
+  in
+  let messages =
+    if List.length messages <= 10 then
+      messages
+    else
+      let front = List.take messages 5 in
+      let back = List.rev (List.take (List.rev messages) 5) in
+      let pruned = List.length messages - 10 in
+      front @ [ sprintf "... (Prunted %d transitions) ..." pruned  ] @ back
+  in
+  List.iter messages ~f:(fun msg -> Log.Global.info "[iter %d] %s" iter msg)
+;;
+
+
 let plan_and_simulate ~iter_id
     ~(root_state: RL.S.t)
     ~(transition: RL.transition)
@@ -42,6 +77,7 @@ let plan_and_simulate ~iter_id
     let policy = Staged.unstage (RL.MCTS.mk_policy mcts) in
     loop root_state ~policy ~acc:[]
   in
+  log_trajectory ~iter:iter_id ~trajectory:mcts_trajectory ~terminal:mcts_terminal;
 
   Log.Global.info "[iteration %d] Simulating" iter_id;
 
@@ -50,6 +86,8 @@ let plan_and_simulate ~iter_id
     let policy x = Some (Staged.unstage (RL.MCTS.rollout_policy mcts) x) in
     loop mcts_terminal ~policy ~acc:[]
   in
+  log_trajectory ~iter:iter_id ~trajectory:rollout_trajectory ~terminal:rollout_terminal;
+
   let trajectory_entries = mcts_trajectory @ rollout_trajectory in
   let pending_trajectory = (trajectory_entries, rollout_terminal) in
   (RL.MCTS.expand mcts ~path:trajectory_entries, pending_trajectory)
