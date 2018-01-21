@@ -275,7 +275,7 @@ let compile_binary ~dir ~bin_name overrides =
 ;;
 
 (** Useful to get a stable estimate of the baseline runtime **)
-let run_in_all_workers ~scheduler ~times ~config ~initial_state =
+let run_in_all_workers ~scheduler ~times ~config ~path_to_bin =
   (* We run this 3 more times than the others to gurantee
    * stability of the distribution of initial execution times.
    *)
@@ -285,7 +285,6 @@ let run_in_all_workers ~scheduler ~times ~config ~initial_state =
     Deferred.Or_error.List.init (List.length config.Config.worker_configs)
       ~how:`Parallel
       ~f:(fun _ ->
-        let path_to_bin = initial_state.Initial_state.path_to_bin in
         let work_unit =
           { Work_unit. path_to_bin; step = -1; sub_id = 0; }
         in

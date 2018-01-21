@@ -69,7 +69,10 @@ let command_run =
         lift_deferred (EU.Scheduler.create worker_connections ~process)
         >>=? fun scheduler ->
 
-        EU.run_in_all_workers ~times:3 ~scheduler ~config ~initial_state
+        EU.compile_binary ~dir:exp_dir ~bin_name:bin_name []
+        >>=? fun basic_path_to_bin ->
+
+        EU.run_in_all_workers ~times:3 ~scheduler ~config ~path_to_bin:basic_path_to_bin
         >>=? fun initial_execution_stats ->
 
         let exec_time = gmean_exec_time initial_execution_stats in
