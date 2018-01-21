@@ -40,6 +40,10 @@ bash -c "cd $EXPERIMENTS_REPO && git pull"
 
 cp prod_config.sexp $RUNDIR/config.sexp
 
+if [[ ! -v ADDITIONAL_CONTROLLER_ARGS ]]; then
+  ADDITIONAL_CONTROLLER_ARGS=""
+fi
+
 mkdir -p tmp
 
 nohup jbuilder exec controller -- \
@@ -49,6 +53,7 @@ nohup jbuilder exec controller -- \
   -exp-dir "$EXPERIMENTS_REPO/$EXPERIMENT_DIR" \
   -bin-name "$EXPERIMENT_BIN_NAME" \
   -args "$EXPERIMENT_BIN_ARGS" \
+  $ADDITIONAL_CONTROLLER_ARGS \
   1>$RUNDIR/stdout.log 2>$RUNDIR/stderr.log &
 
 PID="$!"

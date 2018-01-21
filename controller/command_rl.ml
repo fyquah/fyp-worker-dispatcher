@@ -25,7 +25,7 @@ module Cfg = Cfg
 module EU = Experiment_utils
 module Async_MCTS = Async_mcts
 
-let command =
+let command_run =
   let open Command.Let_syntax in
   Command.async_or_error' ~summary:"Command"
     [%map_open
@@ -52,6 +52,9 @@ let command =
         let initial_state = Option.value_exn initial_state in
         let inlining_tree = Inlining_tree.build initial_state.decisions in
         let cfg = Cfg.t_of_inlining_tree inlining_tree in
+
+        printf "cfg =\n%s\n" (Cfg.pprint cfg);
+
         let random_policy = fun (_ : RL.S.t) ->
           let r = Random.int 2 in
           if r = 0 then
@@ -87,17 +90,29 @@ let command =
            *)
           let lock = Nano_mutex.create () in
           fun pending_trajectory ->
-            Nano_mutex.lock_exn lock;
+            Deferred.repeat_until_finished () (fun () ->
+              match Nano_mutex.lock lock with
+              | Ok () -> Deferred.return (`Finished (Or_error.return ()))
+              | Error _ ->  Deferred.return (`Repeat ()))
+            >>=? fun () ->
             EU.compile_binary ~dir:exp_dir ~bin_name:bin_name (
               Cfg.overrides_of_pending_trajectory cfg pending_trajectory)
-            >>|? fun s ->
-            Nano_mutex.unlock_exn lock;
+            >>=? fun s ->
+            Deferred.repeat_until_finished () (fun () ->
+              match Nano_mutex.unlock lock with
+              | Ok () -> Deferred.return (`Finished (Or_error.return ()))
+              | Error _ ->  Deferred.return (`Repeat ()))
+            >>|? fun () ->
             s
         in
         let execute_work_unit work_unit =
           EU.Scheduler.dispatch scheduler work_unit
         in
-        let transition state action = Cfg.transition cfg state action in
+        let transition state action =
+          let next = Cfg.transition cfg state action in
+          Log.Global.info !"%{RL.S} -> %{RL.S}" state next;
+          next
+        in
         Async_mcts.learn ~parallelism:(List.length worker_connections)
           ~num_iterations:num_iterations
           ~root_state:cfg.root
@@ -107,4 +122,6 @@ let command =
           ~execute_work_unit
           ~reward_of_exec_time
     ]
-  ;;
+;;
+
+let command = Command.group ~summary:"" [("run", command_run)]

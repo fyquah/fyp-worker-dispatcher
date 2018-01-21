@@ -27,10 +27,17 @@ bash -c "cd $EXPERIMENTS_REPO && git pull"
 
 cp dev_config.sexp $RUNDIR/config.sexp
 
+if [[ ! -v ADDITIONAL_CONTROLLER_ARGS ]]; then
+  ADDITIONAL_CONTROLLER_ARGS=""
+fi
+
+set -x
+
 jbuilder exec controller -- \
   "$1" run \
   -config "$RUNDIR/config.sexp" \
   -rundir "$RUNDIR" \
   -exp-dir "$EXPERIMENTS_REPO/$EXPERIMENT_DIR" \
   -bin-name "$EXPERIMENT_BIN_NAME" \
-  -args "$EXPERIMENT_BIN_ARGS"
+  -args "$EXPERIMENT_BIN_ARGS" \
+  $ADDITIONAL_CONTROLLER_ARGS
