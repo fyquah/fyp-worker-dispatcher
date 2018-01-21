@@ -121,14 +121,18 @@ let run_binary_on_ssh_worker
     ]
   >>=? fun () ->
   let processor = Option.value ~default:0 processor in
-  Async_shell.run_lines ~working_dir:dir "ssh" ([
+  let args = [
     sprintf "%s@%s" user hostname;
     rundir ^/ "benchmark_binary.sh";
     rundir ^/ "binary.exe";
     sprintf "0x%x" (1 lsl processor);
     Int.to_string num_runs;
     bin_args;
-  ])
+  ]
+  in
+  let benchmark_args = String.concat ~sep:" " args in
+  Log.Global.sexp ~level:`Info [%message (benchmark_args: string)];
+  Async_shell.run_lines ~working_dir:dir "ssh" args
   >>= function
   | [] -> Deferred.Or_error.error_s [%message "Something went wrong"]
   | lines ->
