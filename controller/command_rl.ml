@@ -143,9 +143,10 @@ let command_run =
           next
         in
         let record_trajectory ~iter (trajectory: RL.Trajectory.t) =
-          let filename =
-            controller_rundir ^/ "opt_data" ^/ Int.to_string iter ^/ "trajectory.sexp"
-          in
+          let dirname = controller_rundir ^/ "opt_data" ^/ Int.to_string iter in
+          let filename = dirname ^/ "trajectory.sexp" in
+          lift_deferred (Async_shell.mkdir ~p:() dirname)
+          >>=? fun () ->
           lift_deferred (
             Writer.save_sexp filename ([%sexp_of: RL.Trajectory.t] trajectory)
           )
