@@ -53,7 +53,15 @@ let command_run =
         let inlining_tree = Inlining_tree.build initial_state.decisions in
         let cfg = Cfg.t_of_inlining_tree inlining_tree in
 
-        printf "cfg =\n%s\n" (Cfg.pprint cfg);
+        lift_deferred (
+          Writer.save_sexp (controller_rundir ^/ "cfg.sexp")
+            ([%sexp_of: Cfg.t] cfg)
+        )
+        >>=? fun () ->
+        lift_deferred (
+          Writer.save_sexp (controller_rundir ^/ "inlining_tree.sexp")
+            ([%sexp_of: Inlining_tree.Top_level.t] inlining_tree))
+        >>=? fun () ->
 
         let random_policy = fun (_ : RL.S.t) ->
           let r = Random.int 2 in
@@ -65,7 +73,11 @@ let command_run =
             assert false
         in
 
-        let process = Experiment_utils.process_work_unit ~config ~bin_args in
+        (* It is okay to run just twice (or even once?), I believe.
+         *
+         * MCTS should be smart enough to retry due to sampling errors.
+         * *)
+        let process = Experiment_utils.process_work_unit ~num_runs:2 ~bin_args in
         lift_deferred (EU.Scheduler.create worker_connections ~process)
         >>=? fun scheduler ->
 
@@ -116,6 +128,14 @@ let command_run =
           Log.Global.info !"%{RL.S} -> %{RL.S}" state next;
           next
         in
+        let record_trajectory ~iter (trajectory: RL.Trajectory.t) =
+          let filename =
+            controller_rundir ^/ Int.to_string iter ^/ "trajectory.sexp"
+          in
+          lift_deferred (
+            Writer.save_sexp filename ([%sexp_of: RL.Trajectory.t] trajectory)
+          )
+        in
         Async_mcts.learn ~parallelism:(List.length worker_connections)
           ~num_iterations:num_iterations
           ~root_state:cfg.root
@@ -124,6 +144,7 @@ let command_run =
           ~compile_binary
           ~execute_work_unit
           ~reward_of_exec_time
+          ~record_trajectory
     ]
 ;;
 

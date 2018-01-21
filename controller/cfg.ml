@@ -67,12 +67,14 @@ type node =
   { inline:    RL.S.t;
     no_inline: RL.S.t;
   }
+[@@deriving sexp]
 
 type t =
   { transitions: node RL.S.Map.t;
     root: RL.S.t;
     function_calls: Function_call.t RL.S.Map.t;
   }
+[@@deriving sexp]
 
 let transition t clos action =
   let node = RL.S.Map.find_exn t.transitions clos in
@@ -179,7 +181,7 @@ let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
 let pprint ?(with_legend: unit option) t =
   RL.S.Map.to_alist t.transitions
   |> List.map ~f:(fun (s, node) ->
-      sprintf !"[%{RL.S}] (%{RL.S}, %{RL.S})"
+      sprintf !"[%{RL.S.pprint}] (%{RL.S.pprint}, %{RL.S.pprint})"
         s node.inline node.no_inline)
   |> String.concat ~sep:"\n"
 ;;

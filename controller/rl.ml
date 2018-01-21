@@ -12,6 +12,10 @@ module S = struct
     let is_terminal = function
       | Terminal -> true
       | State _  -> false
+
+    let pprint = function
+      | Terminal -> "TERM"
+      | State s -> Int.to_string s
   end
 
   let make =

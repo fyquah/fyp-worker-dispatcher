@@ -65,7 +65,8 @@ let learn
     ~(rollout_policy: RL.S.t -> RL.A.t)
     ~(compile_binary: (RL.Pending_trajectory.t -> string Deferred.Or_error.t))
     ~(execute_work_unit: EU.Work_unit.t -> Execution_stats.t Deferred.Or_error.t)
-    ~(reward_of_exec_time: Time.Span.t -> float) =
+    ~(reward_of_exec_time: Time.Span.t -> float)
+    ~record_trajectory =
   let mcts_ref = ref (RL.MCTS.init ~rollout_policy) in
   List.init num_iterations ~f:Fn.id
   |> Deferred.Or_error.List.iter ~how:(`Max_concurrent_jobs parallelism)
@@ -78,6 +79,11 @@ let learn
         >>=? fun () ->
         run_one_iteration ~iter_id:iter ~root_state ~transition ~mcts:!mcts_ref
             ~generate_work_unit ~execute_work_unit ~reward_of_exec_time
-        >>|? fun trajectory ->
-        mcts_ref := RL.MCTS.backprop !mcts_ref ~trajectory)
+        >>=? fun trajectory ->
+        (* We backprop AS SOON AS POSSIBLE so other threads can pick up our
+         * change
+         *)
+        mcts_ref := RL.MCTS.backprop !mcts_ref ~trajectory;
+        record_trajectory ~iter trajectory
+      )
 ;;

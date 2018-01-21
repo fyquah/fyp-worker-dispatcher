@@ -31,6 +31,7 @@ type t = private
     root:           RL.S.t;
     function_calls: Function_call.t RL.S.Map.t
   }
+[@@deriving sexp_of]
 
 val t_of_inlining_tree : Inlining_tree.Top_level.t -> t
 

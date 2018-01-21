@@ -13,6 +13,8 @@ module S : sig
   val to_string : t -> string
 
   val is_terminal : t -> bool
+
+  val pprint : t -> string
 end
 
 module A : sig

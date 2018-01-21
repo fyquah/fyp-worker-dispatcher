@@ -254,7 +254,7 @@ let command_run =
             config.num_runs / List.length config.worker_configs
           in
           Experiment_utils.run_binary_on_worker
-            ~num_runs ~config ~conn ~path_to_bin
+            ~num_runs ~conn ~path_to_bin
             ~hostname:(Utils.Worker_connection.hostname conn)
             ~bin_args
           >>|? fun execution_stats ->

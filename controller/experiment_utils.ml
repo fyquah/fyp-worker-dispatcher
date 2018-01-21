@@ -101,7 +101,7 @@ let run_binary_on_rpc_worker ~hostname ~worker_connection ~path_to_bin =
 ;;
 
 let run_binary_on_ssh_worker
-    ~num_runs ~config:_ ~rundir ~user ~hostname ~path_to_bin ~bin_args =
+    ~num_runs ~rundir ~user ~hostname ~path_to_bin ~bin_args =
   lift_deferred (Unix.getcwd ())
   >>=? fun dir ->
   shell ~dir "scp"
@@ -135,14 +135,14 @@ let run_binary_on_ssh_worker
          parsed_gc_stats = None}
 ;;
 
-let run_binary_on_worker ~num_runs ~config ~hostname ~conn ~path_to_bin ~bin_args =
+let run_binary_on_worker ~num_runs ~hostname ~conn ~path_to_bin ~bin_args =
   match conn with
   | Worker_connection.Rpc worker_connection ->
     run_binary_on_rpc_worker ~worker_connection ~path_to_bin ~hostname
   | Worker_connection.Ssh (ssh_config : Worker_connection.ssh_conn) ->
     let rundir = ssh_config.rundir in
     let user = ssh_config.user in
-    run_binary_on_ssh_worker ~num_runs ~user ~config ~rundir ~hostname ~path_to_bin ~bin_args
+    run_binary_on_ssh_worker ~num_runs ~user ~rundir ~hostname ~path_to_bin ~bin_args
 ;;
 
 let init_connection ~hostname ~worker_config =
@@ -237,14 +237,11 @@ module Scheduler = struct
 end
 
 let process_work_unit
-    ~(config: Config.t) ~(bin_args: string)
+    ~(num_runs : int) ~(bin_args: string)
     (conn: 'a Worker_connection.t) (work_unit: Work_unit.t) =
   let path_to_bin = work_unit.Work_unit.path_to_bin in
-  let num_runs =
-    config.num_runs / List.length config.worker_configs
-  in
   run_binary_on_worker
-    ~num_runs ~config ~conn ~path_to_bin
+    ~num_runs ~conn ~path_to_bin
     ~hostname:(Worker_connection.hostname conn)
     ~bin_args
   >>|? fun execution_stats ->

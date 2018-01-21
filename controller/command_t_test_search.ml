@@ -90,7 +90,7 @@ let slide_over_decisions
           printf "Running %s\n" path_to_bin;
           Experiment_utils.run_binary_on_worker
             ~num_runs:config.num_runs
-            ~config ~conn ~path_to_bin ~hostname ~bin_args
+            ~conn ~path_to_bin ~hostname ~bin_args
           >>= function
           | Ok benchmark ->
             printf "Done with %s. Saving results ...\n" path_to_bin;
