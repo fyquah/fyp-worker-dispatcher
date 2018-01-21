@@ -27,6 +27,35 @@ module Function_call = struct
   include T
   include Comparable.Make(T)
 
+  let t_of_override (override : Data_collector.t) =
+    let call_stack = override.call_stack in
+    if
+      List.for_all call_stack ~f:(function
+          | Call_site.Enter_decl _ -> false
+          | Call_site.At_call_site _ ->  true)
+    then begin
+      let call_sites = 
+        List.map call_stack ~f:(function
+            | Call_site.Enter_decl _ -> assert false
+            | At_call_site acs -> acs)
+      in
+      let top_level_offset = ref None in
+      let call_stack =
+        List.filter_map call_sites ~f:(fun (acs : Call_site.at_call_site) ->
+          let source = acs.source in
+          let offset = acs.offset in
+          match source with
+          | None -> (top_level_offset := Some offset); None
+          | Some source -> Some (source, offset))
+      in
+      let applied = override.applied in
+      let top_level_offset = Option.value_exn !top_level_offset in
+      Some { T. top_level_offset; call_stack; applied;  }
+    end else begin
+      None
+    end
+  ;;
+
   let override_of_t t action =
     let call_stack =
       List.map (zip_with_delay t.call_stack)
@@ -73,6 +102,7 @@ type t =
   { transitions: node RL.S.Map.t;
     root: RL.S.t;
     function_calls: Function_call.t RL.S.Map.t;
+    reverse_map: RL.S.t Function_call.Map.t;
   }
 [@@deriving sexp]
 
@@ -175,7 +205,12 @@ let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
           loop ~acc ~tree_node:top_level_id ~backtrack)
   in
   let root = List.hd_exn top_level_ids in
-  { transitions; root; function_calls = call_map; }
+  let reverse_map =
+    RL.S.Map.to_alist call_map
+    |> List.map ~f:(fun (a, b) -> (b, a))
+    |> Function_call.Map.of_alist_exn
+  in
+  { transitions; root; function_calls = call_map; reverse_map; }
 ;;
 
 let pprint ?(with_legend: unit option) t =

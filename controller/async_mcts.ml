@@ -46,7 +46,6 @@ let plan_and_simulate ~iter_id
     ~(root_state: RL.S.t)
     ~(transition: RL.transition)
     ~(mcts: RL.MCTS.t)
-    ~(generate_work_unit: (RL.Pending_trajectory.t -> Work_unit.t Deferred.Or_error.t))
     ~(execute_work_unit: EU.Work_unit.t -> Execution_stats.t Deferred.Or_error.t)
     ~(reward_of_exec_time: Time.Span.t -> float) =
 
@@ -79,6 +78,7 @@ let plan_and_simulate ~iter_id
   in
   log_trajectory ~iter:iter_id ~trajectory:mcts_trajectory ~terminal:mcts_terminal;
 
+  (*
   Log.Global.info "[iteration %d] Simulating" iter_id;
 
   (* phase 2, 3, use the [rollout_policy] *)
@@ -87,20 +87,20 @@ let plan_and_simulate ~iter_id
     loop mcts_terminal ~policy ~acc:[]
   in
   log_trajectory ~iter:iter_id ~trajectory:rollout_trajectory ~terminal:rollout_terminal;
+  *)
 
-  let trajectory_entries = mcts_trajectory @ rollout_trajectory in
-  let pending_trajectory = (trajectory_entries, rollout_terminal) in
-  (RL.MCTS.expand mcts ~path:trajectory_entries, pending_trajectory)
+  let partial_trajectory = (mcts_trajectory, mcts_terminal) in
+  (RL.MCTS.expand mcts ~path:mcts_trajectory, `Incomplete partial_trajectory)
 ;;
 
 let run_single_iteration ~iter_id
-    ~pending_trajectory
-    ~(generate_work_unit: (RL.Pending_trajectory.t -> Work_unit.t Deferred.Or_error.t))
+    ~partial_trajectory
+    ~(generate_work_unit: ([`Incomplete of RL.Pending_trajectory.t] -> (Work_unit.t * RL.Pending_trajectory.t) Deferred.Or_error.t))
     ~(execute_work_unit: EU.Work_unit.t -> Execution_stats.t Deferred.Or_error.t)
     ~(reward_of_exec_time: Time.Span.t -> float) =
 
-  generate_work_unit pending_trajectory
-  >>=? fun work_unit ->
+  generate_work_unit partial_trajectory
+  >>=? fun (work_unit, pending_trajectory) ->
   execute_work_unit work_unit
   >>|? fun execution_stats ->
   let reward = reward_of_exec_time (gmean_exec_time execution_stats) in
@@ -122,33 +122,43 @@ let learn
     ~num_iterations
     ~(root_state: RL.S.t)
     ~(transition: RL.transition)
-    ~(rollout_policy: RL.S.t -> RL.A.t)
-    ~(compile_binary: (RL.Pending_trajectory.t -> string Deferred.Or_error.t))
+    ~(compile_binary: ([`Incomplete of RL.Pending_trajectory.t] -> (string * RL.Pending_trajectory.t) Deferred.Or_error.t))
     ~(execute_work_unit: EU.Work_unit.t -> Execution_stats.t Deferred.Or_error.t)
     ~(reward_of_exec_time: Time.Span.t -> float)
     ~record_trajectory =
-  let mcts_ref = ref (RL.MCTS.init ~rollout_policy) in
+  let mcts_ref = ref (RL.MCTS.init ~rollout_policy:(fun _ -> RL.A.Inline)) in
+  let best_so_far = ref None in
   List.init num_iterations ~f:Fn.id
   |> Deferred.Or_error.List.iter ~how:(`Max_concurrent_jobs parallelism)
       ~f:(fun iter ->
-        let generate_work_unit trajectory =
-          compile_binary trajectory >>|? fun path_to_bin ->
-          { Work_unit. path_to_bin; step = 0; sub_id = 0; }
+        let generate_work_unit partial_trajectory =
+          compile_binary partial_trajectory >>|? fun (path_to_bin, pending_trajectory) ->
+          ({ Work_unit. path_to_bin; step = 0; sub_id = 0; }, pending_trajectory)
         in
         lift_deferred (Clock.after (Time.Span.of_sec (Random.float 3.0)))
         >>=? fun () ->
-        let (mcts, pending_trajectory) =
-          plan_and_simulate ~iter_id:iter ~root_state ~transition ~mcts:!mcts_ref
-              ~generate_work_unit ~execute_work_unit ~reward_of_exec_time
+        let (mcts, partial_trajectory) =
+          plan_and_simulate ~iter_id:iter ~root_state ~transition
+              ~mcts:!mcts_ref ~execute_work_unit ~reward_of_exec_time
         in
         mcts_ref := mcts;
-        run_single_iteration ~iter_id:iter ~pending_trajectory
+        run_single_iteration ~iter_id:iter ~partial_trajectory
             ~generate_work_unit ~execute_work_unit ~reward_of_exec_time
         >>=? fun trajectory ->
         (* We backprop AS SOON AS POSSIBLE so other threads can pick up our
          * change
          *)
         mcts_ref := RL.MCTS.backprop !mcts_ref ~trajectory;
+        begin match !best_so_far with
+        | None -> best_so_far := Some trajectory
+        | Some best_so_far_d ->
+          if trajectory.reward >. best_so_far_d.reward then
+            best_so_far := Some trajectory
+        end;
+        let best_so_far = Option.value_exn !best_so_far in
+        Log.Global.sexp ~level:`Info [%message
+            (iter: int)
+            (best_so_far : Execution_stats.t RL.Trajectory.t)];
         record_trajectory ~iter trajectory
       )
 ;;

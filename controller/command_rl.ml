@@ -26,16 +26,6 @@ module EU = Experiment_utils
 module Async_MCTS = Async_mcts
 
 
-let random_policy = fun (_ : RL.S.t) ->
-  let r = Random.int 2 in
-  if r = 0 then
-    RL.A.Inline
-  else if r = 1 then
-    RL.A.No_inline
-  else
-    assert false
-;;
-
 let command_run =
   let open Command.Let_syntax in
   Command.async_or_error' ~summary:"Command"
@@ -118,21 +108,48 @@ let command_run =
            * the available data structures
            *)
           let lock = Nano_mutex.create () in
-          fun pending_trajectory ->
+          fun (`Incomplete partial_trajectory) ->
             Deferred.repeat_until_finished () (fun () ->
               match Nano_mutex.lock lock with
               | Ok () -> Deferred.return (`Finished (Or_error.return ()))
               | Error _ ->  Deferred.return (`Repeat ()))
             >>=? fun () ->
             EU.compile_binary ~dir:exp_dir ~bin_name:bin_name (
-              Cfg.overrides_of_pending_trajectory cfg pending_trajectory)
-            >>=? fun s ->
+              Cfg.overrides_of_pending_trajectory cfg partial_trajectory)
+            >>=? fun filename ->
+
+            Reader.load_sexp
+              (exp_dir ^/ (bin_name ^ ".0.data_collector.sexp"))
+              [%of_sexp: Data_collector.t list]
+            >>=? fun decisions ->
+            let visited_states =
+              List.map ~f:fst (fst partial_trajectory)
+              |> RL.S.Set.of_list
+            in
+            let remaining_trajectory =
+              List.filter_map decisions ~f:(fun decision ->
+                  Option.bind (Cfg.Function_call.t_of_override decision)
+                    ~f:(fun fc ->
+                        let s =
+                          Cfg.Function_call.Map.find_exn cfg.reverse_map fc
+                        in
+                        if RL.S.Set.mem visited_states s then
+                          None
+                        else if decision.decision then
+                          Some (s, RL.A.Inline)
+                        else
+                          Some (s, RL.A.No_inline)))
+              |> List.sort ~cmp:(fun a b -> RL.S.compare (fst a) (fst b))
+            in
+            let pending_trajectory =
+              (fst partial_trajectory @ remaining_trajectory, RL.S.terminal)
+            in
             Deferred.repeat_until_finished () (fun () ->
               match Nano_mutex.unlock lock with
               | Ok () -> Deferred.return (`Finished (Or_error.return ()))
               | Error _ ->  Deferred.return (`Repeat ()))
             >>|? fun () ->
-            s
+            filename, pending_trajectory
         in
         let execute_work_unit work_unit =
           EU.Scheduler.dispatch scheduler work_unit
@@ -154,7 +171,6 @@ let command_run =
           ~num_iterations:num_iterations
           ~root_state:cfg.root
           ~transition
-          ~rollout_policy:random_policy  (* TODO(fyq14): Use Flambda's default? But how? *)
           ~compile_binary
           ~execute_work_unit
           ~reward_of_exec_time
