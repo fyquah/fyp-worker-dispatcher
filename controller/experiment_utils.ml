@@ -125,8 +125,8 @@ let run_binary_on_ssh_worker
     sprintf "%s@%s" user hostname;
     rundir ^/ "benchmark_binary.sh";
     rundir ^/ "binary.exe";
-    sprintf "0x%x" (1 lsl processor);
     Int.to_string num_runs;
+    sprintf "0x%x" (1 lsl processor);
     bin_args;
   ]
   in
@@ -268,7 +268,11 @@ let process_work_unit
   Log.Global.sexp ~level:`Info [%message
     (path_to_bin : string)
     (raw_execution_time : Time.Span.t list)];
-  Log.Global.info "%s\n" execution_stats.gc_stats;
+  let lines =
+    List.map (String.split_lines execution_stats.gc_stats) ~f:(fun line ->
+        "[" ^ path_to_bin ^ " GC STATS] " ^ line)
+  in
+  List.iter lines ~f:(fun line -> Log.Global.info "%s" line);
   execution_stats
 ;;
 
