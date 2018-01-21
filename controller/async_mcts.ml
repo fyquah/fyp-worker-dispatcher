@@ -25,6 +25,12 @@ let run_one_iteration ~iter_id
       loop next_state ~policy ~acc
   in
 
+  (* TODO(fyq14): SOMETHING VERY VERY WRONG HERE !!! The current thing will
+   * cause MCTS to fully expand to TERM, which is clearly not 
+   * the intended behaviour. We want to expand only up to a leaf node in the
+   * Q-value estimator.
+   *)
+
   Log.Global.info "Planning iteration %d" iter_id;
   (* phase 1, Choose action using MCTS *)
   let mcts_terminal, mcts_trajectory =
