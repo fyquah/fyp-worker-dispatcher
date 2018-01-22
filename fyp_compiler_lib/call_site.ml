@@ -37,11 +37,12 @@ type t =
 let at_call_site_equal (a : at_call_site) (b : at_call_site)  =
   a.offset = b.offset &&
   Helper.option_equal Closure_id.equal a.source b.source &&
-  Closure_id.equal a.applied b.applied
+  Closure_id.partial_equal a.applied b.applied
+;;
 
 let enter_decl_equal (a : enter_decl) (b : enter_decl) =
-  Closure_id.equal a.closure b.closure &&
-  Helper.option_equal Closure_id.equal a.source b.source
+  Closure_id.partial_equal a.closure b.closure &&
+  Helper.option_equal Closure_id.partial_equal a.source b.source
 ;;
 
 let equal a b =

@@ -51,7 +51,7 @@ let pprint_list ppf ts =
 
 let equal a b =
   a.decision = b.decision &&
-  Closure_id.equal a.applied b.applied &&
+  Closure_id.partial_equal a.applied b.applied &&
   Helper.list_equal Call_site.equal a.call_stack b.call_stack
 
 let find_decision ~call_stack ~applied =
@@ -62,11 +62,5 @@ let find_decision ~call_stack ~applied =
       !inlining_overrides
   with
   | None -> None
-  | Some a ->
-    Format.printf "OVERRIDE Applied = %a call stack = %a with %b\n"
-      Closure_id.print applied
-      Sexp.print_mach
-      (Sexp.sexp_of_list Call_site.sexp_of_t call_stack)
-      a.decision;
-    Some a.decision
+  | Some a -> Some a.decision
 ;;

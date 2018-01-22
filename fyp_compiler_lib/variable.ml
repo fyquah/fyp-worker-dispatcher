@@ -167,3 +167,10 @@ let output_full chan t =
   Compilation_unit.output chan t.compilation_unit;
   output_string chan ".";
   output chan t
+
+let partial_equal t1 t2 =
+  if t1 == t2 then true
+  else
+    String.equal t1.name t2.name
+      && Compilation_unit.equal t1.compilation_unit t2.compilation_unit
+;;
