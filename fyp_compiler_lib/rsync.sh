@@ -11,6 +11,7 @@ cp $OCAML_DIR/utils/helper.ml* ./
 cp $OCAML_DIR/utils/identifiable.ml* ./
 cp $OCAML_DIR/utils/misc.ml* ./
 cp $OCAML_DIR/middle_end/data_collector.ml* ./
+cp $OCAML_DIR/middle_end/data_collector_intf.ml ./
 cp $OCAML_DIR/middle_end/base_types/call_site.ml* ./
 cp $OCAML_DIR/middle_end/base_types/closure_id.ml* ./
 cp $OCAML_DIR/middle_end/base_types/closure_element.ml* ./
