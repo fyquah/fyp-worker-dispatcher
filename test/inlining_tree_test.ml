@@ -11,7 +11,7 @@ module T1 = struct
 
   let load_decision_tree () =
     let%bind decisions =
-      Reader.load_sexp_exn (datadir ^/ "main.0.data_collector.sexp")
+      Reader.load_sexp_exn (datadir ^/ "main.0.data_collector.v0.sexp")
         [%of_sexp: Data_collector.t list]
     in
     let decision_tree = Inlining_tree.build decisions in

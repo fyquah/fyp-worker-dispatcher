@@ -154,7 +154,7 @@ end) = struct
       shell ~dir:M.exp_dir "chmod" [ "755"; filename ]
       >>=? fun () ->
       let data_collector_file =
-        M.exp_dir ^/ (M.bin_name ^ ".0.data_collector.sexp")
+        M.exp_dir ^/ (M.bin_name ^ ".0.data_collector.v0.sexp")
       in
       Reader.load_sexp data_collector_file [%of_sexp: Data_collector.V0.t list]
       >>=? fun executed_decisions ->

@@ -57,7 +57,7 @@ let slide_over_decisions
         >>=? fun () ->
         shell ~echo:true ~dir:exp_dir "chmod" [ "755"; filename ]
         >>=? fun () ->
-        Reader.load_sexp (exp_dir ^/ (bin_name ^ ".0.data_collector.sexp"))
+        Reader.load_sexp (exp_dir ^/ (bin_name ^ ".0.data_collector.v0.sexp"))
           [%of_sexp: Data_collector.V0.t list]
         >>=? fun executed_decisions ->
         let path_to_bin = filename in
