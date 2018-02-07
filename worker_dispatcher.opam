@@ -1,11 +1,10 @@
 opam-version: "1.2"
 version: "1.0"
-maintainer: "bob@sponge.com"
-authors: ["SpongeBob"]
-homepage: "https://github.com/SpongeBob/hello_world"
-bug-reports: "https://github.com/SpongeCob/hello_world/issues"
-dev-repo: "https://github.com/SpongeBob/hello_world.git"
+maintainer: "fyq14@imperial.ac.uk"
+authors: ["Fu Yong Quah"]
+homepage: "https://github.com/fyquah95/fyp-worker-dispatcher"
+bug-reports: "https://github.com/fyquah95/fyp-worker-dispatcher/issues"
+homepage: "https://github.com/fyquah95/fyp-worker-dispatcher.git"
 license: "Apache-2.0"
-build: [
-  ["jbuilder" "build" "--only" "hello_world" "--root" "." "-j" jobs "@install"]
-]
+build: [ ["jbuilder" "build"] ]
+depends: [ "core" "async" ]
