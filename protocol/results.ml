@@ -25,8 +25,8 @@ end) = struct
 end
 
 module Data_collector = struct
-  include Fyp_compiler_lib.Data_collector
-  include Make_core_sexp(Fyp_compiler_lib.Data_collector)
+  include Fyp_compiler_lib.Data_collector.V0
+  include Make_core_sexp(Fyp_compiler_lib.Data_collector.V0)
 end
 
 module Work_unit_id : sig

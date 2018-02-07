@@ -2,7 +2,7 @@
 
 open Core
 
-module Data_collector = Fyp_compiler_lib.Data_collector
+module Data_collector = Fyp_compiler_lib.Data_collector.V0
 module Results = Protocol.Results
 
 type exec_time =

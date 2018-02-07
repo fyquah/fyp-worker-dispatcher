@@ -12,7 +12,7 @@ module Base_state_energy = struct
   type energy = Execution_stats.t [@@deriving sexp]
 
   type state =
-    { tree        : Inlining_tree.Top_level.t;
+    { tree        : Inlining_tree.V0.Top_level.t;
       work_unit   : Work_unit.t;
     }
   [@@deriving sexp]
@@ -54,7 +54,7 @@ end) = struct
   module T1 = struct
     include Base_state_energy
 
-    let compare a b = List.compare Inlining_tree.compare a.tree b.tree
+    let compare a b = List.compare Inlining_tree.V0.compare a.tree b.tree
   end
 
   module T2 = struct
@@ -112,7 +112,7 @@ end) = struct
       ignore step;
       ignore config;
       let current_tree = state.tree in
-      let num_leaves = Inlining_tree.Top_level.count_leaves current_tree in
+      let num_leaves = Inlining_tree.V0.Top_level.count_leaves current_tree in
       (* flip between 1 to 3 leaves *)
       let new_tree =
         let rec make () =
@@ -122,11 +122,11 @@ end) = struct
               unique_random_from_list ~count:modified_leaves
                 (List.init num_leaves ~f:Fn.id)
             in
-            Inlining_tree.Top_level.flip_several_leaves current_tree choices
+            Inlining_tree.V0.Top_level.flip_several_leaves current_tree choices
           else
             let leaf = Random.int num_leaves in
             match
-              Inlining_tree.Top_level.backtrack_nth_leaf current_tree leaf
+              Inlining_tree.V0.Top_level.backtrack_nth_leaf current_tree leaf
             with
             | None ->
               Log.Global.sexp ~level:`Info [%message "Failed to backtrack!"];
@@ -139,10 +139,10 @@ end) = struct
       in
       shell ~dir:M.exp_dir "make" [ "clean" ]
       >>=? fun () ->
-      let overrides = Inlining_tree.Top_level.to_override_rules new_tree in
+      let overrides = Inlining_tree.V0.Top_level.to_override_rules new_tree in
       lift_deferred (
         Writer.save_sexp (M.exp_dir ^/ "overrides.sexp")
-          ([%sexp_of: Data_collector.t list] overrides)
+          ([%sexp_of: Data_collector.V0.t list] overrides)
       )
       >>=? fun () ->
       shell ~dir:M.exp_dir "make" [ "all" ]
@@ -156,7 +156,7 @@ end) = struct
       let data_collector_file =
         M.exp_dir ^/ (M.bin_name ^ ".0.data_collector.sexp")
       in
-      Reader.load_sexp data_collector_file [%of_sexp: Data_collector.t list]
+      Reader.load_sexp data_collector_file [%of_sexp: Data_collector.V0.t list]
       >>=? fun executed_decisions ->
 
       let sub_id = get_sub_id step in
@@ -172,7 +172,7 @@ end) = struct
       (* TODO: This is incredibly expensive -- there is a lot of potential
        * for tree structure sharing here.
        *)
-      let tree = Inlining_tree.build executed_decisions in
+      let tree = Inlining_tree.V0.build executed_decisions in
       let work_unit = { Work_unit. path_to_bin = filename; step; sub_id } in
       Deferred.Or_error.return { T1. tree; work_unit; }
     ;;
@@ -213,11 +213,11 @@ end) = struct
     in
     let%bind () =
       Writer.save_sexp (dump_directory ^/ "initial_tree.sexp")
-        ([%sexp_of: Inlining_tree.Top_level.t] (fst description.initial).tree)
+        ([%sexp_of: Inlining_tree.V0.Top_level.t] (fst description.initial).tree)
     in
     let%bind () =
       Writer.save_sexp (dump_directory ^/ "proposal_tree.sexp")
-        ([%sexp_of: Inlining_tree.Top_level.t] (fst description.proposal).tree)
+        ([%sexp_of: Inlining_tree.V0.Top_level.t] (fst description.proposal).tree)
     in
     return (description, next)
   ;;

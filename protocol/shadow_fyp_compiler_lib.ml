@@ -24,6 +24,11 @@ end) = struct
   let t_of_sexp sexp = M.t_of_sexp (comp_sexp_of_core_sexp sexp)
 end
 
+module Apply_id = struct
+  include Fyp_compiler_lib.Apply_id
+  include Make_core_sexp(Fyp_compiler_lib.Apply_id)
+end
+
 module Closure_id = struct
   include Fyp_compiler_lib.Closure_id
   include Make_core_sexp(Fyp_compiler_lib.Closure_id)
@@ -34,13 +39,50 @@ module Call_site = struct
   include Make_core_sexp(Fyp_compiler_lib.Call_site)
 end
 
-module Data_collector = struct
-  include Fyp_compiler_lib.Data_collector
-  include Make_core_sexp(Fyp_compiler_lib.Data_collector)
+module Closure_origin = struct
+  include Fyp_compiler_lib.Closure_origin
+  include Make_core_sexp(Fyp_compiler_lib.Closure_origin)
+end
 
-  (* TODO(fyq14): This is bad for perf! *)
-  let compare (a : t) (b : t) =
-    Sexp.compare (sexp_of_t a) (sexp_of_t b)
+module Data_collector = struct
+  module V0 = struct
+    include Fyp_compiler_lib.Data_collector.V0
+    include Make_core_sexp(Fyp_compiler_lib.Data_collector.V0)
+
+    (* TODO(fyq14): This is bad for perf! *)
+    let compare (a : t) (b : t) =
+      Sexp.compare (sexp_of_t a) (sexp_of_t b)
+    ;;
+  end
+
+  module V1 = struct
+    module Function_metadata = struct
+      include Fyp_compiler_lib.Data_collector.V1.Function_metadata
+      include Make_core_sexp(Fyp_compiler_lib.Data_collector.V1.Function_metadata)
+    end
+
+    module Trace_item = struct
+      include Fyp_compiler_lib.Data_collector.V1.Trace_item
+      include Make_core_sexp(Fyp_compiler_lib.Data_collector.V1.Trace_item)
+    end
+
+    module Action = struct
+      include Fyp_compiler_lib.Data_collector.V1.Action
+      include Make_core_sexp(Fyp_compiler_lib.Data_collector.V1.Action)
+    end
+
+    module Decision = struct
+      include Fyp_compiler_lib.Data_collector.V1.Decision
+      include Make_core_sexp(Fyp_compiler_lib.Data_collector.V1.Decision)
+    end
+
+    module Overrides = struct
+      include Fyp_compiler_lib.Data_collector.V1.Overrides
+      include Make_core_sexp(Fyp_compiler_lib.Data_collector.V1.Overrides)
+    end
+  end
+
+  include V1
 end
 
 module Call_site_offset = struct

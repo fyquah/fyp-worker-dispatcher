@@ -5,6 +5,8 @@ open Async
 
 open Common
 
+module Inlining_tree = Inlining_tree.V0
+
 type state =
   | Original
   | Override
@@ -78,7 +80,7 @@ let node_closure_id = function
   | Apply_inlined_function a -> a.applied
   | Apply_non_inlined_function a -> a.applied
 
-let to_override_rules t : Fyp_compiler_lib.Data_collector.t list =
+let to_override_rules t : Fyp_compiler_lib.Data_collector.V0.t list =
   let pointer = t.pointer in
   let rec loop path =
     let match_hd (hd : Inlining_tree.t) ~remainder ~decision
@@ -134,7 +136,7 @@ let to_override_rules t : Fyp_compiler_lib.Data_collector.t list =
   let module Data_collector = Fyp_compiler_lib.Data_collector in
   let module Acc = struct
     type t =
-      { rules       : Data_collector.t list;
+      { rules       : Data_collector.V0.t list;
         stack_so_far: Call_site.t list;
       }
 
@@ -153,10 +155,10 @@ let to_override_rules t : Fyp_compiler_lib.Data_collector.t list =
           Some (
             let applied = acs.applied in
             match tl with
-            | [] -> { Data_collector. call_stack; applied; decision }
+            | [] -> { Data_collector.V0. call_stack; applied; decision }
             | _  ->
               let decision = true in
-              { Data_collector. call_stack; applied; decision }
+              { Data_collector.V0. call_stack; applied; decision }
           )
       in
       let rules =

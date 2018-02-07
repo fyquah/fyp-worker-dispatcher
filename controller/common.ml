@@ -36,7 +36,7 @@ let rec is_prefix
     Call_site.equal prefix_hd hd &&
     is_prefix ~prefix:prefix_tl tl
 
-let filter_decisions (decisions : Data_collector.t list) =
+let filter_decisions (decisions : Data_collector.V0.t list) =
   List.filter decisions ~f:(fun test ->
     not (
       List.exists decisions ~f:(fun decision ->

@@ -17,7 +17,7 @@ end
 
 module Initial_state = struct
   type t =
-    { decisions : Data_collector.t list;
+    { decisions : Data_collector.V0.t list;
       traversal_state : Traversal_state.t;
       path_to_bin  : string;
     }
@@ -28,12 +28,12 @@ let get_initial_state ?(env = []) ~bin_name ~exp_dir ~base_overrides () =
   shell ~dir:exp_dir "make" [ "clean" ] >>=? fun () ->
   lift_deferred (
     Writer.save_sexp (exp_dir ^/ "overrides.sexp")
-      ([%sexp_of: Data_collector.t list] base_overrides)
+      ([%sexp_of: Data_collector.V0.t list] base_overrides)
   )
   >>=? fun () ->
   shell ~env:env ~dir:exp_dir "make" [ "all" ] >>=? fun () ->
   let filename = exp_dir ^/ (bin_name ^ ".0.data_collector.sexp") in
-  Reader.load_sexp filename [%of_sexp: Data_collector.t list]
+  Reader.load_sexp filename [%of_sexp: Data_collector.V0.t list]
   >>=? fun decisions ->
   let filename = Filename.temp_file "fyp-" ("-" ^ bin_name) in
   shell ~dir:exp_dir
@@ -47,7 +47,7 @@ let get_initial_state ?(env = []) ~bin_name ~exp_dir ~base_overrides () =
     Some {
       Initial_state.
       decisions;
-      traversal_state = Traversal_state.init (Inlining_tree.build decisions);
+      traversal_state = Traversal_state.init (Inlining_tree.V0.build decisions);
       path_to_bin = filename;
     }
   | [] -> None
@@ -286,7 +286,7 @@ let compile_binary ~dir ~bin_name overrides =
   >>=? fun () ->
   lift_deferred (
     Writer.save_sexp (dir ^/ "overrides.sexp")
-      ([%sexp_of: Data_collector.t list] overrides)
+      ([%sexp_of: Data_collector.V0.t list] overrides)
   )
   >>=? fun () ->
   shell ~dir "make" [ "all" ]

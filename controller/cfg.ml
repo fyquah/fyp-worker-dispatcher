@@ -27,7 +27,7 @@ module Function_call = struct
   include T
   include Comparable.Make(T)
 
-  let t_of_override (override : Data_collector.t) =
+  let t_of_override (override : Data_collector.V0.t) =
     let call_stack = override.call_stack in
     if
       List.for_all call_stack ~f:(function
@@ -88,7 +88,7 @@ module Function_call = struct
       | RL.A.Inline -> true
       | RL.A.No_inline -> false
     in
-    { Data_collector. call_stack; applied; decision; }
+    { Data_collector.V0. call_stack; applied; decision; }
   ;;
 end
 
@@ -124,7 +124,7 @@ let overrides_of_pending_trajectory (t : t) (pending_trajectory : RL.Pending_tra
     Function_call.override_of_t function_call a)
 ;;
 
-let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
+let t_of_inlining_tree (top_level : Inlining_tree.V0.Top_level.t) =
   let (top_level_ids, tree_map, call_map) =
     let (tree_map : RL.S.t list RL.S.Map.t ref) = ref RL.S.Map.empty in
     let (call_map : Function_call.t RL.S.Map.t ref) = ref RL.S.Map.empty in
@@ -164,7 +164,7 @@ let t_of_inlining_tree (top_level : Inlining_tree.Top_level.t) =
         tree_map := RL.S.Map.add !tree_map ~key:id ~data:children_ids;
         id
       in
-      match (tree_node : Inlining_tree.t) with
+      match (tree_node : Inlining_tree.V0.t) with
       | Declaration _ -> None
       | Apply_non_inlined_function non_inlined ->
         Some (update_map non_inlined.offset non_inlined.applied [])

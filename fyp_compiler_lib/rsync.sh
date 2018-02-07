@@ -12,11 +12,15 @@ cp $OCAML_DIR/utils/identifiable.ml* ./
 cp $OCAML_DIR/utils/misc.ml* ./
 cp $OCAML_DIR/middle_end/data_collector.ml* ./
 cp $OCAML_DIR/middle_end/data_collector_intf.ml ./
+cp $OCAML_DIR/middle_end/base_types/apply_id.ml* ./
 cp $OCAML_DIR/middle_end/base_types/call_site.ml* ./
 cp $OCAML_DIR/middle_end/base_types/closure_id.ml* ./
+cp $OCAML_DIR/middle_end/base_types/closure_origin.ml* ./
 cp $OCAML_DIR/middle_end/base_types/closure_element.ml* ./
+cp $OCAML_DIR/middle_end/base_types/id_types.ml* ./
 cp $OCAML_DIR/middle_end/base_types/variable.ml* ./
 cp $OCAML_DIR/middle_end/base_types/compilation_unit.ml* ./
 cp $OCAML_DIR/middle_end/base_types/linkage_name.ml* ./
+cp $OCAML_DIR/middle_end/base_types/set_of_closures_id.ml* ./
 cp $OCAML_DIR/middle_end/feature_extractor.ml* ./
 cp $OCAML_DIR/typing/ident.ml* ./

@@ -28,7 +28,7 @@ module Function_call : sig
 
   include Comparable.S with type t := t
 
-  val t_of_override : Data_collector.t -> t option
+  val t_of_override : Data_collector.V0.t -> t option
 end
 
 type node =
@@ -44,9 +44,9 @@ type t = private
   }
 [@@deriving sexp_of]
 
-val t_of_inlining_tree : Inlining_tree.Top_level.t -> t
+val t_of_inlining_tree : Inlining_tree.V0.Top_level.t -> t
 
-val overrides_of_pending_trajectory : t -> RL.Pending_trajectory.t -> Data_collector.t list
+val overrides_of_pending_trajectory : t -> RL.Pending_trajectory.t -> Data_collector.V0.t list
 
 (* [None] indicates termination *)
 val transition : t -> RL.S.t -> RL.A.t -> RL.S.t

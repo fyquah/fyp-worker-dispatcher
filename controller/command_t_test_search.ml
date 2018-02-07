@@ -13,8 +13,8 @@ let rec build_sliding_window ~n input_list =
 ;;
 
 type work_unit =
-  { overrides   : Data_collector.t list;
-    decisions   : Data_collector.t list;
+  { overrides   : Data_collector.V0.t list;
+    decisions   : Data_collector.V0.t list;
     path_to_bin : string;
     id          : Results.Work_unit_id.t;
   }
@@ -38,14 +38,14 @@ let slide_over_decisions
   Deferred.don't_wait_for (
     Deferred.Or_error.List.iter ~how:`Sequential sliding_window ~f:(fun decisions ->
         let flipped_decisions =
-          List.map decisions ~f:(fun (d : Data_collector.t) ->
+          List.map decisions ~f:(fun (d : Data_collector.V0.t) ->
               { d with decision = not d.decision })
         in
         shell ~echo:true ~verbose:true ~dir:exp_dir "make" [ "clean" ]
         >>=? fun () ->
         lift_deferred (
           Writer.save_sexp (exp_dir ^/ "overrides.sexp")
-            ([%sexp_of: Data_collector.t list]
+            ([%sexp_of: Data_collector.V0.t list]
               (base_overrides @ flipped_decisions))
         )
         >>=? fun () ->
@@ -58,7 +58,7 @@ let slide_over_decisions
         shell ~echo:true ~dir:exp_dir "chmod" [ "755"; filename ]
         >>=? fun () ->
         Reader.load_sexp (exp_dir ^/ (bin_name ^ ".0.data_collector.sexp"))
-          [%of_sexp: Data_collector.t list]
+          [%of_sexp: Data_collector.V0.t list]
         >>=? fun executed_decisions ->
         let path_to_bin = filename in
         let overrides = flipped_decisions in
@@ -121,7 +121,7 @@ let slide_over_decisions
 let command =
   let module Generation = struct
     type t =
-      { base_overrides : Data_collector.t list;
+      { base_overrides : Data_collector.V0.t list;
         gen            : int;
       }
   end
@@ -156,7 +156,7 @@ let command =
            Log.Global.info ">>>= Running generation %d" generation.gen;
            printf "[GENERATION %d] Starting generation!\n" generation.gen;
            printf "[GENERATION %d] Base overrides:\n" generation.gen;
-           print_sexp ([%sexp_of: Data_collector.t list] generation.base_overrides);
+           print_sexp ([%sexp_of: Data_collector.V0.t list] generation.base_overrides);
            begin
              let base_overrides = generation.base_overrides in
              Experiment_utils.get_initial_state
@@ -178,7 +178,7 @@ let command =
                List.filter new_overrides ~f:(fun override ->
                  not (
                    List.exists generation.base_overrides ~f:(fun base ->
-                     Data_collector.equal base override)
+                     Data_collector.V0.equal base override)
                    )
                  )
              in
@@ -187,7 +187,7 @@ let command =
                ^/ Int.to_string_hum generation.gen
              in
              printf "[GENERATION %d] Generation choices:\n" generation.gen;
-             print_sexp ([%sexp_of: Data_collector.t list] new_overrides);
+             print_sexp ([%sexp_of: Data_collector.V0.t list] new_overrides);
 
              slide_over_decisions ~bin_name ~config ~worker_connections
                ~base_overrides:generation.base_overrides

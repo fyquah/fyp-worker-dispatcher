@@ -61,7 +61,7 @@ let command_run =
         let initial_state = Option.value_exn initial_state in
 
         Log.Global.info "Constructing inlining tree";
-        let inlining_tree = Inlining_tree.build initial_state.decisions in
+        let inlining_tree = Inlining_tree.V0.build initial_state.decisions in
 
         Log.Global.info "Constructing CFG";
         let cfg = Cfg.t_of_inlining_tree inlining_tree in
@@ -74,7 +74,7 @@ let command_run =
         >>=? fun () ->
         lift_deferred (
           Writer.save_sexp (controller_rundir ^/ "inlining_tree.sexp")
-            ([%sexp_of: Inlining_tree.Top_level.t] inlining_tree))
+            ([%sexp_of: Inlining_tree.V0.Top_level.t] inlining_tree))
         >>=? fun () ->
 
         (* It is okay to run just twice (or even once?), I believe.
@@ -120,7 +120,7 @@ let command_run =
 
             Reader.load_sexp
               (exp_dir ^/ (bin_name ^ ".0.data_collector.sexp"))
-              [%of_sexp: Data_collector.t list]
+              [%of_sexp: Data_collector.V0.t list]
             >>=? fun decisions ->
             let visited_states =
               List.map ~f:fst (fst partial_trajectory)
