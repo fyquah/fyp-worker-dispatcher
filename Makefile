@@ -22,3 +22,7 @@ display:
 test:
 	jbuilder build test/main.exe
 	OPAMROOT=~/fyp/opam-root jbuilder runtest test
+
+.PHONY: rsync
+rsync:
+	./fyp_compiler_lib/rsync.sh

@@ -11,6 +11,10 @@ module type S = sig
         closure_origin: Closure_origin.t;
       }
 
+    val compare : t -> t -> int
+
+    val print : Format.formatter -> t -> unit
+
     val sexp_of_t : t -> Sexp.t
     val t_of_sexp : Sexp.t -> t
   end
@@ -92,6 +96,8 @@ module type S = sig
     val t_of_sexp : Sexp.t -> t
 
     val find_decision : t -> query -> Action.t option
+
+    val of_decisions : Decision.t list -> t
   end
 end
 

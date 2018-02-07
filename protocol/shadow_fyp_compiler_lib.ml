@@ -59,6 +59,8 @@ module Data_collector = struct
     module Function_metadata = struct
       include Fyp_compiler_lib.Data_collector.V1.Function_metadata
       include Make_core_sexp(Fyp_compiler_lib.Data_collector.V1.Function_metadata)
+
+      let equal a b = (compare a b = 0)
     end
 
     module Trace_item = struct

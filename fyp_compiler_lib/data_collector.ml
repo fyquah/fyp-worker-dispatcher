@@ -108,6 +108,8 @@ module V1 = struct
         closure_origin: Closure_origin.t;
       }
 
+    let compare a b = Closure_origin.compare a.closure_origin b.closure_origin
+
     let sexp_of_t t =
       Sexp.List [
         Option.sexp_of_t Closure_id.sexp_of_t t.closure_id;
@@ -115,6 +117,8 @@ module V1 = struct
         Closure_origin.sexp_of_t t.closure_origin;
       ]
     ;;
+
+    let print ppf t = Sexp.print_mach ppf (sexp_of_t t)
 
     let t_of_sexp sexp =
       let open Sexp in
@@ -304,6 +308,8 @@ module V1 = struct
     ;;
 
     let load_from_channel ic = t_of_sexp (Sexp_file.load_from_channel ic)
+
+    let of_decisions t = t
   end
 end
 

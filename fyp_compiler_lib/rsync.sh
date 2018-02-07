@@ -15,7 +15,9 @@ cp $OCAML_DIR/middle_end/data_collector_intf.ml ./
 cp $OCAML_DIR/middle_end/base_types/apply_id.ml* ./
 cp $OCAML_DIR/middle_end/base_types/call_site.ml* ./
 cp $OCAML_DIR/middle_end/base_types/closure_id.ml* ./
-cp $OCAML_DIR/middle_end/base_types/closure_origin.ml* ./
+cp $OCAML_DIR/middle_end/base_types/closure_origin.mli ./
+# source file for closure_origin is modified because it doesn't compile on
+# 4.05.0 otherwise.
 cp $OCAML_DIR/middle_end/base_types/closure_element.ml* ./
 cp $OCAML_DIR/middle_end/base_types/id_types.ml* ./
 cp $OCAML_DIR/middle_end/base_types/variable.ml* ./
