@@ -38,7 +38,7 @@ let command_print_time_to_python_list =
 
 let command_merge_results =
   let open Command.Let_syntax in
-  Command.async' ~summary:"Merge results"
+  Command.async' ~summary:"Merge results (for Inlining Tree v0)"
   [%map_open
    let filename_1 = anon ("filename" %: string)
    and filename_2 = anon ("filename" %: string) in
@@ -48,11 +48,11 @@ let command_merge_results =
        (load_results_sexp filename_1) (load_results_sexp filename_2)
      >>= fun (results_1, results_2) ->
      let decisions_equal =
-       List.equal ~equal:Fyp_compiler_lib.Data_collector.equal
+       List.equal ~equal:Fyp_compiler_lib.Data_collector.V0.equal
          results_1.decisions results_2.decisions
      in
      let overrides_equal =
-       List.equal ~equal:Fyp_compiler_lib.Data_collector.equal
+       List.equal ~equal:Fyp_compiler_lib.Data_collector.V0.equal
          results_1.overrides results_2.overrides
      in
      if not decisions_equal || not overrides_equal then begin
@@ -127,11 +127,11 @@ let command_compare_decisions =
      Deferred.both (load_sexp filename_1) (load_sexp filename_2)
      >>= fun (sexp_1, sexp_2) ->
      let decisions_equal =
-       List.equal ~equal:Fyp_compiler_lib.Data_collector.equal
+       List.equal ~equal:Fyp_compiler_lib.Data_collector.V0.equal
          sexp_1.decisions sexp_2.decisions
      in
      let overrides_equal =
-       List.equal ~equal:Fyp_compiler_lib.Data_collector.equal
+       List.equal ~equal:Fyp_compiler_lib.Data_collector.V0.equal
          sexp_1.overrides sexp_2.overrides
      in
      let print_time { mean; sd; } =

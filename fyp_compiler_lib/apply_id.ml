@@ -91,15 +91,9 @@ include Identifiable.Make (struct
     stamp_hash lxor (Compilation_unit.hash t.compilation_unit)
 
   let print ppf t =
-    if Compilation_unit.equal t.compilation_unit
-        (Compilation_unit.get_current_exn ())
-    then begin
-      Format.fprintf ppf "Apply_id[%s]" (string_of_stamp t.stamp)
-    end else begin
-      Format.fprintf ppf "Apply_id[%a/%s]"
-        Compilation_unit.print t.compilation_unit
-        (string_of_stamp t.stamp)
-    end
+    Format.fprintf ppf "Apply_id[%a/%s]"
+      Compilation_unit.print t.compilation_unit
+      (string_of_stamp t.stamp)
 end)
 
 let change_label t label =

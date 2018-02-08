@@ -699,7 +699,6 @@ module V1 = struct
           )
   
         | Apply_non_inlined_function not_inlined ->
-          let decision = false in
           let applied = not_inlined.applied in
           let apply_id = not_inlined.apply_id in
           let trace =
@@ -923,10 +922,24 @@ module V1 = struct
     | Declaration { declared = _; children } -> children
     | _ -> assert false
   ;;
-  
+
+  let rec recursively_reverse children =
+    let reverse_node node =
+      match node with
+      | Declaration decl ->
+        Declaration { decl with children = recursively_reverse decl.children }
+      | Apply_inlined_function inlined ->
+        Apply_inlined_function {
+          inlined with children = recursively_reverse inlined.children
+        }
+      | Apply_non_inlined_function _non_inlined -> node
+    in
+    List.rev_map children ~f:reverse_node
+
   let build (decisions : Data_collector.V1.Decision.t list) : Top_level.t =
     let (init : Top_level.t) = [] in
-    List.fold decisions ~init ~f:add
+    let tree = List.fold decisions ~init ~f:add in
+    recursively_reverse tree
   
   module Diff = struct
     type nonrec t =
