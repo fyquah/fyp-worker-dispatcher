@@ -6,10 +6,45 @@ module Inlining_tree = Protocol.Inlining_tree
 
 module V1 = struct
 
+  open Data_collector.V1
+
   module Inlining_tree = Inlining_tree.V1
   module Function_metadata = Data_collector.V1
 
-  let command_pp =
+  let command_pp_decisions =
+    let open Command.Let_syntax in
+    Command.async' ~summary:"pprint decisions"
+      [%map_open
+        let file = anon("filename" %: string) in
+        fun () ->
+          let open Deferred.Let_syntax in
+          let%map decisions =
+            Reader.load_sexp_exn file [%of_sexp: Decision.t list]
+          in
+          List.iter decisions ~f:(fun decision ->
+              printf "[round %d]\n" decision.round;
+              printf "TOP_LEVEL\n";
+              List.iter (List.rev decision.trace) ~f:(fun trace_item -> 
+                  match trace_item with
+                  | Trace_item.Enter_decl { source = _; declared } ->
+                    printf "--declares--> %s\n" (
+                      Format.asprintf "Decl{%a}" Closure_origin.print declared.closure_origin)
+                  | Trace_item.At_call_site { apply_id; applied; source = _; } ->
+                    printf "--inlines--> %s\n" (
+                      Format.asprintf "[%a](%a)"
+                        Apply_id.print apply_id
+                        Closure_origin.print applied.closure_origin));
+              begin match decision.action with
+              | Action.Inline -> printf "--inlines--> "
+              | Action.Apply -> printf "--calls--> "
+              end;
+              printf "%s\n" (
+                Format.asprintf "[%a](%a)"
+                  Apply_id.print decision.apply_id
+                  Closure_origin.print decision.metadata.closure_origin))]
+  ;;
+
+  let command_pp_tree =
     let open Command.Let_syntax in
     Command.async' ~summary:"pp"
       [%map_open
@@ -48,7 +83,9 @@ module V1 = struct
 
   let command =
     Command.group ~summary:"Tree tools (for v1)"
-      [("pp", command_pp)]
+      [("print-tree", command_pp_tree);
+       ("print-decisions", command_pp_decisions);
+      ]
 end
 
 let () =
