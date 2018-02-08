@@ -89,8 +89,13 @@ let plan_and_simulate ~iter_id
   log_trajectory ~iter:iter_id ~trajectory:rollout_trajectory ~terminal:rollout_terminal;
   *)
 
+  Log.Global.info
+    "[iteration %d] Sending partial trajectory to compiler for rollouts"
+    iter_id;
   let partial_trajectory = (mcts_trajectory, mcts_terminal) in
-  (RL.MCTS.expand mcts ~path:mcts_trajectory, `Incomplete partial_trajectory)
+  let expanded_mcts = RL.MCTS.expand mcts ~path:mcts_trajectory in
+  Log.Global.info "[iteration %d] Expanded MCTS" iter_id;
+  (expanded_mcts, `Incomplete partial_trajectory)
 ;;
 
 let run_single_iteration ~iter_id
@@ -101,8 +106,10 @@ let run_single_iteration ~iter_id
 
   generate_work_unit partial_trajectory
   >>=? fun (work_unit, pending_trajectory) ->
+  Log.Global.info "[iteration %d] Generated work unit" iter_id;
   execute_work_unit work_unit
   >>|? fun execution_stats ->
+  Log.Global.info "[iteration %d] Executed work unit" iter_id;
   let reward = reward_of_exec_time (gmean_exec_time execution_stats) in
   let trajectory = 
     { RL.Trajectory.
@@ -122,7 +129,7 @@ let learn
     ~num_iterations
     ~(root_state: RL.S.t)
     ~(transition: RL.transition)
-    ~(compile_binary: ([`Incomplete of RL.Pending_trajectory.t] -> (string * RL.Pending_trajectory.t) Deferred.Or_error.t))
+    ~(compile_binary: ([`Iter_id of int] -> [`Incomplete of RL.Pending_trajectory.t] -> (string * RL.Pending_trajectory.t) Deferred.Or_error.t))
     ~(execute_work_unit: EU.Work_unit.t -> Execution_stats.t Deferred.Or_error.t)
     ~(reward_of_exec_time: Time.Span.t -> float)
     ~record_trajectory =
@@ -132,7 +139,7 @@ let learn
   |> Deferred.Or_error.List.iter ~how:(`Max_concurrent_jobs parallelism)
       ~f:(fun iter ->
         let generate_work_unit partial_trajectory =
-          compile_binary partial_trajectory >>|? fun (path_to_bin, pending_trajectory) ->
+          compile_binary (`Iter_id iter) partial_trajectory >>|? fun (path_to_bin, pending_trajectory) ->
           ({ Work_unit. path_to_bin; step = 0; sub_id = 0; }, pending_trajectory)
         in
         lift_deferred (Clock.after (Time.Span.of_sec (Random.float 3.0)))
@@ -142,6 +149,7 @@ let learn
               ~mcts:!mcts_ref ~execute_work_unit ~reward_of_exec_time
         in
         mcts_ref := mcts;
+        Log.Global.info "[iteration %d] Running iteration" iter;
         run_single_iteration ~iter_id:iter ~partial_trajectory
             ~generate_work_unit ~execute_work_unit ~reward_of_exec_time
         >>=? fun trajectory ->

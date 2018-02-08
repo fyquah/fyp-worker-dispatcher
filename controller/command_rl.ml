@@ -110,53 +110,50 @@ let command_run =
            * the available data structures
            *)
           let lock = Nano_mutex.create () in
-          fun (`Incomplete partial_trajectory) ->
-            Deferred.repeat_until_finished () (fun () ->
-              match Nano_mutex.lock lock with
-              | Ok () -> Deferred.return (`Finished (Or_error.return ()))
-              | Error _ ->  Deferred.return (`Repeat ()))
-            >>=? fun () ->
-            let write_overrides filename =
-              let overrides =
-                Cfg.overrides_of_pending_trajectory cfg partial_trajectory
+          fun (`Iter_id iter_id) (`Incomplete partial_trajectory) ->
+            With_lock.run lock ~name:(sprintf "Iter: %d" iter_id)(fun () ->
+              let write_overrides filename =
+                let overrides =
+                  Cfg.overrides_of_pending_trajectory cfg partial_trajectory
+                in
+                lift_deferred (
+                  Writer.save_sexp  filename
+                    ([%sexp_of: Data_collector.V1.Overrides.t] overrides))
               in
-              lift_deferred (
-                Writer.save_sexp  filename
-                  ([%sexp_of: Data_collector.V1.Overrides.t] overrides))
-            in
-            EU.compile_binary ~dir:exp_dir ~bin_name:bin_name ~write_overrides
-            >>=? fun filename ->
-
-            Reader.load_sexp
-              (exp_dir ^/ (bin_name ^ ".v1.data_collector.sexp"))
-              [%of_sexp: Data_collector.V1.Decision.t list]
-            >>=? fun decisions ->
-            let visited_states =
-              List.map ~f:fst (fst partial_trajectory)
-              |> RL.S.Set.of_list
-            in
-            let remaining_trajectory =
-              List.filter_map decisions ~f:(fun decision ->
-                  Option.bind (Cfg.Function_call.t_of_decision decision)
-                    ~f:(fun fc ->
-                        let s =
-                          Cfg.Function_call.Map.find_exn cfg.reverse_map fc
-                        in
-                        if RL.S.Set.mem visited_states s then
-                          None
-                        else
-                          Some (s, decision.action)))
-              |> List.sort ~cmp:(fun a b -> RL.S.compare (fst a) (fst b))
-            in
-            let pending_trajectory =
-              (fst partial_trajectory @ remaining_trajectory, RL.S.terminal)
-            in
-            Deferred.repeat_until_finished () (fun () ->
-              match Nano_mutex.unlock lock with
-              | Ok () -> Deferred.return (`Finished (Or_error.return ()))
-              | Error _ ->  Deferred.return (`Repeat ()))
-            >>|? fun () ->
-            filename, pending_trajectory
+              EU.compile_binary ~dir:exp_dir ~bin_name:bin_name ~write_overrides
+              >>= fun filename ->
+              let filename = Or_error.ok_exn filename in
+              Reader.load_sexp
+                (exp_dir ^/ (bin_name ^ ".0.data_collector.v1.sexp"))
+                [%of_sexp: Data_collector.V1.Decision.t list]
+              >>= fun decisions ->
+              let decisions = Or_error.ok_exn decisions in
+              let visited_states =
+                List.map ~f:fst (fst partial_trajectory)
+                |> RL.S.Set.of_list
+              in
+              let remaining_trajectory =
+                List.filter_map decisions ~f:(fun decision ->
+                    Option.bind (Cfg.Function_call.t_of_decision decision)
+                      ~f:(fun fc ->
+                          match Cfg.Function_call.Map.find cfg.reverse_map fc with
+                          | None ->
+                            Log.Global.sexp ~level:`Info [%message "FAILED" (fc: Cfg.Function_call.t)];
+                            None
+                          | Some s -> 
+                            Log.Global.sexp ~level:`Info [%message "found" (fc: Cfg.Function_call.t)];
+                            if RL.S.Set.mem visited_states s then
+                              None
+                            else
+                              Some (s, decision.action)))
+                |> List.sort ~cmp:(fun a b -> RL.S.compare (fst a) (fst b))
+              in
+              let pending_trajectory =
+                (fst partial_trajectory @ remaining_trajectory, RL.S.terminal)
+              in
+              Deferred.return (filename, pending_trajectory))
+            >>| fun (a : (string * ((RL.S.t * Rl.A.t) Base__List.t * RL.S.t))) ->
+            Or_error.return a
         in
         let execute_work_unit work_unit =
           EU.Scheduler.dispatch scheduler work_unit
