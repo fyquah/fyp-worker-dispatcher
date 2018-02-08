@@ -1,5 +1,6 @@
 open Core
 open Common
+open Data_collector.V1
 
 (* Builds a control flow graph of inlining decisions in the entire
  * source tree.
@@ -15,20 +16,20 @@ module RL = Rl
  *)
 module Function_call : sig
   type t =
-    { top_level_offset: Call_site.Offset.t;
-      (* [call_stack] here Follows the same convention as those in
+    { (* [inlining_trace] here Follows the same convention as those in
        * [Data_collector.t] (aka the override type), that is the first
        * element is the T.O.S. The earliest function call is the last in
        * call_stack
        *)
-      call_stack: (Closure_id.t * Call_site.Offset.t) list;
-      applied:    Closure_id.t;
+      inlining_trace: (Apply_id.t * Function_metadata.t) list;
+      apply_id:       Apply_id.t;
+      applied:        Function_metadata.t;
     }
   [@@deriving sexp, compare]
 
   include Comparable.S with type t := t
 
-  val t_of_override : Data_collector.V0.t -> t option
+  val t_of_decision : Data_collector.V1.Decision.t -> t option
 end
 
 type node =
@@ -44,9 +45,12 @@ type t = private
   }
 [@@deriving sexp_of]
 
-val t_of_inlining_tree : Inlining_tree.V0.Top_level.t -> t
+val t_of_inlining_tree : Inlining_tree.V1.Top_level.t -> t
 
-val overrides_of_pending_trajectory : t -> RL.Pending_trajectory.t -> Data_collector.V0.t list
+val overrides_of_pending_trajectory
+   : t
+  -> RL.Pending_trajectory.t
+  -> Data_collector.V1.Overrides.t
 
 (* [None] indicates termination *)
 val transition : t -> RL.S.t -> RL.A.t -> RL.S.t

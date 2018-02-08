@@ -33,7 +33,8 @@ end
 
 module A = struct
   module T = struct
-    type t = Inline | No_inline [@@deriving compare, sexp]
+    type t = Data_collector.V1.Action.t = Inline | Apply
+    [@@deriving compare, sexp]
   end
 
   include T
@@ -101,10 +102,10 @@ module MCTS = struct
     in
     Staged.stage (fun s ->
         let inline = SA_pair.Map.find t.q_values (s, A.Inline) in
-        let no_inline = SA_pair.Map.find t.q_values (s, A.No_inline) in
+        let no_inline = SA_pair.Map.find t.q_values (s, A.Apply) in
         match inline, no_inline with
         | None   , None   -> None
-        | Some _ , None   -> Some A.No_inline  (* Expand to unvisited node *)
+        | Some _ , None   -> Some A.Apply  (* Expand to unvisited node *)
         | None   , Some _ -> Some A.Inline
         | Some inline, Some no_inline ->
           let inline_value = estimate_value inline in
@@ -118,15 +119,15 @@ module MCTS = struct
           | `Unvisited, `Unvisited ->
             begin
               if Random.bool () then Some A.Inline
-              else Some A.No_inline
+              else Some A.Apply
             end
           | `Unvisited, `Value _ -> Some A.Inline
-          | `Value _, `Unvisited -> Some A.No_inline
+          | `Value _, `Unvisited -> Some A.Apply
           | `Value inline_value, `Value no_inline_value ->
             if inline_value >. no_inline_value then
               Some A.Inline
             else
-              Some A.No_inline
+              Some A.Apply
           end)
   ;;
 

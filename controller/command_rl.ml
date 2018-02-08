@@ -59,9 +59,10 @@ let command_run =
         >>=? fun initial_state ->
 
         let initial_state = Option.value_exn initial_state in
+        let decisions = initial_state.v1_decisions in
 
         Log.Global.info "Constructing inlining tree";
-        let inlining_tree = Inlining_tree.V0.build initial_state.decisions in
+        let inlining_tree = Inlining_tree.V1.build decisions in
 
         Log.Global.info "Constructing CFG";
         let cfg = Cfg.t_of_inlining_tree inlining_tree in
@@ -73,8 +74,8 @@ let command_run =
         )
         >>=? fun () ->
         lift_deferred (
-          Writer.save_sexp (controller_rundir ^/ "inlining_tree.sexp")
-            ([%sexp_of: Inlining_tree.V0.Top_level.t] inlining_tree))
+          Writer.save_sexp (controller_rundir ^/ "inlining_tree.v1.sexp")
+            ([%sexp_of: Inlining_tree.V1.Top_level.t] inlining_tree))
         >>=? fun () ->
 
         (* It is okay to run just twice (or even once?), I believe.
@@ -85,7 +86,8 @@ let command_run =
         lift_deferred (EU.Scheduler.create worker_connections ~process)
         >>=? fun scheduler ->
 
-        EU.compile_binary ~dir:exp_dir ~bin_name:bin_name []
+        EU.compile_binary ~dir:exp_dir ~bin_name:bin_name
+          ~write_overrides:(fun _ -> Deferred.Or_error.ok_unit)
         >>=? fun basic_path_to_bin ->
 
         EU.run_in_all_workers ~times:3 ~scheduler ~config ~path_to_bin:basic_path_to_bin
@@ -114,13 +116,20 @@ let command_run =
               | Ok () -> Deferred.return (`Finished (Or_error.return ()))
               | Error _ ->  Deferred.return (`Repeat ()))
             >>=? fun () ->
-            EU.compile_binary ~dir:exp_dir ~bin_name:bin_name (
-              Cfg.overrides_of_pending_trajectory cfg partial_trajectory)
+            let write_overrides filename =
+              let overrides =
+                Cfg.overrides_of_pending_trajectory cfg partial_trajectory
+              in
+              lift_deferred (
+                Writer.save_sexp  filename
+                  ([%sexp_of: Data_collector.V1.Overrides.t] overrides))
+            in
+            EU.compile_binary ~dir:exp_dir ~bin_name:bin_name ~write_overrides
             >>=? fun filename ->
 
             Reader.load_sexp
-              (exp_dir ^/ (bin_name ^ ".0.data_collector.sexp"))
-              [%of_sexp: Data_collector.V0.t list]
+              (exp_dir ^/ (bin_name ^ ".v1.data_collector.sexp"))
+              [%of_sexp: Data_collector.V1.Decision.t list]
             >>=? fun decisions ->
             let visited_states =
               List.map ~f:fst (fst partial_trajectory)
@@ -128,17 +137,15 @@ let command_run =
             in
             let remaining_trajectory =
               List.filter_map decisions ~f:(fun decision ->
-                  Option.bind (Cfg.Function_call.t_of_override decision)
+                  Option.bind (Cfg.Function_call.t_of_decision decision)
                     ~f:(fun fc ->
                         let s =
                           Cfg.Function_call.Map.find_exn cfg.reverse_map fc
                         in
                         if RL.S.Set.mem visited_states s then
                           None
-                        else if decision.decision then
-                          Some (s, RL.A.Inline)
                         else
-                          Some (s, RL.A.No_inline)))
+                          Some (s, decision.action)))
               |> List.sort ~cmp:(fun a b -> RL.S.compare (fst a) (fst b))
             in
             let pending_trajectory =

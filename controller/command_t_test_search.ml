@@ -163,9 +163,9 @@ let command =
                ~bin_name ~exp_dir ~base_overrides ()
              >>=? fun state ->
              let { Experiment_utils.Initial_state.
-               decisions = new_overrides;
-               traversal_state = _;
+               v0_decisions = new_overrides;
                path_to_bin = _;
+               v1_decisions = _;
              } = Option.value_exn state in
              let new_overrides =
                (* This filter ensures that every the base and overrides

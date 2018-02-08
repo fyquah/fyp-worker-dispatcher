@@ -18,7 +18,8 @@ module S : sig
 end
 
 module A : sig
-  type t = Inline | No_inline [@@deriving compare, sexp]
+  type t = Data_collector.V1.Action.t = Inline | Apply
+  [@@deriving compare, sexp]
 
   include Comparable.S with type t := t
 end

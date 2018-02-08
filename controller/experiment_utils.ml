@@ -17,8 +17,8 @@ end
 
 module Initial_state = struct
   type t =
-    { decisions : Data_collector.V0.t list;
-      traversal_state : Traversal_state.t;
+    { v0_decisions : Data_collector.V0.t list;
+      v1_decisions : Data_collector.V1.Decision.t list;
       path_to_bin  : string;
     }
 end
@@ -32,25 +32,29 @@ let get_initial_state ?(env = []) ~bin_name ~exp_dir ~base_overrides () =
   )
   >>=? fun () ->
   shell ~env:env ~dir:exp_dir "make" [ "all" ] >>=? fun () ->
-  let filename = exp_dir ^/ (bin_name ^ ".0.data_collector.sexp") in
+
+  let filename = exp_dir ^/ (bin_name ^ ".0.data_collector.v0.sexp") in
   Reader.load_sexp filename [%of_sexp: Data_collector.V0.t list]
-  >>=? fun decisions ->
+  >>=? fun v0_decisions ->
+
+  Reader.load_sexp
+    (exp_dir ^/ (bin_name ^ ".0.data_collector.v1.sexp"))
+    [%of_sexp: Data_collector.V1.Decision.t list]
+  >>=? fun v1_decisions ->
+
   let filename = Filename.temp_file "fyp-" ("-" ^ bin_name) in
   shell ~dir:exp_dir
     "cp" [ (bin_name ^ ".native"); filename ]
   >>=? fun () ->
   shell ~dir:exp_dir "chmod" [ "755"; filename ]
   >>|? fun () ->
-  match decisions with
-  | _ :: _ ->
-    let decisions = filter_decisions decisions in
-    Some {
-      Initial_state.
-      decisions;
-      traversal_state = Traversal_state.init (Inlining_tree.V0.build decisions);
-      path_to_bin = filename;
-    }
-  | [] -> None
+  let v0_decisions = filter_decisions v0_decisions in
+  Some {
+    Initial_state.
+    v0_decisions;
+    v1_decisions;
+    path_to_bin = filename;
+  }
 ;;
 
 module Worker_connection = struct
@@ -281,13 +285,10 @@ let process_work_unit
   execution_stats
 ;;
 
-let compile_binary ~dir ~bin_name overrides =
+let compile_binary ~dir ~bin_name ~write_overrides =
   shell ~dir "make" [ "clean" ]
   >>=? fun () ->
-  lift_deferred (
-    Writer.save_sexp (dir ^/ "overrides.sexp")
-      ([%sexp_of: Data_collector.V0.t list] overrides)
-  )
+  write_overrides (dir ^/ "overrides.sexp")
   >>=? fun () ->
   shell ~dir "make" [ "all" ]
   >>=? fun () ->

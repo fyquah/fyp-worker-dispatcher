@@ -17,7 +17,7 @@ let zip_with_delay l =
 let log_trajectory ~iter ~trajectory ~terminal =
   let pprint_action = function
     | RL.A.Inline -> "INLINE"
-    | RL.A.No_inline -> "BRANCH"
+    | RL.A.Apply -> "BRANCH"
   in
   let messages = 
     zip_with_delay trajectory

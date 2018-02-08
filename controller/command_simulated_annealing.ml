@@ -311,7 +311,7 @@ let command_run =
         end)
         in
         let state =
-          let tree = initial_state.traversal_state.tree_root in
+          let tree = Inlining_tree.V0.build initial_state.v0_decisions in
           let path_to_bin = initial_state.path_to_bin in
           let work_unit =
             { Work_unit. path_to_bin; step = 0; sub_id = -1; }

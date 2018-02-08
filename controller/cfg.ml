@@ -1,6 +1,7 @@
 open Core
 open Async
 open Common
+open Data_collector.V1
 
 module RL = Rl
 
@@ -14,12 +15,16 @@ let zip_with_delay l =
     List.zip_exn l ((List.map ~f:(fun x -> Some x) tl) @ [None])
 ;;
 
+
+(* TODO(fyq14): This handles only function calls from the top-level, need
+ *              to handle function calls inside declarations as well.
+ *)
 module Function_call = struct
   module T = struct
-    type t =
-      { top_level_offset: Call_site_offset.t;
-        call_stack: (Closure_id.t * Call_site_offset.t) list;
-        applied:    Closure_id.t;
+    type t = 
+      { inlining_trace: (Apply_id.t * Function_metadata.t) list;
+        apply_id      : Apply_id.t;
+        applied       : Function_metadata.t;
       }
     [@@deriving sexp, compare]
   end
@@ -27,68 +32,43 @@ module Function_call = struct
   include T
   include Comparable.Make(T)
 
-  let t_of_override (override : Data_collector.V0.t) =
-    let call_stack = override.call_stack in
+  let t_of_decision (override : Decision.t) =
+    let trace = override.trace in
     if
-      List.for_all call_stack ~f:(function
-          | Call_site.Enter_decl _ -> false
-          | Call_site.At_call_site _ ->  true)
+      List.for_all trace ~f:(function
+          | Trace_item.Enter_decl _ -> false
+          | Trace_item.At_call_site _ ->  true)
     then begin
-      let call_sites = 
-        List.map call_stack ~f:(function
-            | Call_site.Enter_decl _ -> assert false
-            | At_call_site acs -> acs)
+      let inlining_trace =
+        List.map trace ~f:(function
+            | Trace_item.Enter_decl _ -> assert false
+            | Trace_item.At_call_site acs -> acs)
+        |> List.map ~f:(fun (acs : Trace_item.at_call_site) ->
+            (acs.apply_id, acs.applied))
       in
-      let top_level_offset = ref None in
-      let call_stack =
-        List.filter_map call_sites ~f:(fun (acs : Call_site.at_call_site) ->
-          let source = acs.source in
-          let offset = acs.offset in
-          match source with
-          | None -> (top_level_offset := Some offset); None
-          | Some source -> Some (source, offset))
+      let (apply_id, applied) = List.hd_exn (List.rev inlining_trace) in
+      let inlining_trace =
+        List.rev inlining_trace
+        |> List.tl_exn
+        |> List.rev
       in
-      let applied = override.applied in
-      let top_level_offset = Option.value_exn !top_level_offset in
-      Some { T. top_level_offset; call_stack; applied;  }
+      Some { inlining_trace; apply_id; applied; }
     end else begin
       None
     end
   ;;
 
-  let override_of_t t action =
-    let call_stack =
-      List.map (zip_with_delay t.call_stack)
-        ~f:(fun ((source, offset), after)->
-          let applied =
-            match after with
-            | None -> t.applied
-            | Some (clos, _) -> clos
-          in
-          let source = Some source in
-          let at_call_site = { Call_site. source; offset; applied; } in
-          Call_site.At_call_site at_call_site
-      )
+  let decision_of_t t action =
+    let apply_id = t.apply_id in
+    let round = 0 in
+    let trace =
+      List.map (zip_with_delay t.inlining_trace)
+        ~f:(fun ((apply_id, applied), source)->
+          let source = Option.map ~f:snd source in
+          Trace_item.At_call_site { source; apply_id; applied })
     in
-    let top_level_call_site =
-      let source = None in
-      let offset = t.top_level_offset in
-      let applied =
-        match t.call_stack with
-        | [] -> t.applied
-        | (clos, _) :: _ -> clos
-      in
-      let at_call_site = { Call_site. source; offset; applied; } in
-      Call_site.At_call_site at_call_site
-    in
-    let call_stack = call_stack @ [top_level_call_site] in
-    let applied = t.applied in
-    let decision =
-      match action with
-      | RL.A.Inline -> true
-      | RL.A.No_inline -> false
-    in
-    { Data_collector.V0. call_stack; applied; decision; }
+    let metadata = t.applied in
+    { Decision. round; trace; metadata; apply_id; action; }
   ;;
 end
 
@@ -109,8 +89,8 @@ type t =
 let transition t clos action =
   let node = RL.S.Map.find_exn t.transitions clos in
   match action with
-  | RL.A.Inline    -> node.inline
-  | RL.A.No_inline -> node.no_inline
+  | RL.A.Inline  -> node.inline
+  | RL.A.Apply   -> node.no_inline
 ;;
 
 let is_empty_list = function
@@ -121,59 +101,45 @@ let is_empty_list = function
 let overrides_of_pending_trajectory (t : t) (pending_trajectory : RL.Pending_trajectory.t) =
   List.map (fst pending_trajectory) ~f:(fun (s, a) ->
     let function_call = RL.S.Map.find_exn t.function_calls s in
-    Function_call.override_of_t function_call a)
+    Function_call.decision_of_t function_call a)
+  |> Overrides.of_decisions
 ;;
 
-let t_of_inlining_tree (top_level : Inlining_tree.V0.Top_level.t) =
+let t_of_inlining_tree (top_level : Inlining_tree.V1.Top_level.t) =
   let (top_level_ids, tree_map, call_map) =
     let (tree_map : RL.S.t list RL.S.Map.t ref) = ref RL.S.Map.empty in
     let (call_map : Function_call.t RL.S.Map.t ref) = ref RL.S.Map.empty in
-    let rec loop tree_node ~call_stack ~foo =
-      let update_map offset applied children =
+
+    let rec loop tree_node ~trace =
+      let update_map apply_id applied children =
         let id = RL.S.make () in
-        let call_stack =
-          match foo with
-          | None -> call_stack
-          | Some (_, source_function) ->
-            (source_function, offset) :: call_stack
-        in
-        let (top_level_offset, function_call) =
-          match foo with
-          | Some (top_level_offset, closure_id) ->
-            assert (not (is_empty_list call_stack));
-            top_level_offset, { Function_call.
-              call_stack;
-              applied = applied;
-              top_level_offset;
-            }
-          | None ->
-            assert (is_empty_list call_stack);
-            offset, { Function_call.
-              call_stack;
-              applied = applied;
-              top_level_offset = offset;
-            }
+        let inlining_trace = trace in
+        let function_call =
+          { Function_call.
+            inlining_trace;
+            applied = applied;
+            apply_id = apply_id;
+          }
         in
         let children_ids =
           List.filter_map children ~f:(fun child_node ->
-              loop child_node ~call_stack
-                ~foo:(Some (top_level_offset, applied))
-            )
+              loop child_node ~trace:(
+                (apply_id, applied) :: inlining_trace))
         in
         call_map := RL.S.Map.add !call_map ~key:id ~data:function_call;
         tree_map := RL.S.Map.add !tree_map ~key:id ~data:children_ids;
         id
       in
-      match (tree_node : Inlining_tree.V0.t) with
+      match (tree_node : Inlining_tree.V1.t) with
       | Declaration _ -> None
       | Apply_non_inlined_function non_inlined ->
-        Some (update_map non_inlined.offset non_inlined.applied [])
+        Some (update_map non_inlined.apply_id non_inlined.applied [])
       | Apply_inlined_function inlined ->
-        Some (update_map inlined.offset inlined.applied inlined.children)
+        Some (update_map inlined.apply_id inlined.applied inlined.children)
     in
     let top_level_ids =
       List.filter_map top_level ~f:(fun tree_node ->
-          loop tree_node ~call_stack:[] ~foo:None)
+          loop tree_node ~trace:[])
     in
     (top_level_ids, !tree_map, !call_map)
   in
