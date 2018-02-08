@@ -75,29 +75,26 @@ module MCTS = struct
     }
 
   type t =
-    { q_values:       value SA_pair.Map.t;
+    { num_plays:      int;
+      q_values:       value SA_pair.Map.t;
       rollout_policy: S.t -> A.t;
     }
 
   let rollout_policy t = Staged.stage t.rollout_policy
 
-  let alpha = 0.01
+  let init ~rollout_policy = { num_plays = 0; q_values = SA_pair.Map.empty; rollout_policy }
 
-  let init ~rollout_policy = { q_values = SA_pair.Map.empty; rollout_policy }
-
+  (* TODO(fyq14): How can we encode a delta parameter here? *)
   let mk_policy t =
-    let delta = 0.02 in (* probability that we go wrong *)
+    let num_plays = t.num_plays in
     let estimate_value (v: value) =
       if v.visits = 0 then
         `Unvisited
       else
       let q = v.total_reward /. float_of_int v.visits in
-      let upper_bound =
-        (* TODO(fyq14): What is the formula for UCB? *)
-        Float.sqrt (
-          (2. /. float_of_int v.visits) *. Float.log (1. /. delta)
-        )
-      in
+      let num_plays = Float.of_int (num_plays + 1) in
+      let visits = Float.of_int v.visits in
+      let upper_bound = Float.sqrt (2. *. (Float.log num_plays) /. visits) in
       `Value (q +. upper_bound)
     in
     Staged.stage (fun s ->
@@ -150,7 +147,10 @@ module MCTS = struct
         end
       | [] -> acc
     in
-    { t with q_values = loop trajectory ~acc:t.q_values }
+    { t with
+      q_values = loop trajectory ~acc:t.q_values;
+      num_plays = t.num_plays + 1;
+    }
   ;;
 
   let expand t ~path:original_path =
