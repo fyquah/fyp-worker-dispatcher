@@ -32,8 +32,8 @@ module Function_call = struct
   include T
   include Comparable.Make(T)
 
-  let t_of_decision (override : Decision.t) =
-    let trace = override.trace in
+  let t_of_decision (decision : Decision.t) =
+    let trace = decision.trace in
     if
       List.for_all trace ~f:(function
           | Trace_item.Enter_decl _ -> false
@@ -46,12 +46,8 @@ module Function_call = struct
         |> List.map ~f:(fun (acs : Trace_item.at_call_site) ->
             (acs.apply_id, acs.applied))
       in
-      let (apply_id, applied) = List.hd_exn (List.rev inlining_trace) in
-      let inlining_trace =
-        List.rev inlining_trace
-        |> List.tl_exn
-        |> List.rev
-      in
+      let apply_id = decision.apply_id in
+      let applied = decision.metadata in
       Some { inlining_trace; apply_id; applied; }
     end else begin
       None

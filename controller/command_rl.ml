@@ -132,16 +132,29 @@ let command_run =
                 List.map ~f:fst (fst partial_trajectory)
                 |> RL.S.Set.of_list
               in
+              let pprint fc =
+                let pprint ~apply_id ~(function_metadata : Data_collector.V1.Function_metadata.t) =
+                  Format.asprintf "[%a](%a)"
+                    Apply_id.print apply_id
+                    Closure_origin.print function_metadata.closure_origin
+                in
+                let trace = 
+                  List.map (List.rev fc.Cfg.Function_call.inlining_trace)
+                    ~f:(fun (apply_id, function_metadata) -> pprint ~apply_id ~function_metadata)
+                in
+                trace @ [pprint ~apply_id:fc.apply_id ~function_metadata:fc.applied]
+                |> String.concat ~sep:" -(calls)-> "
+              in
               let remaining_trajectory =
                 List.filter_map decisions ~f:(fun decision ->
                     Option.bind (Cfg.Function_call.t_of_decision decision)
                       ~f:(fun fc ->
                           match Cfg.Function_call.Map.find cfg.reverse_map fc with
                           | None ->
-                            Log.Global.sexp ~level:`Info [%message "FAILED" (fc: Cfg.Function_call.t)];
+                            Log.Global.info "FAILED:        %s" (pprint fc);
                             None
                           | Some s -> 
-                            Log.Global.sexp ~level:`Info [%message "found" (fc: Cfg.Function_call.t)];
+                            Log.Global.info "SUCEEDED:             %s" (pprint fc);
                             if RL.S.Set.mem visited_states s then
                               None
                             else

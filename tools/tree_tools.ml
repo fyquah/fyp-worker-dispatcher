@@ -25,14 +25,18 @@ module V1 = struct
            in
            match node with
            | Inlining_tree.Declaration decl ->
-             Format.printf "%sDECL %a\n" space Closure_origin.print
+             Format.printf "%sDECL(%a)\n" space Closure_origin.print
                decl.declared.closure_origin;
              iterate_children ~indent decl.children
            | Apply_inlined_function inlined ->
-             Format.printf "%sINLINE %a\n" space Apply_id.print inlined.apply_id;
+             Format.printf "%sINLINE[%a](%a)\n" space
+               Apply_id.print inlined.apply_id
+               Closure_origin.print inlined.applied.closure_origin;
              iterate_children ~indent inlined.children
            | Apply_non_inlined_function non_inlined -> 
-             Format.printf "%sDONT_INLINE %a\n" space Apply_id.print non_inlined.apply_id
+             Format.printf "%sDONT_INLINE(%a) %a\n" space
+               Apply_id.print non_inlined.apply_id
+               Closure_origin.print non_inlined.applied.closure_origin;
 
          and iterate_children ~indent children =
            List.iter children ~f:(fun child ->
