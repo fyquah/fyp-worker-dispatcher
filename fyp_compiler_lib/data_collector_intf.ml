@@ -63,9 +63,14 @@ module type S = sig
   end
 
   (* Can refer to either:
-    *   (0) A decision made by the compiler
-    *   (1) A decision made by the optimiser
-    *)
+   *
+   *   (0) A decision made by the compiler
+   *   (1) A decision made by the optimiser
+   *
+   * The [trace] _CONTAINS_ the applied function, that is, the TOS is
+   * always of the [At_call_site] label. This is unintended, but changing
+   * code everywhere is pretty entoxicating.
+   *)
   module Decision : sig
     type t =
       { round:    int;

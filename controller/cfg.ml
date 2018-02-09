@@ -39,8 +39,17 @@ module Function_call = struct
           | Trace_item.Enter_decl _ -> false
           | Trace_item.At_call_site _ ->  true)
     then begin
+      begin match List.hd_exn trace with
+      | Trace_item.Enter_decl _ -> assert false
+      | At_call_site acs ->
+        assert (
+          Apply_id.equal decision.apply_id acs.apply_id
+          && Function_metadata.equal decision.metadata acs.applied
+        )
+      end;
       let inlining_trace =
-        List.map trace ~f:(function
+        List.tl_exn trace
+        |> List.map ~f:(function
             | Trace_item.Enter_decl _ -> assert false
             | Trace_item.At_call_site acs -> acs)
         |> List.map ~f:(fun (acs : Trace_item.at_call_site) ->
