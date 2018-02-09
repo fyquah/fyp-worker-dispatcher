@@ -123,10 +123,25 @@ let command_run =
               EU.compile_binary ~dir:exp_dir ~bin_name:bin_name ~write_overrides
               >>= fun filename ->
               let filename = Or_error.ok_exn filename in
-              Reader.load_sexp
-                (exp_dir ^/ (bin_name ^ ".0.data_collector.v1.sexp"))
+              Reader.load_sexp (exp_dir ^/ (bin_name ^ ".0.data_collector.v1.sexp"))
                 [%of_sexp: Data_collector.V1.Decision.t list]
               >>= fun decisions ->
+
+              (* save decisions somewhere *)
+              let dest_dirname = controller_rundir ^/ "opt_data" ^/ Int.to_string iter_id in
+              let src_names =
+                [ exp_dir ^/ bin_name ^ ".0.data_collector.v1.sexp";
+                  exp_dir ^/ bin_name ^ ".1.data_collector.v1.sexp";
+                  exp_dir ^/ bin_name ^ ".2.data_collector.v1.sexp";
+                  exp_dir ^/ "overrides.sexp";
+                  exp_dir ^/ "flambda.out";
+                ]
+              in
+              Deferred.List.iter src_names ~f:(fun src_name ->
+                  shell ~dir:controller_rundir  "cp" [ src_name; dest_dirname ]
+                  >>| ok_exn)
+              >>= fun () ->
+
               let decisions = Or_error.ok_exn decisions in
               let visited_states =
                 List.map ~f:fst (fst partial_trajectory)
