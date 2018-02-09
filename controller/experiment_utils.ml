@@ -48,7 +48,7 @@ let get_initial_state ?(env = []) ~bin_name ~exp_dir ~base_overrides () =
   >>=? fun () ->
   shell ~dir:exp_dir "chmod" [ "755"; filename ]
   >>|? fun () ->
-  let v0_decisions = filter_decisions v0_decisions in
+  let v0_decisions = filter_v0_decisions v0_decisions in
   Some {
     Initial_state.
     v0_decisions;
@@ -77,19 +77,22 @@ module Worker_connection = struct
     | Rpc : 'a rpc_conn -> 'a t
     | Ssh : ssh_conn -> 'a t
 
-  let hostname t =
+  let hostname (type a) (t : a t) =
     match t with
     | Rpc c -> c.hostname
     | Ssh c -> c.hostname
 
-  let processor t =
+  let processor (type a) (t : a t) =
     match t with
     | Rpc _ -> None
     | Ssh c -> c.processor
 end
 
-let run_binary_on_rpc_worker ~hostname ~worker_connection ~path_to_bin =
-  let conn = worker_connection.Worker_connection.rpc_connection in
+let run_binary_on_rpc_worker
+    ~hostname
+    ~(worker_connection : 'a Worker_connection.rpc_conn)
+    ~path_to_bin =
+  let conn = worker_connection.rpc_connection in
   Rpc.Rpc.dispatch Info_rpc.rpc conn Info_rpc.Query.Where_to_copy
   >>=? fun path_to_rundir ->
   (* TODO: remove hard code *)
@@ -156,7 +159,9 @@ let run_binary_on_ssh_worker
          parsed_gc_stats = None}
 ;;
 
-let run_binary_on_worker ~num_runs ~processor ~hostname ~conn ~path_to_bin ~bin_args =
+let run_binary_on_worker (type a)
+    ~num_runs ~processor ~hostname
+    ~(conn: a Worker_connection.t) ~path_to_bin ~bin_args =
   match conn with
   | Worker_connection.Rpc worker_connection ->
     run_binary_on_rpc_worker ~worker_connection ~path_to_bin ~hostname

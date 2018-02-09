@@ -17,6 +17,11 @@ module Work_unit_id = Results.Work_unit_id
 let shell_echo_default = ref false
 let shell_verbose_default = ref false
 
+let set_shell_defaults ?echo ?verbose () =
+  Option.iter echo ~f:(fun a -> shell_echo_default := a);
+  Option.iter verbose ~f:(fun a -> shell_verbose_default := a)
+;;
+
 let shell ?(env = []) ?(echo) ?(verbose) ~dir:working_dir
     prog args =
   let echo = Option.value ~default:!shell_echo_default echo in
@@ -36,7 +41,7 @@ let rec is_prefix
     Call_site.equal prefix_hd hd &&
     is_prefix ~prefix:prefix_tl tl
 
-let filter_decisions (decisions : Data_collector.V0.t list) =
+let filter_v0_decisions (decisions : Data_collector.V0.t list) =
   List.filter decisions ~f:(fun test ->
     not (
       List.exists decisions ~f:(fun decision ->

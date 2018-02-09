@@ -27,8 +27,7 @@ let params =
        failwith "Binary name should not contain .ml suffix!"
      end;
      if debug then begin
-       Common.shell_echo_default := true;
-       Common.shell_verbose_default := true;
+       Common.set_shell_defaults ~echo:true ~verbose:true ()
      end;
      Random.init (
         (Time.to_span_since_epoch (Time.now ()))
