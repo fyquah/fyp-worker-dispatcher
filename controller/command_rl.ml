@@ -151,10 +151,10 @@ let command_run =
                       ~f:(fun fc ->
                           match Cfg.Function_call.Map.find cfg.reverse_map fc with
                           | None ->
-                            Log.Global.info "FAILED:        %s" (pprint fc);
+                            Log.Global.info "FAILED TO MATCH PATH:        %s"
+                              (pprint fc);
                             None
                           | Some s -> 
-                            Log.Global.info "SUCEEDED:             %s" (pprint fc);
                             if RL.S.Set.mem visited_states s then
                               None
                             else

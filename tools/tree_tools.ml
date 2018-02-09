@@ -9,7 +9,6 @@ module V1 = struct
   open Data_collector.V1
 
   module Inlining_tree = Inlining_tree.V1
-  module Function_metadata = Data_collector.V1
 
   let command_pp_decisions =
     let open Command.Let_syntax in
@@ -24,7 +23,16 @@ module V1 = struct
           List.iter decisions ~f:(fun decision ->
               printf "[round %d]\n" decision.round;
               printf "TOP_LEVEL\n";
-              List.iter (List.rev decision.trace) ~f:(fun trace_item -> 
+              begin match List.hd_exn decision.trace with
+              | Trace_item.Enter_decl _ -> assert false
+              | At_call_site acs ->
+                assert (
+                  Apply_id.equal acs.apply_id decision.apply_id
+                  && Function_metadata.compare acs.applied decision.metadata = 0
+                )
+              end;
+              let trace = List.tl_exn decision.trace in
+              List.iter (List.rev trace) ~f:(fun trace_item -> 
                   match trace_item with
                   | Trace_item.Enter_decl { source = _; declared } ->
                     printf "--declares--> %s\n" (

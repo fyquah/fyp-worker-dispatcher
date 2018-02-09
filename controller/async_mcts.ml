@@ -163,10 +163,10 @@ let learn
           if trajectory.reward >. best_so_far_d.reward then
             best_so_far := Some trajectory
         end;
-        let best_so_far = Option.value_exn !best_so_far in
+        let best_so_far = (Option.value_exn !best_so_far).metadata in
         Log.Global.sexp ~level:`Info [%message
             (iter: int)
-            (best_so_far : Execution_stats.t RL.Trajectory.t)];
+            (best_so_far : Execution_stats.t)];
         record_trajectory ~iter trajectory
       )
 ;;
