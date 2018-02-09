@@ -7,7 +7,7 @@ cd ../
 
 export EXPERIMENT_DIR="normal/floats-in-functor"
 export EXPERIMENT_BIN_NAME="b"
-export EXPERIMENT_BIN_ARGS="30000000 3.0"
+export EXPERIMENT_BIN_ARGS="500000 3.0"
 export ADDITIONAL_CONTROLLER_ARGS="-log-rewards true -num-iterations 3000"
 
 if [ "$1" = "dev" ]; then
