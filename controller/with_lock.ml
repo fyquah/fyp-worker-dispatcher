@@ -8,8 +8,9 @@ let run ?(name="Anon") lock utilise_resource =
         Log.Global.info "%s succeeded to acquire lock" name;
         Deferred.return (`Finished ())
       | Error _ ->
-        Log.Global.debug "%s xailed to acquire lock" name;
-        Clock.after (Time.Span.of_sec 1.0) >>| fun () -> (`Repeat ()))
+        Log.Global.info "%s xailed to acquire lock" name;
+        Clock.after (Time.Span.of_sec (Random.float 2.0))
+        >>| fun () -> (`Repeat ()))
   >>= fun () ->
   Monitor.protect utilise_resource ~finally:(fun () -> 
     Deferred.repeat_until_finished () (fun () ->
@@ -18,6 +19,7 @@ let run ?(name="Anon") lock utilise_resource =
         Log.Global.info "%s released lock" name;
         Deferred.return (`Finished ())
       | Error _ ->
-        Log.Global.debug "%s failed to release lock" name;
-        Clock.after (Time.Span.of_sec 1.0) >>| fun () -> `Repeat ()))
+        Log.Global.info "%s failed to release lock" name;
+        Clock.after (Time.Span.of_sec (Random.float 2.0))
+        >>| fun () -> `Repeat ()))
 ;;
