@@ -1,5 +1,49 @@
 open Core
 
+module Perf_stats = struct
+  type entry =
+    { name          : string;
+      value         : int;
+      measured_ns   : int;
+      deviation     : float sexp_option;
+      scaled_from   : float;
+      comment       : string sexp_option;
+    }
+  [@@deriving sexp, bin_io]
+
+  type t = entry list [@@deriving sexp, bin_io]
+
+  let parse lines =
+    let lines = String.split_lines lines in
+    List.map lines ~f:(fun line ->
+        let line = String.split ~on:',' line |> Array.of_list in
+        let i = ref 0 in
+        let value = Int.of_string line.(!i) in
+        i := !i + 2;
+        let name = line.(!i) in
+        i := !i + 1;
+        let deviation =
+          let len = String.length line.(!i) in
+          let last_char = String.get line.(!i) (len - 1) in
+          if Char.equal '%' last_char then begin
+            i := !i + 1;
+            Some (Float.of_string (String.drop_suffix line.(!i) 1) /. 100.0)
+          end else
+            None
+        in
+        let measured_ns = Int.of_string line.(!i) in
+        i := !i + 1;
+        let scaled_from = Float.of_string line.(!i) /. 100.0 in
+        i := !i + 1;
+        let comment =
+          match line.(!i) with
+          | "" -> None
+          | x -> Some x
+        in
+        { name; value; measured_ns; deviation; scaled_from; comment })
+  ;;
+end
+
 module Gc_stats = struct
   type t =
     { major_collections : int;
@@ -62,6 +106,7 @@ type t =
   { raw_execution_time : Time.Span.t list;
     worker_hostname    : string sexp_option;
     gc_stats           : string;
-    parsed_gc_stats    : Gc_stats.t sexp_option
+    parsed_gc_stats    : Gc_stats.t sexp_option;
+    perf_stats         : Perf_stats.t list sexp_option;
   }
 [@@deriving bin_io, sexp]

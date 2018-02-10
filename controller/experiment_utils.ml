@@ -128,12 +128,13 @@ let run_binary_on_ssh_worker
     ]
   >>=? fun () ->
   let processor = Option.value ~default:0 processor in
+  let taskset_mask = sprintf "0x%x" (1 lsl processor) in
   let args = [
     sprintf "%s@%s" user hostname;
     rundir ^/ "benchmark_binary.sh";
     rundir ^/ "binary.exe";
     Int.to_string num_runs;
-    sprintf "0x%x" (1 lsl processor);
+    taskset_mask;
     bin_args;
   ]
   in
@@ -150,13 +151,29 @@ let run_binary_on_ssh_worker
     let worker_hostname = Some hostname in
     Async_shell.run_full ~working_dir:dir "ssh" [
       sprintf "%s@%s" user hostname;
-      rundir ^/ "get_gc_stats.sh";
+      rundir ^/ "perf.sh";
       rundir ^/ "binary.exe";
+      taskset_mask;
       bin_args;
     ]
-    >>| fun gc_stats ->
-    Ok { Execution_stats. raw_execution_time; worker_hostname; gc_stats;
-         parsed_gc_stats = None}
+    >>| fun perf_output ->
+    match String.split ~on:'*' perf_output with
+    | [perf_one; perf_two; gc_stats] ->
+      let perf_one = Execution_stats.Perf_stats.parse perf_one in
+      let perf_two = Execution_stats.Perf_stats.parse perf_two in
+      let parsed_gc_stats =
+        Execution_stats.Gc_stats.parse (String.split_lines gc_stats)
+      in
+      Ok {
+        Execution_stats.
+        raw_execution_time;
+        worker_hostname;
+        gc_stats;
+        parsed_gc_stats;
+        perf_stats = Some [ perf_one; perf_two ];
+      }
+
+    | _ -> assert false
 ;;
 
 let run_binary_on_worker (type a)
@@ -185,7 +202,7 @@ let init_connection ~hostname ~worker_config =
     in
     shell ~dir:cwd "scp" args >>=? fun () ->
     let args =
-      [ "worker/get_gc_stats.sh";
+      [ "worker/perf.sh";
         (sprintf "%s@%s:%s" user hostname ssh_config.rundir);
       ]
     in
@@ -325,12 +342,18 @@ let run_in_all_workers ~scheduler ~times ~config ~path_to_bin =
   let initial_execution_times =
     List.concat_map stats ~f:(fun (stat : Execution_stats.t) -> stat.raw_execution_time)
   in
+  let perf_stats =
+    List.concat_map stats ~f:(fun s ->
+        Option.value ~default:[] s.Execution_stats.perf_stats)
+  in
+  let perf_stats = match perf_stats with | [] -> None | _ -> Some perf_stats in
   let execution_stats =
     { Execution_stats.
       raw_execution_time = initial_execution_times;
       worker_hostname = None;
       gc_stats = (List.hd_exn stats).gc_stats;
       parsed_gc_stats = None;
+      perf_stats;
     }
   in
   Deferred.Or_error.return execution_stats

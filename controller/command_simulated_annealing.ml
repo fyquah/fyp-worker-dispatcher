@@ -194,6 +194,7 @@ end) = struct
         worker_hostname;
         gc_stats;
         parsed_gc_stats;
+        perf_stats = None;
       }
     ;;
   end
@@ -293,6 +294,8 @@ let command_run =
             worker_hostname = None;
             gc_stats = (List.hd_exn stats).gc_stats;
             parsed_gc_stats = None;
+            perf_stats = Some (List.concat_map stats ~f:(fun s ->
+                Option.value ~default:[] s.Execution_stats.perf_stats));
           }
         in
         let initial_execution_time =

@@ -9,7 +9,7 @@ ARGS="$@"
 set -euo pipefail
 
 # Recording only the "important" stats
-perf stat -x \
+perf stat -x, \
   -e branches \
   -e branch-misses \
   -e L1-icache-load-misses \
@@ -33,17 +33,17 @@ echo "*"
 # TODO(fyq14): What is the difference between [cache-misses] and
 #              [LLC-cache-misses] ?
 
-perf stat -r 2 -x \
-  -e branches \  # this and follows collected in both runs
+perf stat -r 2 -x, \
+  -e branches \
   -e branch-misses \
   -e L1-icache-load-misses \
   -e branch-load-misses \
   -e branch-loads \
   -e iTLB-load-misses \
   -e iTLB-loads \
-  -e cpu-cycles \ # cycles and instructions ALWAYS collected in every run
+  -e cpu-cycles \
   -e instructions \
-  -e L1-dcache-load-misses \  # this and follows only collected in this run
+  -e L1-dcache-load-misses \
   -e L1-dcache-loads \
   -e L1-dcache-stores \
   -e LLC-loads \
@@ -66,4 +66,4 @@ echo "*"
 
 OCAML_GC_STATS=/dev/stderr \
   perf record -q -F 1000 -e cycles:u --call-graph=dwarf -o $HOME/perf.data \
-  -- taskset "$TASKSET_MASK" "$PATH_TO_BINARY" $ARGS &>/dev/null
+  -- taskset "$TASKSET_MASK" "$PATH_TO_BINARY" $ARGS 2>&1 1>/dev/null
