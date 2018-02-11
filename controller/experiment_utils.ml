@@ -319,6 +319,8 @@ let process_work_unit
     Dump_utils.execution_dump_directory ~step:work_unit.step
       ~sub_id:work_unit.sub_id
   in
+  lift_deferred (Async_shell.mkdir ~p:() dump_dir)
+  >>=? fun () ->
   run_binary_on_worker ~processor
     ~num_runs ~conn ~path_to_bin
     ~hostname:(Worker_connection.hostname conn)

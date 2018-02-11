@@ -153,7 +153,7 @@ let command_run =
                     Apply_id.print apply_id
                     Closure_origin.print function_metadata.closure_origin
                 in
-                let trace = 
+                let trace =
                   List.map (List.rev fc.Cfg.Function_call.inlining_trace)
                     ~f:(fun (apply_id, function_metadata) -> pprint ~apply_id ~function_metadata)
                 in
@@ -169,7 +169,7 @@ let command_run =
                             Log.Global.info "FAILED TO MATCH PATH:        %s"
                               (pprint fc);
                             None
-                          | Some s -> 
+                          | Some s ->
                             if RL.S.Set.mem visited_states s then
                               None
                             else
