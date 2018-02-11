@@ -51,7 +51,8 @@ module Perf_stats = struct
           in
           Some { name; value; measured_ns; deviation; scaled_from; comment }
         with
-        | Parse_error -> None)
+        | Parse_error -> None
+        | Failure _ -> None)
   ;;
 end
 
