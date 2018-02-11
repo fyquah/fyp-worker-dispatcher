@@ -127,6 +127,10 @@ let command_run =
                 [%of_sexp: Data_collector.V1.Decision.t list]
               >>= fun decisions ->
 
+              (* TODO(fyq14): This should be in [EU.compile_binary] so that
+               *              all algorithms don't need to reinvent this
+               *              process
+               *)
               (* save decisions somewhere *)
               let dest_dirname = controller_rundir ^/ "opt_data" ^/ Int.to_string iter_id in
               let src_names =
