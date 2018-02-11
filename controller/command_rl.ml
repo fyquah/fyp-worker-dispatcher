@@ -190,15 +190,6 @@ let command_run =
           let next = Cfg.transition cfg state action in
           next
         in
-        let record_trajectory ~iter (trajectory: Execution_stats.t RL.Trajectory.t) =
-          let dirname = controller_rundir ^/ "opt_data" ^/ Int.to_string iter in
-          let filename = dirname ^/ "trajectory.sexp" in
-          lift_deferred (Async_shell.mkdir ~p:() dirname)
-          >>=? fun () ->
-          lift_deferred (
-            Writer.save_sexp filename ([%sexp_of: Execution_stats.t RL.Trajectory.t] trajectory)
-          )
-        in
         Async_mcts.learn ~parallelism:(List.length worker_connections)
           ~num_iterations:num_iterations
           ~root_state:cfg.root
@@ -206,7 +197,6 @@ let command_run =
           ~compile_binary
           ~execute_work_unit
           ~reward_of_exec_time
-          ~record_trajectory
     ]
 ;;
 

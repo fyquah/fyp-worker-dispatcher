@@ -34,4 +34,5 @@ let params =
         |> Time.Span.to_sec
         |> Float.to_int
      );
+     Experiment_utils.Dump_utils.set_controller_rundir controller_rundir;
      { config_filename; controller_rundir; exp_dir; bin_name; bin_args }]

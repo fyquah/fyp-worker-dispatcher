@@ -8,10 +8,32 @@ open Common
 module Work_unit = struct
   type t =
     { path_to_bin : string;
-      step : int;
-      sub_id : int;
+      step : [ `Step of int | `Initial ];
+      sub_id : [ `Sub_id of int | `Current ];
     }
   [@@deriving sexp]
+end
+
+module Dump_utils = struct
+
+  let (rundir : string option ref) = ref None
+
+  let set_controller_rundir s = rundir := Some s
+
+  let execution_dump_directory ~step ~sub_id =
+    let step =
+      match step with
+      | `Initial -> "initial"
+      | `Step x -> string_of_int x
+    in
+    let sub_id =
+      match sub_id with
+      | `Current -> "current"
+      | `Sub_id x -> string_of_int x
+    in
+    let rundir = Option.value_exn !rundir in
+    rundir ^/ "opt_data" ^/ step ^/ sub_id
+  ;;
 end
 
 
@@ -118,8 +140,8 @@ let run_binary_on_rpc_worker
   | Failed e -> Deferred.return (Error e)
 ;;
 
-let run_binary_on_ssh_worker
-    ~num_runs ~processor ~rundir ~user ~hostname ~path_to_bin ~bin_args =
+let run_binary_on_ssh_worker ~num_runs ~processor ~rundir ~user ~hostname
+    ~path_to_bin ~bin_args ~dump_dir =
   lift_deferred (Unix.getcwd ())
   >>=? fun dir ->
   shell ~dir "scp"
@@ -156,7 +178,14 @@ let run_binary_on_ssh_worker
       taskset_mask;
       bin_args;
     ]
-    >>| fun perf_output ->
+    >>= fun perf_output ->
+    shell ~dir "scp" [
+      sprintf "%s@%s:%s" user hostname (rundir ^/ "perf.data");
+      dump_dir ^/ "perf.data";
+    ]
+    >>=? fun () ->
+    shell ~dir "cp" [ path_to_bin; dump_dir ]
+    >>=? fun () ->
     match String.split ~on:'*' perf_output with
     | [perf_one; perf_two; gc_stats] ->
       let perf_one = Execution_stats.Perf_stats.parse perf_one in
@@ -164,7 +193,7 @@ let run_binary_on_ssh_worker
       let parsed_gc_stats =
         Execution_stats.Gc_stats.parse (String.split_lines gc_stats)
       in
-      Ok {
+      Deferred.Or_error.return {
         Execution_stats.
         raw_execution_time;
         worker_hostname;
@@ -173,19 +202,20 @@ let run_binary_on_ssh_worker
         perf_stats = Some [ perf_one; perf_two ];
       }
 
-    | _ -> assert false
+    | _ -> Deferred.Or_error.error_string "Cannot parse perf output!"
 ;;
 
 let run_binary_on_worker (type a)
     ~num_runs ~processor ~hostname
-    ~(conn: a Worker_connection.t) ~path_to_bin ~bin_args =
+    ~(conn: a Worker_connection.t) ~path_to_bin ~bin_args ~dump_dir =
   match conn with
   | Worker_connection.Rpc worker_connection ->
     run_binary_on_rpc_worker ~worker_connection ~path_to_bin ~hostname
   | Worker_connection.Ssh (ssh_config : Worker_connection.ssh_conn) ->
     let rundir = ssh_config.rundir in
     let user = ssh_config.user in
-    run_binary_on_ssh_worker ~processor ~num_runs ~user ~rundir ~hostname ~path_to_bin ~bin_args
+    run_binary_on_ssh_worker ~processor ~num_runs ~user ~rundir ~hostname
+      ~path_to_bin ~bin_args ~dump_dir
 ;;
 
 let init_connection ~hostname ~worker_config =
@@ -285,10 +315,14 @@ let process_work_unit
     (conn: 'a Worker_connection.t) (work_unit: Work_unit.t) =
   let path_to_bin = work_unit.Work_unit.path_to_bin in
   let processor = Worker_connection.processor conn in
+  let dump_dir =
+    Dump_utils.execution_dump_directory ~step:work_unit.step
+      ~sub_id:work_unit.sub_id
+  in
   run_binary_on_worker ~processor
     ~num_runs ~conn ~path_to_bin
     ~hostname:(Worker_connection.hostname conn)
-    ~bin_args
+    ~bin_args ~dump_dir
   >>|? fun execution_stats ->
   let raw_execution_time = execution_stats.raw_execution_time in
   Log.Global.sexp ~level:`Info [%message
@@ -332,9 +366,10 @@ let run_in_all_workers ~scheduler ~times ~config ~path_to_bin =
       [%message "Initial state run " (i : int)];
     Deferred.Or_error.List.init (List.length config.Config.worker_configs)
       ~how:`Parallel
-      ~f:(fun _ ->
+      ~f:(fun j ->
+        let sub_id = `Sub_id (j + i * List.length config.worker_configs) in
         let work_unit =
-          { Work_unit. path_to_bin; step = -1; sub_id = 0; }
+          { Work_unit. path_to_bin; step = `Initial; sub_id; }
         in
         Scheduler.dispatch scheduler work_unit))
   >>=? fun stats ->

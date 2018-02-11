@@ -6,6 +6,9 @@ shift
 shift
 ARGS="$@"
 
+# It is guranteed that the binary is located at the [rundir] of the worker.
+cd $(dirname "$0")
+
 set -euo pipefail
 
 # Recording only the "important" stats

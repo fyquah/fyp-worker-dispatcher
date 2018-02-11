@@ -3,14 +3,26 @@ open Async
 open Common
 
 
+(* All relevant data is saved into [data_directory]/[step]/[sub_id]/ *)
 module Work_unit : sig
   type t =
     { path_to_bin : string;
-      step : int;
-      sub_id : int;
+      step        : [ `Step of int | `Initial ];
+      sub_id      : [ `Sub_id of int | `Current ];
     }
   [@@deriving sexp]
 end
+
+module Dump_utils : sig
+
+  val set_controller_rundir : string -> unit
+
+  val execution_dump_directory
+     : step: [ `Step of int | `Initial ]
+    -> sub_id: [ `Sub_id of int | `Current ]
+    -> string
+end
+
 
 
 module Initial_state : sig
@@ -78,7 +90,8 @@ val run_binary_on_worker
   conn:'a Worker_connection.t ->
   path_to_bin:string ->
   bin_args:Core.String.t ->
-  (Protocol.Execution_stats.t, Core_kernel__.Error.t) Async.Deferred.Result.t
+  dump_dir : string
+  -> (Protocol.Execution_stats.t, Core_kernel__.Error.t) Async.Deferred.Result.t
 
 val init_connection
    : hostname: string

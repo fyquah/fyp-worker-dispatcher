@@ -131,16 +131,23 @@ let learn
     ~(transition: RL.transition)
     ~(compile_binary: ([`Iter_id of int] -> [`Incomplete of RL.Pending_trajectory.t] -> (string * RL.Pending_trajectory.t) Deferred.Or_error.t))
     ~(execute_work_unit: EU.Work_unit.t -> Execution_stats.t Deferred.Or_error.t)
-    ~(reward_of_exec_time: Time.Span.t -> float)
-    ~record_trajectory =
+    ~(reward_of_exec_time: Time.Span.t -> float) =
   let mcts_ref = ref (RL.MCTS.init ~rollout_policy:(fun _ -> RL.A.Inline)) in
   let best_so_far = ref None in
   List.init num_iterations ~f:Fn.id
   |> Deferred.Or_error.List.iter ~how:(`Max_concurrent_jobs parallelism)
       ~f:(fun iter ->
+        let step = `Step iter in
+        let sub_id = `Current in
+        let dump_directory =
+          Experiment_utils.Dump_utils.execution_dump_directory ~step ~sub_id
+        in
+        lift_deferred (Async_shell.mkdir ~p:() dump_directory)
+        >>=? fun () ->
         let generate_work_unit partial_trajectory =
-          compile_binary (`Iter_id iter) partial_trajectory >>|? fun (path_to_bin, pending_trajectory) ->
-          ({ Work_unit. path_to_bin; step = 0; sub_id = 0; }, pending_trajectory)
+          compile_binary (`Iter_id iter) partial_trajectory
+          >>|? fun (path_to_bin, pending_trajectory) ->
+          ({ Work_unit.  path_to_bin; step; sub_id; }, pending_trajectory)
         in
         lift_deferred (Clock.after (Time.Span.of_sec (Random.float 3.0)))
         >>=? fun () ->
@@ -167,6 +174,14 @@ let learn
         Log.Global.sexp ~level:`Info [%message
             (iter: int)
             (best_so_far : Execution_stats.t)];
-        record_trajectory ~iter trajectory
+
+
+        (* Now backprop etc. is done, save all relevant files into
+         * dump_directory *)
+        let filename = "trajectory.sexp" in
+        lift_deferred (
+          Writer.save_sexp filename
+            ([%sexp_of: Execution_stats.t RL.Trajectory.t] trajectory)
+        )
       )
 ;;

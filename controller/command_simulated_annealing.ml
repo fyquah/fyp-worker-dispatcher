@@ -44,8 +44,6 @@ module Make_annealer(M: sig
      Execution_stats.t Or_error.t,
      Socket.Address.Inet.t) Utils.Scheduler.t
 
-  val run_dir : string
-
   val exp_dir : string
 
   val bin_name : string
@@ -92,20 +90,6 @@ end) = struct
           | Some x -> r := x; x + 1)
       end;
       !r
-    ;;
-
-    let dump_directory_name ~step ~sub_id=
-      let step =
-        match step with
-        | -1 -> "initial"
-        | x -> Int.to_string x
-      in
-      let sub_id =
-        match sub_id with
-        | -1 -> "current"
-        | x -> Int.to_string x
-      in
-      M.run_dir ^/ "opt_data" ^/ step ^/ sub_id
     ;;
 
     let move ~(step : int) ~(config: SA.Common.config) state =
@@ -160,7 +144,10 @@ end) = struct
       >>=? fun executed_decisions ->
 
       let sub_id = get_sub_id step in
-      let dump_directory = dump_directory_name ~step ~sub_id in
+      let dump_directory =
+        Experiment_utils.Dump_utils.execution_dump_directory
+          ~step:(`Step step) ~sub_id:(`Sub_id sub_id)
+      in
       let copy_with_wildcard src dest =
         shell ~dir:M.exp_dir "bash" [ "-c"; sprintf "cp -f %s %s" src dest ]
       in
@@ -173,7 +160,10 @@ end) = struct
        * for tree structure sharing here.
        *)
       let tree = Inlining_tree.V0.build executed_decisions in
-      let work_unit = { Work_unit. path_to_bin = filename; step; sub_id } in
+      let work_unit =
+        { Work_unit. path_to_bin = filename; step = `Step step;
+          sub_id = `Sub_id sub_id }
+      in
       Deferred.Or_error.return { T1. tree; work_unit; }
     ;;
 
@@ -202,7 +192,10 @@ end) = struct
   include SA.Make(T2)
 
   let step t =
-    let dump_directory = T2.dump_directory_name ~step:t.step ~sub_id:(-1) in
+    let dump_directory =
+      Experiment_utils.Dump_utils.execution_dump_directory
+        ~step:(`Step t.step) ~sub_id:`Current
+    in
     let%bind () = Async_shell.mkdir ~p:() dump_directory in
     let%bind () =
       Writer.save_sexp (dump_directory ^/ "state.sexp") ([%sexp_of: t] t)
@@ -231,7 +224,7 @@ let command_run =
       let {
         Command_params.
         config_filename;
-        controller_rundir;
+        controller_rundir = _;
         exp_dir;
         bin_name;
         bin_args;
@@ -254,11 +247,16 @@ let command_run =
           let num_runs =
             config.num_runs / List.length config.worker_configs
           in
+          let dump_dir =
+            Experiment_utils.Dump_utils.execution_dump_directory
+              ~step:work_unit.step ~sub_id:work_unit.sub_id
+          in
           Experiment_utils.run_binary_on_worker
             ~processor:(Utils.Worker_connection.processor conn)
             ~num_runs ~conn ~path_to_bin
             ~hostname:(Utils.Worker_connection.hostname conn)
             ~bin_args
+            ~dump_dir
           >>|? fun execution_stats ->
           let raw_execution_time = execution_stats.raw_execution_time in
           Log.Global.sexp ~level:`Info [%message
@@ -280,7 +278,7 @@ let command_run =
             ~f:(fun _ ->
               let path_to_bin = initial_state.path_to_bin in
               let work_unit =
-                { Work_unit. path_to_bin; step = -1; sub_id = 0; }
+                { Work_unit. path_to_bin; step = `Initial; sub_id = `Current; }
               in
               Utils.Scheduler.dispatch scheduler work_unit))
         >>=? fun stats ->
@@ -310,14 +308,13 @@ let command_run =
           let exp_dir = exp_dir
           let initial_execution_time = initial_execution_time
           let scheduler = scheduler
-          let run_dir = controller_rundir
         end)
         in
         let state =
           let tree = Inlining_tree.V0.build initial_state.v0_decisions in
           let path_to_bin = initial_state.path_to_bin in
           let work_unit =
-            { Work_unit. path_to_bin; step = 0; sub_id = -1; }
+            { Work_unit. path_to_bin; step = `Step 0; sub_id = `Current; }
           in
           let initial = { Annealer.T1. tree; work_unit; } in
           Annealer.empty initial initial_execution_stats
