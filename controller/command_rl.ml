@@ -96,13 +96,15 @@ let command_run =
         let baseline_exec_time = gmean_exec_time initial_execution_stats in
         let reward_of_exec_time (time : Time.Span.t) =
           (* The relative difference in performance *)
-          let slowdown =
-             Time.Span.to_sec time /. Time.Span.to_sec baseline_exec_time
-          in
           if log_rewards then
-            (-1.0) *. (Float.log slowdown)
+            let ratio =
+              Time.Span.to_sec time /. Time.Span.to_sec baseline_exec_time
+            in
+            (-1.0) *. (Float.log ratio)
           else
-            (-1.0) *. slowdown
+            let baseline = Time.Span.to_sec baseline_exec_time in
+            let diff = baseline -. Time.Span.to_sec time in
+            diff /. baseline
         in
         let compile_binary =
           (* Lock required because we don't want to processes to be
