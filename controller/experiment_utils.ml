@@ -325,7 +325,7 @@ let process_work_unit
     ~num_runs ~conn ~path_to_bin
     ~hostname:(Worker_connection.hostname conn)
     ~bin_args ~dump_dir
-  >>|? fun execution_stats ->
+  >>=? fun execution_stats ->
   let raw_execution_time = execution_stats.raw_execution_time in
   Log.Global.sexp ~level:`Info [%message
     (path_to_bin : string)
@@ -340,6 +340,11 @@ let process_work_unit
   Log.Global.info "%s major collections: %d" prefix stats.major_collections;
   Log.Global.info "%s minor collections: %d" prefix stats.minor_collections;
   Log.Global.info "%s compactions: %d" prefix stats.compactions;
+  lift_deferred (
+    Writer.save_sexp (dump_dir ^/ "execution_stats.sexp")
+      ([%sexp_of: Protocol.Execution_stats.t] execution_stats)
+  )
+  >>|? fun () ->
   execution_stats
 ;;
 
