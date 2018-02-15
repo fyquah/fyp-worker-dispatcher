@@ -2,6 +2,10 @@
 all:
 	jbuilder build
 
+.PHONY: tools
+tools:
+	jbuilder build tools/tree_tools.exe
+
 .PHONY: worker
 worker:
 	jbuilder build worker/main.exe

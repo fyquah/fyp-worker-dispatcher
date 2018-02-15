@@ -4,6 +4,107 @@ open Protocol.Shadow_fyp_compiler_lib
 
 module Inlining_tree = Protocol.Inlining_tree
 
+module V0 = struct
+  module Inlining_tree = Inlining_tree.V0
+
+  module Pretty_print = struct
+    let rec loop ~buffer ~indent node =
+      let space = 
+       List.init indent ~f:(fun _ -> " ")  |> String.concat ~sep:""
+      in
+      match node with
+      | Inlining_tree.Declaration decl ->
+        bprintf buffer "%sDECL(%s)\n" space
+          (Format.asprintf "%a" Closure_id.print decl.closure);
+        iterate_children ~buffer ~indent decl.children
+      | Apply_inlined_function inlined ->
+        bprintf buffer "%sINLINE[%d](%s)\n" space
+          (Call_site_offset.to_int inlined.offset)
+          (Format.asprintf "%a" Closure_id.print inlined.applied);
+        iterate_children ~buffer ~indent inlined.children
+      | Apply_non_inlined_function non_inlined -> 
+        bprintf buffer "%sDONT_INLINE[%d](%s)\n" space
+          (Call_site_offset.to_int non_inlined.offset)
+          (Format.asprintf "%a" Closure_id.print non_inlined.applied);
+
+    and iterate_children ~buffer ~indent children =
+      List.iter children ~f:(fun child ->
+          loop ~buffer ~indent:(indent + 1) child)
+  end
+
+  let command_diff_tree =
+    let node_to_string = function
+      | Inlining_tree.Declaration declaration ->
+        Format.asprintf "DECL(%a)"
+          Closure_id.print declaration.closure
+      | Apply_inlined_function inlined_function ->
+        Format.asprintf "INLINED[%d](%a)"
+          (Call_site_offset.to_int inlined_function.offset)
+          Closure_id.print inlined_function.applied
+      | Apply_non_inlined_function non_inlined_function ->
+        Format.asprintf "CALL[%d](%a)"
+          (Call_site_offset.to_int non_inlined_function.offset)
+          Closure_id.print non_inlined_function.applied
+    in
+    let open Command.Let_syntax in
+    Command.async' ~summary:"diff_tree"
+      [%map_open
+       let file_a = anon ("filename" %: string)
+       and file_b = anon ("filename" %: string) in
+       fun () ->
+         let open Deferred.Let_syntax in
+         let%bind tree_a =
+           Reader.load_sexp_exn file_a [%of_sexp: Inlining_tree.Top_level.t]
+         in
+         let%bind tree_b = 
+           Reader.load_sexp_exn file_b [%of_sexp: Inlining_tree.Top_level.t]
+         in
+         let diffs = Inlining_tree.diff ~left:tree_a ~right:tree_b in
+         List.iteri diffs ~f:(fun i diff ->
+             printf "Diff %d\n" i;
+             let common_ancestor = diff.common_ancestor in
+             printf "| common ancestor: \n";
+             List.iter common_ancestor ~f:(fun node ->
+                 printf "|  %s\n" (node_to_string node));
+             let buffer = Buffer.create 10 in
+             bprintf buffer "| left:\n";
+             Pretty_print.iterate_children ~buffer ~indent:3
+               (List.map diff.left ~f:(fun (`Left node) -> node));
+             bprintf buffer "| right:\n";
+             Pretty_print.iterate_children ~buffer ~indent:3
+               (List.map diff.right ~f:(fun (`Right node) -> node));
+             printf "%s" (Buffer.contents buffer)
+           );
+         Deferred.unit
+      ]
+  ;;
+
+
+  let command_pp_tree =
+    let open Command.Let_syntax in
+    Command.async' ~summary:"pp"
+      [%map_open
+       let file = anon ("filename" %: string) in
+       fun () ->
+         let open Deferred.Let_syntax in
+         let%bind tree =
+           Reader.load_sexp_exn file [%of_sexp: Inlining_tree.Top_level.t]
+         in
+         let buffer = Buffer.create 10 in
+         Pretty_print.iterate_children ~buffer ~indent:(-1) tree;
+         printf "%s" (Buffer.contents buffer);
+         Deferred.unit
+      ]
+  ;;
+
+  let command =
+    Command.group ~summary:"Tree tools (for v0 - DEPRECATED)"
+      [("print-tree", command_pp_tree);
+       ("diff-tree", command_diff_tree);
+      ]
+  ;;
+end
+
 module V1 = struct
 
   open Data_collector.V1
@@ -97,5 +198,8 @@ module V1 = struct
 end
 
 let () =
-  Command.group ~summary:"Tree tools" [("v1", V1.command)]
+  Command.group ~summary:"Tree tools" [
+    ("v0", V0.command);
+    ("v1", V1.command);
+  ]
   |> Command.run

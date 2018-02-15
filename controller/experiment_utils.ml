@@ -6,12 +6,31 @@ open Common
 
 
 module Work_unit = struct
+  type deprecated =
+    { path_to_bin : string;
+      step : int;
+      sub_id: int;
+    }
+  [@@deriving of_sexp]
+
   type t =
     { path_to_bin : string;
       step : [ `Step of int | `Initial ];
       sub_id : [ `Sub_id of int | `Current ];
     }
   [@@deriving sexp]
+
+  let t_of_sexp sexp =
+    try
+      t_of_sexp sexp
+    with
+    | _ ->
+      let deprecated = deprecated_of_sexp sexp in
+      { path_to_bin = deprecated.path_to_bin;
+        step = `Step deprecated.step;
+        sub_id = `Sub_id deprecated.sub_id;
+      }
+
 end
 
 module Dump_utils = struct

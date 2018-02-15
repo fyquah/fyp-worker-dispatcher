@@ -54,6 +54,8 @@ module V0 : sig
   val shallow_sexp_of_t : t -> Sexp.t
   
   val fuzzy_equal : t -> t -> bool
+
+  val tag_and_function_almost_equal : t -> t -> bool
   
   val add : Top_level.t -> Data_collector.V0.t -> Top_level.t
   

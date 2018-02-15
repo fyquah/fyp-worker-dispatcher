@@ -4,7 +4,7 @@ set -euo pipefail
 set -x
 
 PREFIX_1="$1"
-TEMPFILE=$(mktemp /tmp/fyp-plot-XXXXXX.csv)
+TEMPFILE=$(mktemp)
 
 jbuilder build controller/main.exe
 

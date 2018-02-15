@@ -257,6 +257,19 @@ module V0 = struct
       Closure_id.equal a.applied a.applied &&
       Call_site.Offset.equal a.offset b.offset
     | _ , _ -> false
+
+  let tag_and_function_almost_equal a b =
+    match a, b with
+    | Declaration a, Declaration b ->
+      Closure_id.partial_equal a.closure b.closure
+    | Apply_inlined_function a, Apply_inlined_function b ->
+      Closure_id.partial_equal a.applied a.applied &&
+      Call_site.Offset.equal a.offset b.offset
+    | Apply_non_inlined_function a, Apply_non_inlined_function b ->
+      Closure_id.partial_equal a.applied a.applied &&
+      Call_site.Offset.equal a.offset b.offset
+    | _ , _ -> false
+  ;;
   
   let equal_t_and_call_site (t : t) (call_site : Call_site.t) =
     match (t, call_site) with
@@ -438,12 +451,12 @@ module V0 = struct
       let left_only = ref [] in
       let right_only = ref [] in
       List.iter left ~f:(fun t ->
-        if List.exists right ~f:(fuzzy_equal t) then
-          same := t :: !same
+        if List.exists right ~f:(tag_and_function_almost_equal t) then
+          same := (t, List.find_exn right ~f:(tag_and_function_almost_equal t)) :: !same
         else
           left_only := t :: !left_only);
       List.iter right ~f:(fun t ->
-        if not (List.exists left ~f:(fuzzy_equal t)) then
+        if not (List.exists left ~f:(tag_and_function_almost_equal t)) then
           right_only := t :: !right_only;
       );
       (`Same !same, `Left_only !left_only, `Right_only !right_only)
@@ -453,30 +466,29 @@ module V0 = struct
         shallow_diff ~left ~right
       in
       let descent =
-        let left =
-          List.filter left ~f:(fun l -> List.exists same ~f:(fuzzy_equal l))
-        in
-        let right =
-          List.filter right ~f:(fun r -> List.exists same ~f:(fuzzy_equal r))
-        in
-        List.map2_exn left right ~f:(fun l r ->
+        List.map same ~f:(fun (left, right) ->
           let diffs =
-            match l, r with
+            match (left, right) with
             | Declaration l_decl, Declaration r_decl ->
               loop ~left:l_decl.children ~right:r_decl.children
             | Apply_inlined_function l_inlined, Apply_inlined_function r_inlined ->
               loop ~left:l_inlined.children ~right:r_inlined.children
             | Apply_non_inlined_function _, Apply_non_inlined_function _ ->
               []
-            | _, _ -> assert false
+            | _ -> assert false
           in
           List.map diffs ~f:(fun (diff : Diff.t) ->
             let common_ancestor = diff.common_ancestor in
-            { diff with common_ancestor = l :: common_ancestor }))
+            (* using [left] or [right] below is arbitrary *)
+            { diff with common_ancestor = left :: common_ancestor }))
         |> List.concat_no_order
+        |> List.filter ~f:(fun diff ->
+            match diff.left, diff.right with
+            | [], [] -> false
+            | _, _ -> true)
       in
       let current =
-        match left, right with
+        match left_only, right_only with
         | [], [] -> None
         | _, _ ->
           Some {
