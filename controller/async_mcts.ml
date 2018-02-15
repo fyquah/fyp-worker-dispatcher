@@ -19,7 +19,7 @@ let log_trajectory ~iter ~trajectory ~terminal =
     | RL.A.Inline -> "INLINE"
     | RL.A.Apply -> "BRANCH"
   in
-  let messages = 
+  let messages =
     zip_with_delay trajectory
     |> List.map ~f:(fun ((s, a), s') ->
         let s' =
@@ -54,8 +54,8 @@ let plan_and_simulate ~iter_id
       (state, (List.rev acc))
     else
       let action = policy state in
-      match action with 
-      | None -> 
+      match action with
+      | None ->
         (state, List.rev acc)
       | Some action ->
         let next_state = transition state action in
@@ -64,7 +64,7 @@ let plan_and_simulate ~iter_id
   in
 
   (* TODO(fyq14): SOMETHING VERY VERY WRONG HERE !!! The current thing will
-   * cause MCTS to fully expand to TERM, which is clearly not 
+   * cause MCTS to fully expand to TERM, which is clearly not
    * the intended behaviour. We want to expand only up to a leaf node in the
    * Q-value estimator.
    *)
@@ -111,7 +111,7 @@ let run_single_iteration ~iter_id
   >>|? fun execution_stats ->
   Log.Global.info "[iteration %d] Executed work unit" iter_id;
   let reward = reward_of_exec_time (gmean_exec_time execution_stats) in
-  let trajectory = 
+  let trajectory =
     { RL.Trajectory.
       entries  = fst pending_trajectory;
       terminal_state = snd pending_trajectory;
@@ -142,6 +142,8 @@ let learn
         let dump_directory =
           Experiment_utils.Dump_utils.execution_dump_directory ~step ~sub_id
         in
+        Log.Global.info "[Iteration %d] Dump directory = %s"
+          iter dump_directory;
         lift_deferred (Async_shell.mkdir ~p:() dump_directory)
         >>=? fun () ->
         let generate_work_unit partial_trajectory =
@@ -149,6 +151,10 @@ let learn
           >>|? fun (path_to_bin, pending_trajectory) ->
           ({ Work_unit.  path_to_bin; step; sub_id; }, pending_trajectory)
         in
+
+        (* Randomisation here is to break symetry hence preventing
+         * distributed MCTS from taking the same path in multiple workers
+         *)
         lift_deferred (Clock.after (Time.Span.of_sec (Random.float 3.0)))
         >>=? fun () ->
         let (mcts, partial_trajectory) =
@@ -160,6 +166,7 @@ let learn
         run_single_iteration ~iter_id:iter ~partial_trajectory
             ~generate_work_unit ~execute_work_unit ~reward_of_exec_time
         >>=? fun trajectory ->
+
         (* We backprop AS SOON AS POSSIBLE so other threads can pick up our
          * change
          *)
@@ -178,9 +185,8 @@ let learn
 
         (* Now backprop etc. is done, save all relevant files into
          * dump_directory *)
-        let filename = "trajectory.sexp" in
         lift_deferred (
-          Writer.save_sexp filename
+          Writer.save_sexp (dump_directory ^/ "trajectory.sexp")
             ([%sexp_of: Execution_stats.t RL.Trajectory.t] trajectory)
         )
       )

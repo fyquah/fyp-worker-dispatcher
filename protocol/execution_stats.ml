@@ -1,4 +1,5 @@
 open Core
+open Async
 
 module Perf_stats = struct
   type entry =
@@ -13,34 +14,45 @@ module Perf_stats = struct
 
   type t = entry list [@@deriving sexp, bin_io]
 
+  exception Parse_error
+
   let parse lines =
-    let lines = String.split_lines lines in
-    List.map lines ~f:(fun line ->
-        let line = String.split ~on:',' line |> Array.of_list in
-        let i = ref 0 in
-        let value = Int.of_string line.(!i) in
-        i := !i + 2;
-        let name = line.(!i) in
-        i := !i + 1;
-        let deviation =
-          let len = String.length line.(!i) in
-          let last_char = String.get line.(!i) (len - 1) in
-          if Char.equal '%' last_char then begin
-            i := !i + 1;
-            Some (Float.of_string (String.drop_suffix line.(!i) 1) /. 100.0)
-          end else
-            None
-        in
-        let measured_ns = Int.of_string line.(!i) in
-        i := !i + 1;
-        let scaled_from = Float.of_string line.(!i) /. 100.0 in
-        i := !i + 1;
-        let comment =
-          match line.(!i) with
-          | "" -> None
-          | x -> Some x
-        in
-        { name; value; measured_ns; deviation; scaled_from; comment })
+    String.split_lines lines
+    |> List.filter ~f:(Fn.non String.is_empty)
+    |> List.filter_map ~f:(fun line ->
+        try
+          let line = String.split ~on:',' line |> Array.of_list in
+          let i = ref 0 in
+          let value = line.(!i) in
+          if String.equal value "<not supported>" then begin
+            raise Parse_error
+          end;
+          let value = Int.of_string value in
+          i := !i + 2;
+          let name = line.(!i) in
+          i := !i + 1;
+          let deviation =
+            let len = String.length line.(!i) in
+            let last_char = String.get line.(!i) (len - 1) in
+            if Char.equal '%' last_char then begin
+              i := !i + 1;
+              Some (Float.of_string (String.drop_suffix line.(!i) 1) /. 100.0)
+            end else
+              None
+          in
+          let measured_ns = Int.of_string line.(!i) in
+          i := !i + 1;
+          let scaled_from = Float.of_string line.(!i) /. 100.0 in
+          i := !i + 1;
+          let comment =
+            match line.(!i) with
+            | "" -> None
+            | x -> Some x
+          in
+          Some { name; value; measured_ns; deviation; scaled_from; comment }
+        with
+        | Parse_error -> None
+        | Failure _ -> None)
   ;;
 end
 

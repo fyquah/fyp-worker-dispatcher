@@ -27,7 +27,7 @@ if [ "$1" = "" ]; then
   exit 1
 fi
 
-RUNDIR=~/fyp/prod/rundir/$(ocamlnow)
+RUNDIR=~/fyp/prod/rundir/$(ocamlnow | sed -e 's/\:/_/g')
 EXPERIMENTS_REPO=$RUNDIR/experiments
 
 mkdir -p $RUNDIR

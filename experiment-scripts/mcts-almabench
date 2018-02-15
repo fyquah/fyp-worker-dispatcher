@@ -5,9 +5,9 @@ set -euo pipefail
 cd "$(dirname "$0")"
 cd ../
 
-export EXPERIMENT_DIR="normal/sequence_benchmark"
-export EXPERIMENT_BIN_NAME="sequence_benchmark"
-export EXPERIMENT_BIN_ARGS="45000"
+export EXPERIMENT_DIR="normal/almabench"
+export EXPERIMENT_BIN_NAME="almabench"
+export EXPERIMENT_BIN_ARGS="23"
 export ADDITIONAL_CONTROLLER_ARGS="-log-rewards false -num-iterations 1500"
 
 if [ "$1" = "dev" ]; then

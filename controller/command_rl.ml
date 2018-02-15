@@ -96,13 +96,15 @@ let command_run =
         let baseline_exec_time = gmean_exec_time initial_execution_stats in
         let reward_of_exec_time (time : Time.Span.t) =
           (* The relative difference in performance *)
-          let slowdown =
-             Time.Span.to_sec time /. Time.Span.to_sec baseline_exec_time
-          in
           if log_rewards then
-            (-1.0) *. (Float.log slowdown)
+            let ratio =
+              Time.Span.to_sec time /. Time.Span.to_sec baseline_exec_time
+            in
+            (-1.0) *. (Float.log ratio)
           else
-            (-1.0) *. slowdown
+            let baseline = Time.Span.to_sec baseline_exec_time in
+            let diff = baseline -. Time.Span.to_sec time in
+            diff /. baseline
         in
         let compile_binary =
           (* Lock required because we don't want to processes to be
@@ -127,6 +129,10 @@ let command_run =
                 [%of_sexp: Data_collector.V1.Decision.t list]
               >>= fun decisions ->
 
+              (* TODO(fyq14): This should be in [EU.compile_binary] so that
+               *              all algorithms don't need to reinvent this
+               *              process
+               *)
               (* save decisions somewhere *)
               let dest_dirname = controller_rundir ^/ "opt_data" ^/ Int.to_string iter_id in
               let src_names =
@@ -153,7 +159,7 @@ let command_run =
                     Apply_id.print apply_id
                     Closure_origin.print function_metadata.closure_origin
                 in
-                let trace = 
+                let trace =
                   List.map (List.rev fc.Cfg.Function_call.inlining_trace)
                     ~f:(fun (apply_id, function_metadata) -> pprint ~apply_id ~function_metadata)
                 in
@@ -169,7 +175,7 @@ let command_run =
                             Log.Global.info "FAILED TO MATCH PATH:        %s"
                               (pprint fc);
                             None
-                          | Some s -> 
+                          | Some s ->
                             if RL.S.Set.mem visited_states s then
                               None
                             else

@@ -67,6 +67,9 @@ echo "*"
 
 # call graph (we don't care about kernel events, just to save space ...)
 
-OCAML_GC_STATS=/dev/stderr \
-  perf record -q -F 1000 -e cycles:u --call-graph=dwarf -o $HOME/perf.data \
-  -- taskset "$TASKSET_MASK" "$PATH_TO_BINARY" $ARGS 2>&1 1>/dev/null
+# Write GC to a file to surpress perf messages
+OCAML_GC_STATS=./gc.out \
+  perf record -q -F 1000 -e cycles:u --call-graph=dwarf \
+  -- taskset "$TASKSET_MASK" "$PATH_TO_BINARY" $ARGS &>/dev/null
+
+cat ./gc.out
