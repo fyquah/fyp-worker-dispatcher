@@ -318,7 +318,7 @@ let command_run =
               let work_unit =
                 { Work_unit.
                   path_to_bin; step = `Initial;
-                  sub_id = (i * (List.length config.worker_configs) + j);
+                  sub_id = `Sub_id (i * (List.length config.worker_configs) + j);
                 }
               in
               Utils.Scheduler.dispatch scheduler work_unit))
