@@ -209,7 +209,9 @@ let run_binary_on_ssh_worker ~num_runs ~processor ~rundir ~user ~hostname
     shell ~dir "tar" [
       "zcf";
       (dump_dir ^/ "perf.data.tar");
-      (dump_dir ^/ "perf.data")
+      "-C";
+      dump_dir;
+      "perf.data";
     ]
     >>=? fun () -> shell ~dir "rm" [ dump_dir ^/ "perf.data" ]
     >>=? fun () -> shell ~dir "cp" [ path_to_bin; dump_dir ]
