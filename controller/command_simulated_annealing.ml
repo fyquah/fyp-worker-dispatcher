@@ -194,7 +194,7 @@ end) = struct
       >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "*.sexp") dump_directory
       >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "*.s") dump_directory
       >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "flambda.out") dump_directory
-      >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ filename) dump_directory
+      >>=? fun () -> copy_with_wildcard filename dump_directory
       >>=? fun () ->
       (* TODO: This is incredibly expensive -- there is a lot of potential
        * for tree structure sharing here.
