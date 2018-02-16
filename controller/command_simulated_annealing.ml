@@ -9,30 +9,65 @@ module SA = Optimization.Simulated_annealing
 module Work_unit = Experiment_utils.Work_unit
 
 module Base_state_energy = struct
-  type energy = Execution_stats.t [@@deriving sexp]
+  module V0 = struct
+    type energy = Execution_stats.t [@@deriving sexp]
 
-  type state =
-    { tree        : Inlining_tree.V0.Top_level.t;
-      work_unit   : Work_unit.t;
-    }
-  [@@deriving sexp]
+    type state =
+      { tree        : Inlining_tree.V0.Top_level.t;
+        work_unit   : Work_unit.t;
+      }
+    [@@deriving sexp]
 
-  type t = state [@@deriving sexp]
+    type t = state [@@deriving sexp]
 
-  (* We don't want debugging messages to contain the entire tree. *)
-  let sexp_of_state state = Work_unit.sexp_of_t state.work_unit
+    (* We don't want debugging messages to contain the entire tree. *)
+    let sexp_of_state state = Work_unit.sexp_of_t state.work_unit
 
-  let state_of_sexp sexp =
-    { tree = []; work_unit = Work_unit.t_of_sexp sexp; }
-  ;;
+    let state_of_sexp sexp =
+      { tree = []; work_unit = Work_unit.t_of_sexp sexp; }
+    ;;
+  end
+
+  module V1 = struct
+    type energy = V0.energy [@@deriving sexp]
+
+    type state =
+      { tree        : Inlining_tree.V1.Top_level.t;
+        work_unit   : Work_unit.t;
+      }
+    [@@deriving sexp]
+
+    type t = state [@@deriving sexp]
+
+    (* We don't want debugging messages to contain the entire tree. *)
+    let sexp_of_state state = Work_unit.sexp_of_t state.work_unit
+
+    let state_of_sexp sexp =
+      { tree = []; work_unit = Work_unit.t_of_sexp sexp; }
+    ;;
+  end
+
+  include V1
 end
 
 module Step = struct
-  type state = Base_state_energy.state [@@deriving sexp]
-  type energy = Base_state_energy.energy [@@deriving sexp]
+  module V0 = struct
+    type state = Base_state_energy.V0.state [@@deriving sexp]
+    type energy = Base_state_energy.V0.energy [@@deriving sexp]
 
-  type t = (state, energy) Optimization.Simulated_annealing_intf.Step.t
-  [@@deriving sexp]
+    type t = (state, energy) Optimization.Simulated_annealing_intf.Step.t
+    [@@deriving sexp]
+  end
+
+  module V1 = struct
+    type state = Base_state_energy.V1.state [@@deriving sexp]
+    type energy = Base_state_energy.V1.energy [@@deriving sexp]
+
+    type t = (state, energy) Optimization.Simulated_annealing_intf.Step.t
+    [@@deriving sexp]
+  end
+
+  include V1
 end
 
 module Make_annealer(M: sig
@@ -52,7 +87,7 @@ end) = struct
   module T1 = struct
     include Base_state_energy
 
-    let compare a b = List.compare Inlining_tree.V0.compare a.tree b.tree
+    let compare a b = List.compare Inlining_tree.V1.compare a.tree b.tree
   end
 
   module T2 = struct
@@ -96,7 +131,7 @@ end) = struct
       ignore step;
       ignore config;
       let current_tree = state.tree in
-      let num_leaves = Inlining_tree.V0.Top_level.count_leaves current_tree in
+      let num_leaves = Inlining_tree.V1.Top_level.count_leaves current_tree in
       (* flip between 1 to 3 leaves *)
       let new_tree =
         let rec make () =
@@ -106,11 +141,11 @@ end) = struct
               unique_random_from_list ~count:modified_leaves
                 (List.init num_leaves ~f:Fn.id)
             in
-            Inlining_tree.V0.Top_level.flip_several_leaves current_tree choices
+            Inlining_tree.V1.Top_level.flip_several_leaves current_tree choices
           else
             let leaf = Random.int num_leaves in
             match
-              Inlining_tree.V0.Top_level.backtrack_nth_leaf current_tree leaf
+              Inlining_tree.V1.Top_level.backtrack_nth_leaf current_tree leaf
             with
             | None ->
               Log.Global.sexp ~level:`Info [%message "Failed to backtrack!"];
@@ -123,10 +158,12 @@ end) = struct
       in
       shell ~dir:M.exp_dir "make" [ "clean" ]
       >>=? fun () ->
-      let overrides = Inlining_tree.V0.Top_level.to_override_rules new_tree in
+      let overrides =
+        Inlining_tree.V1.Top_level.to_override_rules new_tree
+      in
       lift_deferred (
         Writer.save_sexp (M.exp_dir ^/ "overrides.sexp")
-          ([%sexp_of: Data_collector.V0.t list] overrides)
+          ([%sexp_of: Data_collector.V1.Overrides.t] overrides)
       )
       >>=? fun () ->
       shell ~dir:M.exp_dir "make" [ "all" ]
@@ -138,9 +175,10 @@ end) = struct
       shell ~dir:M.exp_dir "chmod" [ "755"; filename ]
       >>=? fun () ->
       let data_collector_file =
-        M.exp_dir ^/ (M.bin_name ^ ".0.data_collector.v0.sexp")
+        M.exp_dir ^/ (M.bin_name ^ ".0.data_collector.v1.sexp")
       in
-      Reader.load_sexp data_collector_file [%of_sexp: Data_collector.V0.t list]
+      Reader.load_sexp data_collector_file
+        [%of_sexp: Data_collector.V1.Decision.t list]
       >>=? fun executed_decisions ->
 
       let sub_id = get_sub_id step in
@@ -159,7 +197,7 @@ end) = struct
       (* TODO: This is incredibly expensive -- there is a lot of potential
        * for tree structure sharing here.
        *)
-      let tree = Inlining_tree.V0.build executed_decisions in
+      let tree = Inlining_tree.V1.build executed_decisions in
       let work_unit =
         { Work_unit. path_to_bin = filename; step = `Step step;
           sub_id = `Sub_id sub_id }
@@ -207,11 +245,11 @@ end) = struct
     in
     let%bind () =
       Writer.save_sexp (dump_directory ^/ "initial_tree.sexp")
-        ([%sexp_of: Inlining_tree.V0.Top_level.t] (fst description.initial).tree)
+        ([%sexp_of: Inlining_tree.V1.Top_level.t] (fst description.initial).tree)
     in
     let%bind () =
       Writer.save_sexp (dump_directory ^/ "proposal_tree.sexp")
-        ([%sexp_of: Inlining_tree.V0.Top_level.t] (fst description.proposal).tree)
+        ([%sexp_of: Inlining_tree.V1.Top_level.t] (fst description.proposal).tree)
     in
     return (description, next)
   ;;
@@ -275,10 +313,13 @@ let command_run =
             [%message "Initial state run " (i : int)];
           Deferred.Or_error.List.init (List.length config.worker_configs)
             ~how:`Parallel
-            ~f:(fun _ ->
+            ~f:(fun j ->
               let path_to_bin = initial_state.path_to_bin in
               let work_unit =
-                { Work_unit. path_to_bin; step = `Initial; sub_id = `Current; }
+                { Work_unit.
+                  path_to_bin; step = `Initial;
+                  sub_id = (i * (List.length config.worker_configs) + j);
+                }
               in
               Utils.Scheduler.dispatch scheduler work_unit))
         >>=? fun stats ->
@@ -311,7 +352,7 @@ let command_run =
         end)
         in
         let state =
-          let tree = Inlining_tree.V0.build initial_state.v0_decisions in
+          let tree = Inlining_tree.V1.build initial_state.v1_decisions in
           let path_to_bin = initial_state.path_to_bin in
           let work_unit =
             { Work_unit. path_to_bin; step = `Step 0; sub_id = `Current; }
@@ -329,110 +370,119 @@ let command_run =
         )
     ]
 
-let command_plot =
-  let open Command.Let_syntax in
-  Command.async' ~summary:"Display"
-    [%map_open
-     let steps = flag "-steps" (required int) ~doc:"INT"
-     and common_prefix = flag "-prefix" (required string) ~doc:"STRING"
-     and output_file = flag "-output" (required file) ~doc:"PATH"
-     in
-     fun () ->
-       let open Deferred.Let_syntax in
-       let module Execution_stats = Protocol.Execution_stats in
-       let files =
-         List.init steps ~f:(fun i ->
-           common_prefix ^/ Int.to_string i ^/ "current/step.sexp")
+module Command_plot = struct
+  let command_v0 =
+    let open Command.Let_syntax in
+    Command.async' ~summary:"Display"
+      [%map_open
+       let steps = flag "-steps" (required int) ~doc:"INT"
+       and common_prefix = flag "-prefix" (required string) ~doc:"STRING"
+       and output_file = flag "-output" (required file) ~doc:"PATH"
        in
-       let%bind results =
-         Deferred.List.map files ~how:(`Max_concurrent_jobs 32)
-           ~f:(fun file ->
-             Reader.load_sexp_exn file [%of_sexp: Step.t])
-       in
-       let get_initial (r : Step.t)
-           : (Base_state_energy.state * Execution_stats.t) =
-         r.initial
-       in
-       let get_proposal (r : Step.t)
-           : (Base_state_energy.state * Execution_stats.t) =
-         r.proposal
-       in
-       let execution_times
-           ~(f : Step.t -> (Base_state_energy.state * Execution_stats.t)) =
-         List.map results ~f:(fun result ->
-             let result =
-               List.map ~f:Time.Span.to_sec
-                 (snd (f result)).raw_execution_time
+       fun () ->
+         let open Deferred.Let_syntax in
+         let module Execution_stats = Protocol.Execution_stats in
+         let module Base_state_energy = Base_state_energy.V0 in
+         let module Step = Step.V0 in
+         let files =
+           List.init steps ~f:(fun i ->
+             common_prefix ^/ Int.to_string i ^/ "current/step.sexp")
+         in
+         let%bind results =
+           Deferred.List.map files ~how:(`Max_concurrent_jobs 32)
+             ~f:(fun file ->
+               Reader.load_sexp_exn file [%of_sexp: Step.t])
+         in
+         let get_initial (r : Step.t)
+             : (Base_state_energy.state * Execution_stats.t) =
+           r.initial
+         in
+         let get_proposal (r : Step.t)
+             : (Base_state_energy.state * Execution_stats.t) =
+           r.proposal
+         in
+         let execution_times
+             ~(f : Step.t -> (Base_state_energy.state * Execution_stats.t)) =
+           List.map results ~f:(fun result ->
+               let result =
+                 List.map ~f:Time.Span.to_sec
+                   (snd (f result)).raw_execution_time
+               in
+               Fyp_stats.geometric_mean result)
+           |> Array.of_list
+         in
+         let energy ~f ~base =
+           let arr = execution_times ~f in
+           Array.map arr ~f:(fun a -> a /. base)
+         in
+         let gc_stats
+             ~(f : Step.t -> (Base_state_energy.state * Execution_stats.t)) =
+           List.map results ~f:(fun result ->
+             let result = snd (f result) in
+             let gc_stats =
+              match result.parsed_gc_stats with
+              | None ->
+                Option.value_exn (
+                  Execution_stats.Gc_stats.parse (
+                    String.split_lines result.gc_stats)
+                )
+              | Some x -> x
              in
-             Fyp_stats.geometric_mean result)
-         |> Array.of_list
-       in
-       let energy ~f ~base =
-         let arr = execution_times ~f in
-         Array.map arr ~f:(fun a -> a /. base)
-       in
-       let gc_stats
-           ~(f : Step.t -> (Base_state_energy.state * Execution_stats.t)) =
-         List.map results ~f:(fun result ->
-           let result = snd (f result) in
-           let gc_stats =
-            match result.parsed_gc_stats with
-            | None ->
-              Option.value_exn (
-                Execution_stats.Gc_stats.parse (
-                  String.split_lines result.gc_stats)
-              )
-            | Some x -> x
-           in
-           gc_stats)
-         |> Array.of_list
-       in
-       let major_collections
-           ~(f : Step.t -> (Base_state_energy.state * Execution_stats.t)) =
-         Array.map (gc_stats ~f) ~f:(fun (gc : Execution_stats.Gc_stats.t) ->
-           gc.major_collections)
-       in
-       let minor_collections
-           ~(f : Step.t -> (Base_state_energy.state * Execution_stats.t)) =
-         Array.map (gc_stats ~f) ~f:(fun (gc : Execution_stats.Gc_stats.t) ->
-           gc.minor_collections)
-       in
-       let initial_execution_times = execution_times ~f:get_initial in
-       let proposed_execution_times = execution_times ~f:get_proposal in
-       let initial_energy = energy ~f:get_initial ~base:initial_execution_times.(0) in
-       let proposed_energy = energy ~f:get_proposal ~base:initial_execution_times.(0) in
-       let initial_major_collections = major_collections ~f:get_initial in
-       let proposed_major_collections = major_collections ~f:get_proposal in
-       let initial_minor_collections = minor_collections ~f:get_initial in
-       let proposed_minor_collections = minor_collections ~f:get_proposal in
+             gc_stats)
+           |> Array.of_list
+         in
+         let major_collections
+             ~(f : Step.t -> (Base_state_energy.state * Execution_stats.t)) =
+           Array.map (gc_stats ~f) ~f:(fun (gc : Execution_stats.Gc_stats.t) ->
+             gc.major_collections)
+         in
+         let minor_collections
+             ~(f : Step.t -> (Base_state_energy.state * Execution_stats.t)) =
+           Array.map (gc_stats ~f) ~f:(fun (gc : Execution_stats.Gc_stats.t) ->
+             gc.minor_collections)
+         in
+         let initial_execution_times = execution_times ~f:get_initial in
+         let proposed_execution_times = execution_times ~f:get_proposal in
+         let initial_energy = energy ~f:get_initial ~base:initial_execution_times.(0) in
+         let proposed_energy = energy ~f:get_proposal ~base:initial_execution_times.(0) in
+         let initial_major_collections = major_collections ~f:get_initial in
+         let proposed_major_collections = major_collections ~f:get_proposal in
+         let initial_minor_collections = minor_collections ~f:get_initial in
+         let proposed_minor_collections = minor_collections ~f:get_proposal in
 
-       assert (Array.length initial_execution_times = steps);
-       assert (Array.length proposed_execution_times = steps);
-       assert (Array.length initial_energy = steps);
-       assert (Array.length proposed_energy = steps);
-       assert (Array.length initial_major_collections = steps);
-       assert (Array.length proposed_major_collections = steps);
-       assert (Array.length initial_minor_collections = steps);
-       assert (Array.length proposed_minor_collections = steps);
+         assert (Array.length initial_execution_times = steps);
+         assert (Array.length proposed_execution_times = steps);
+         assert (Array.length initial_energy = steps);
+         assert (Array.length proposed_energy = steps);
+         assert (Array.length initial_major_collections = steps);
+         assert (Array.length proposed_major_collections = steps);
+         assert (Array.length initial_minor_collections = steps);
+         assert (Array.length proposed_minor_collections = steps);
 
-       let%bind output = Writer.open_file output_file in
-       for step = 0 to steps - 1 do
-         Writer.writef output "%d,%.3f,%.3f,%.3f,%.3f,%d,%d,%d,%d\n"
-           step
-           initial_execution_times.(step)
-           proposed_execution_times.(step)
-           initial_energy.(step)
-           proposed_energy.(step)
-           initial_major_collections.(step)
-           proposed_major_collections.(step)
-           initial_minor_collections.(step)
-           proposed_minor_collections.(step);
-       done;
-       Writer.close output
-    ]
+         let%bind output = Writer.open_file output_file in
+         for step = 0 to steps - 1 do
+           Writer.writef output "%d,%.3f,%.3f,%.3f,%.3f,%d,%d,%d,%d\n"
+             step
+             initial_execution_times.(step)
+             proposed_execution_times.(step)
+             initial_energy.(step)
+             proposed_energy.(step)
+             initial_major_collections.(step)
+             proposed_major_collections.(step)
+             initial_minor_collections.(step)
+             proposed_minor_collections.(step);
+         done;
+         Writer.close output
+      ]
+
+  let command =
+    Command.group ~summary:"Something"
+      [("v0", command_v0)]
+  ;;
+end
 
 let command =
   Command.group ~summary:"Simulated Annealing"
-    [("plot", command_plot);
+    [("plot", Command_plot.command);
      ("run",  command_run);
     ]

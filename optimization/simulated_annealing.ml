@@ -50,7 +50,7 @@ module Make(T: Simulated_annealing_intf.T) = struct
       t_min = 0.0005;
       updates = 100;
       steps = 300;
-      workers = 1;
+      workers = 3;
     }
 
   let empty ?(config = default_config) state current_energy =
