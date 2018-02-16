@@ -107,16 +107,24 @@ module Make(T: Simulated_annealing_intf.T) = struct
         >>| ok_exn)
     in
     let%bind (t, next_state, next_energy) =
-      Deferred.List.map candidate_next_states ~how:`Parallel
-        ~f:(fun candidate_state ->
-          let (t, deferred_energy) = query_energy t candidate_state in
-          deferred_energy >>| fun energy ->
-          (t, candidate_state, energy))
+      let t, candidate_next_states_with_deferred_energy =
+        List.foldi ~init:(t, []) candidate_next_states
+          ~f:(fun worker_id (t, acc) state ->
+            let t, deferred_energy = query_energy t state in
+            t, ((state, deferred_energy) :: acc))
+      in
+      Deferred.List.map candidate_next_states_with_deferred_energy
+        ~how:`Parallel
+        ~f:(fun (candidate_state, deferred_energy) ->
+          deferred_energy >>| fun energy -> (candidate_state, energy))
       >>| fun candidates ->
-      let cmp (_, _, a) (_, _, b) =
+      let cmp (_, a) (_, b) =
         Float.compare (T.energy_to_float a) (T.energy_to_float b)
       in
-      Option.value_exn (List.min_elt candidates ~cmp)
+      let next_state, next_energy =
+        Option.value_exn (List.min_elt candidates ~cmp)
+      in
+      t, next_state, next_energy
     in
     let t = bump_best_solution t current_state current_energy in
     let t = bump_best_solution t next_state next_energy in
