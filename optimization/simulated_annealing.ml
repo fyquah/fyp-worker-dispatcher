@@ -73,7 +73,7 @@ module Make(T: Simulated_annealing_intf.T) = struct
         [%message "Computing energy for state "
            (s : T.state)];
       (* TODO: ok_exn is NOT okay *)
-      let deferred_energy = T.energy t.state >>| ok_exn in
+      let deferred_energy = T.energy s >>| ok_exn in
       let energy_cache =
         T.Map.add t.energy_cache ~key:s ~data:deferred_energy
       in
