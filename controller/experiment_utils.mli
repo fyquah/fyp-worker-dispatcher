@@ -110,6 +110,7 @@ dir:string ->
 bin_name:string ->
 write_overrides:(string ->
                  (unit, Core_kernel__.Error.t) Async.Deferred.Result.t) ->
+                   dump_directory: string ->
 (string, Core_kernel__.Error.t) Async.Deferred.Result.t
 
 val run_in_all_workers :

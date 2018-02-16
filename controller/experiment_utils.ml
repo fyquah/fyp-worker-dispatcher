@@ -367,7 +367,12 @@ let process_work_unit
   execution_stats
 ;;
 
-let compile_binary ~dir ~bin_name ~write_overrides =
+let compile_binary ~dir ~bin_name ~write_overrides ~dump_directory =
+  let copy_with_wildcard src dest =
+    shell ~dir "bash" [ "-c"; sprintf "cp -f %s %s" src dest ]
+  in
+  lift_deferred (Async_shell.mkdir ~p:() dump_directory)
+  >>=? fun () ->
   shell ~dir "make" [ "clean" ]
   >>=? fun () ->
   write_overrides (dir ^/ "overrides.sexp")
@@ -376,10 +381,14 @@ let compile_binary ~dir ~bin_name ~write_overrides =
   >>=? fun () ->
   let filename = Filename.temp_file "fyp-" ("-" ^ bin_name) in
   shell ~dir "cp" [ (bin_name ^ ".native"); filename ]
-  >>=? fun () ->
-  shell ~dir "chmod" [ "755"; filename ]
-  >>=? fun () ->
-  Deferred.Or_error.return filename
+  >>=? fun () -> shell ~dir "chmod" [ "755"; filename ]
+  >>=? fun () -> lift_deferred (Async_shell.mkdir ~p:() dump_directory)
+  >>=? fun () -> copy_with_wildcard (dir ^/ "overrides.sexp") dump_directory
+  >>=? fun () -> copy_with_wildcard (dir ^/ "*.sexp") dump_directory
+  >>=? fun () -> copy_with_wildcard (dir ^/ "*.s") dump_directory
+  >>=? fun () -> copy_with_wildcard (dir ^/ "flambda.out") dump_directory
+  >>=? fun () -> copy_with_wildcard (dir ^/ filename) dump_directory
+  >>=? fun () -> Deferred.Or_error.return filename
 ;;
 
 (** Useful to get a stable estimate of the baseline runtime **)

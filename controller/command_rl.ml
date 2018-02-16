@@ -85,9 +85,13 @@ let command_run =
         let process = Experiment_utils.process_work_unit ~num_runs:2 ~bin_args in
         lift_deferred (EU.Scheduler.create worker_connections ~process)
         >>=? fun scheduler ->
-
+        let dump_directory =
+          Experiment_utils.Dump_utils.execution_dump_directory
+            ~step:`Initial ~sub_id:`Current
+        in
         EU.compile_binary ~dir:exp_dir ~bin_name:bin_name
           ~write_overrides:(fun _ -> Deferred.Or_error.ok_unit)
+          ~dump_directory
         >>=? fun basic_path_to_bin ->
 
         EU.run_in_all_workers ~times:3 ~scheduler ~config ~path_to_bin:basic_path_to_bin
@@ -122,32 +126,17 @@ let command_run =
                   Writer.save_sexp  filename
                     ([%sexp_of: Data_collector.V1.Overrides.t] overrides))
               in
+              let dump_directory_for_compilation =
+                Experiment_utils.Dump_utils.execution_dump_directory
+                  ~step:(`Step iter_id) ~sub_id:`Current
+              in
               EU.compile_binary ~dir:exp_dir ~bin_name:bin_name ~write_overrides
+                ~dump_directory:dump_directory_for_compilation
               >>= fun filename ->
               let filename = Or_error.ok_exn filename in
               Reader.load_sexp (exp_dir ^/ (bin_name ^ ".0.data_collector.v1.sexp"))
                 [%of_sexp: Data_collector.V1.Decision.t list]
               >>= fun decisions ->
-
-              (* TODO(fyq14): This should be in [EU.compile_binary] so that
-               *              all algorithms don't need to reinvent this
-               *              process
-               *)
-              (* save decisions somewhere *)
-              let dest_dirname = controller_rundir ^/ "opt_data" ^/ Int.to_string iter_id in
-              let src_names =
-                [ exp_dir ^/ bin_name ^ ".0.data_collector.v1.sexp";
-                  exp_dir ^/ bin_name ^ ".1.data_collector.v1.sexp";
-                  exp_dir ^/ bin_name ^ ".2.data_collector.v1.sexp";
-                  exp_dir ^/ "overrides.sexp";
-                  exp_dir ^/ "flambda.out";
-                ]
-              in
-              Deferred.List.iter src_names ~f:(fun src_name ->
-                  shell ~dir:controller_rundir  "cp" [ src_name; dest_dirname ]
-                  >>| ok_exn)
-              >>= fun () ->
-
               let decisions = Or_error.ok_exn decisions in
               let visited_states =
                 List.map ~f:fst (fst partial_trajectory)

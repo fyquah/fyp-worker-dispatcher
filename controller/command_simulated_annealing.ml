@@ -190,9 +190,11 @@ end) = struct
         shell ~dir:M.exp_dir "bash" [ "-c"; sprintf "cp -f %s %s" src dest ]
       in
       lift_deferred (Async_shell.mkdir ~p:() dump_directory)
-      >>=? fun () -> copy_with_wildcard data_collector_file dump_directory
+      >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "overrides.sexp") dump_directory
+      >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "*.sexp") dump_directory
       >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "*.s") dump_directory
       >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "flambda.out") dump_directory
+      >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ filename) dump_directory
       >>=? fun () ->
       (* TODO: This is incredibly expensive -- there is a lot of potential
        * for tree structure sharing here.
@@ -280,6 +282,22 @@ let command_run =
         Utils.get_initial_state ~bin_name ~exp_dir ~base_overrides:[] ()
         >>=? fun initial_state ->
         let initial_state = Option.value_exn initial_state in
+        Deferred.Or_error.return ()
+        >>=? (fun () ->
+          let dump_directory =
+            Experiment_utils.Dump_utils.execution_dump_directory
+              ~step:`Initial ~sub_id:`Current
+          in
+          let copy_with_wildcard src dest =
+            shell ~dir:exp_dir "bash" [ "-c"; sprintf "cp -f %s %s" src dest ]
+          in
+          lift_deferred (Async_shell.mkdir ~p:() dump_directory)
+          >>=? fun () -> copy_with_wildcard (exp_dir ^/ "overrides.sexp") dump_directory
+          >>=? fun () -> copy_with_wildcard (exp_dir ^/ "*.sexp") dump_directory
+          >>=? fun () -> copy_with_wildcard (exp_dir ^/ "*.s") dump_directory
+          >>=? fun () -> copy_with_wildcard (exp_dir ^/ "flambda.out") dump_directory
+          >>=? fun () -> copy_with_wildcard (initial_state.path_to_bin) dump_directory)
+        >>=? fun () ->
         let process conn work_unit =
           let path_to_bin = work_unit.Work_unit.path_to_bin in
           let num_runs =
@@ -289,6 +307,8 @@ let command_run =
             Experiment_utils.Dump_utils.execution_dump_directory
               ~step:work_unit.step ~sub_id:work_unit.sub_id
           in
+          lift_deferred (Async_shell.mkdir ~p:() dump_dir)
+          >>=? fun () ->
           Experiment_utils.run_binary_on_worker
             ~processor:(Utils.Worker_connection.processor conn)
             ~num_runs ~conn ~path_to_bin
