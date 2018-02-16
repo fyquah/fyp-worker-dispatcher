@@ -7,7 +7,7 @@ cd ../
 
 export EXPERIMENT_DIR="normal/floats-in-functor"
 export EXPERIMENT_BIN_NAME="b"
-export EXPERIMENT_BIN_ARGS="30000000 3.0"
+export EXPERIMENT_BIN_ARGS="500000 3.0"
 
 if [ "$1" = "dev" ]; then
   scripts/run_dev.sh simulated-annealing
