@@ -208,24 +208,7 @@ end) = struct
     ;;
 
     let energy state =
-      let num_workers = Experiment_utils.Scheduler.num_workers M.scheduler in
-      Deferred.Or_error.List.init num_workers ~how:`Parallel ~f:(fun _ ->
-        Experiment_utils.Scheduler.dispatch M.scheduler state.work_unit)
-      >>|? fun results ->
-      let raw_execution_time =
-        List.concat_map results ~f:(fun r -> r.raw_execution_time)
-      in
-      (* One would imagine that the GC stats are the same across all runs *)
-      let gc_stats = (List.hd_exn results).gc_stats in
-      let parsed_gc_stats = None in
-      let worker_hostname = None in
-      { Execution_stats.
-        raw_execution_time;
-        worker_hostname;
-        gc_stats;
-        parsed_gc_stats;
-        perf_stats = None;
-      }
+      Experiment_utils.Scheduler.dispatch M.scheduler state.work_unit
     ;;
   end
 
@@ -300,9 +283,7 @@ let command_run =
         >>=? fun () ->
         let process conn work_unit =
           let path_to_bin = work_unit.Work_unit.path_to_bin in
-          let num_runs =
-            config.num_runs / List.length config.worker_configs
-          in
+          let num_runs = config.num_runs in
           let dump_dir =
             Experiment_utils.Dump_utils.execution_dump_directory
               ~step:work_unit.step ~sub_id:work_unit.sub_id
