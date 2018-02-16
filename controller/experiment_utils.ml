@@ -203,7 +203,16 @@ let run_binary_on_ssh_worker ~num_runs ~processor ~rundir ~user ~hostname
       dump_dir ^/ "perf.data";
     ]
     >>=? fun () ->
-    shell ~dir "cp" [ path_to_bin; dump_dir ]
+    (* Compress [perf.data] in the dump directory, otherwise file size
+     * problems will occur
+     *)
+    shell ~dir "tar" [
+      "zcf";
+      (dump_dir ^/ "perf.data.tar");
+      (dump_dir ^/ "perf.data")
+    ]
+    >>=? fun () -> shell ~dir "rm" [ dump_dir ^/ "perf.data" ]
+    >>=? fun () -> shell ~dir "cp" [ path_to_bin; dump_dir ]
     >>=? fun () ->
     match String.split ~on:'*' perf_output with
     | [perf_one; perf_two; gc_stats] ->
