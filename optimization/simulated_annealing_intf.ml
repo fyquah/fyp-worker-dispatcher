@@ -27,7 +27,7 @@ module type T = sig
 
   val energy : state -> energy Deferred.Or_error.t
 
-  val move : step: int -> config: config -> state -> state Deferred.Or_error.t
+  val move : step: int -> sub_id: int -> config: config -> state -> state Deferred.Or_error.t
 
   val energy_to_float : energy -> float
 

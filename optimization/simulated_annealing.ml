@@ -102,8 +102,8 @@ module Make(T: Simulated_annealing_intf.T) = struct
     assert (t.config.workers >= 1);
     (* TODO: ok_exn here is NOT okay! *)
     let%bind candidate_next_states =
-      Deferred.List.init t.config.workers ~how:`Sequential ~f:(fun _worker_id ->
-        T.move ~config:t.config ~step:t.step current_state
+      Deferred.List.init t.config.workers ~how:`Sequential ~f:(fun worker_id ->
+        T.move ~config:t.config ~step:t.step ~sub_id:worker_id current_state
         >>| ok_exn)
     in
     let%bind (t, next_state, next_energy) =

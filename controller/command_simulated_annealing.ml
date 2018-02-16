@@ -115,19 +115,7 @@ end) = struct
       loop ~choices:(Int.Set.of_list choices) ~left:count
     ;;
 
-    let step_table = Int.Table.create ()
-
-    let get_sub_id step =
-      let r = ref 0 in
-      begin
-      Int.Table.update step_table step ~f:(function
-          | None -> r := 0; 1
-          | Some x -> r := x; x + 1)
-      end;
-      !r
-    ;;
-
-    let move ~(step : int) ~(config: SA.Common.config) state =
+    let move ~(step : int) ~(sub_id: int) ~(config: SA.Common.config) state =
       ignore step;
       ignore config;
       let current_tree = state.tree in
@@ -180,8 +168,6 @@ end) = struct
       Reader.load_sexp data_collector_file
         [%of_sexp: Data_collector.V1.Decision.t list]
       >>=? fun executed_decisions ->
-
-      let sub_id = get_sub_id step in
       let dump_directory =
         Experiment_utils.Dump_utils.execution_dump_directory
           ~step:(`Step step) ~sub_id:(`Sub_id sub_id)
@@ -208,6 +194,9 @@ end) = struct
     ;;
 
     let energy state =
+      let work_unit = state.work_unit in
+      Log.Global.sexp ~level:`Info
+          [%message "dispatching" (work_unit : Experiment_utils.Work_unit.t)];
       Experiment_utils.Scheduler.dispatch M.scheduler state.work_unit
     ;;
   end
