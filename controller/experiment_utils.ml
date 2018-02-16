@@ -212,14 +212,20 @@ let run_binary_on_ssh_worker ~num_runs ~processor ~rundir ~user ~hostname
       let parsed_gc_stats =
         Execution_stats.Gc_stats.parse (String.split_lines gc_stats)
       in
-      Deferred.Or_error.return {
-        Execution_stats.
-        raw_execution_time;
-        worker_hostname;
-        gc_stats;
-        parsed_gc_stats;
-        perf_stats = Some [ perf_one; perf_two ];
-      }
+      let execution_stats =
+        { Execution_stats.
+          raw_execution_time;
+          worker_hostname;
+          gc_stats;
+          parsed_gc_stats;
+          perf_stats = Some [ perf_one; perf_two ];
+        }
+      in
+      lift_deferred (
+        Writer.save_sexp (dump_dir ^/ "execution_stats.sexp")
+          ([%sexp_of: Execution_stats.t] execution_stats)
+      )
+      >>|? fun () -> execution_stats
 
     | _ -> Deferred.Or_error.error_string "Cannot parse perf output!"
 ;;
