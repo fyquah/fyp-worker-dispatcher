@@ -66,7 +66,7 @@ let command_merge_results =
        let worker_hostname = None in
        { Protocol.Execution_stats.
          worker_hostname; raw_execution_time; gc_stats = "";
-         parsed_gc_stats = None;
+         parsed_gc_stats = None; perf_stats = None;
        }
      in
      let merged = { results_1 with path_to_bin = None; benchmark } in
