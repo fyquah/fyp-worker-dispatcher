@@ -169,31 +169,13 @@ end) = struct
       Reader.load_sexp data_collector_file
         [%of_sexp: Data_collector.V1.Decision.t list]
       >>=? fun executed_decisions ->
-      let dump_directory =
-        Experiment_utils.Dump_utils.execution_dump_directory
-          ~step:(`Step step) ~sub_id:(`Sub_id sub_id)
-      in
-      let copy_with_wildcard src dest =
-        shell ~dir:M.exp_dir "bash" [ "-c"; sprintf "cp -f %s %s" src dest ]
-      in
-      let artifacts_directory = dump_directory ^/ "artifacts" in
-      lift_deferred (Async_shell.mkdir ~p:() artifacts_directory)
-      >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "overrides.sexp") artifacts_directory
-      >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "*.sexp") artifacts_directory
-      >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "*.s") artifacts_directory
-      >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "flambda.out") artifacts_directory
-      >>=? fun () -> copy_with_wildcard filename artifacts_directory
+      Experiment_utils.copy_compilation_artifacts
+        ~exp_dir:M.exp_dir ~abs_path_to_binary:filename
+        ~dump_dir:(
+          Experiment_utils.Dump_utils.execution_dump_directory
+            ~step:(`Step step) ~sub_id:(`Sub_id sub_id))
       >>=? fun () ->
-      shell ~dir:M.exp_dir "tar" [
-        "zcf";
-        (dump_directory ^/ "artifacts.tar");
-        "-C";
-        artifacts_directory;
-        ".";
-      ]
-      >>=? fun () ->
-      shell ~dir:M.exp_dir "rm" [ "-rf"; artifacts_directory; ]
-      >>=? fun () ->
+
       (* TODO: This is incredibly expensive -- there is a lot of potential
        * for tree structure sharing here.
        *)
@@ -267,36 +249,12 @@ let command_run =
         >>=? fun initial_state ->
         let initial_state = Option.value_exn initial_state in
         Deferred.Or_error.return ()
-        >>=? (fun () ->
-          let dump_directory =
+        >>=? fun () ->
+        Experiment_utils.copy_compilation_artifacts
+          ~exp_dir ~abs_path_to_binary:initial_state.path_to_bin
+          ~dump_dir:(
             Experiment_utils.Dump_utils.execution_dump_directory
-              ~step:`Initial ~sub_id:`Current
-          in
-          let artifacts_directory = dump_directory ^/ "artifacts" in
-          let copy_with_wildcard src dest =
-            shell ~dir:exp_dir "bash" [ "-c"; sprintf "cp -f %s %s" src dest ]
-          in
-          lift_deferred (Async_shell.mkdir ~p:() artifacts_directory)
-          >>=? fun () ->
-          copy_with_wildcard (exp_dir ^/ "overrides.sexp") artifacts_directory
-          >>=? fun () ->
-          copy_with_wildcard (exp_dir ^/ "*.sexp") artifacts_directory
-          >>=? fun () ->
-          copy_with_wildcard (exp_dir ^/ "*.s") artifacts_directory
-          >>=? fun () ->
-          copy_with_wildcard (exp_dir ^/ "flambda.out") artifacts_directory
-          >>=? fun () ->
-          copy_with_wildcard (initial_state.path_to_bin) artifacts_directory
-          >>=? fun () ->
-          shell ~dir:exp_dir "tar" [
-            "zcf";
-            (dump_directory ^/ "artifacts.tar");
-            "-C";
-            artifacts_directory;
-            ".";
-          ]
-          >>=? fun () ->
-          shell ~dir:exp_dir "rm" [ "-rf"; artifacts_directory; ])
+              ~step:`Initial ~sub_id:`Current)
         >>=? fun () ->
         let process conn work_unit =
           let path_to_bin = work_unit.Work_unit.path_to_bin in

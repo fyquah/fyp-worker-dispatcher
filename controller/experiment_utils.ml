@@ -214,7 +214,13 @@ let run_binary_on_ssh_worker ~num_runs ~processor ~rundir ~user ~hostname
       "perf.data";
     ]
     >>=? fun () -> shell ~dir "rm" [ dump_dir ^/ "perf.data" ]
-    >>=? fun () -> shell ~dir "cp" [ path_to_bin; dump_dir ]
+    (* We don't, copy the generated binary, as that's really compilation
+     * artifact rather than run-time information. But if we really want to,
+     * it's the following line of code.
+
+     >>=? fun () -> shell ~dir "cp" [ path_to_bin; dump_dir ]
+
+     *)
     >>=? fun () ->
     match String.split ~on:'*' perf_output with
     | [perf_one; perf_two; gc_stats] ->
@@ -384,27 +390,41 @@ let process_work_unit
   execution_stats
 ;;
 
-let compile_binary ~dir ~bin_name ~write_overrides ~dump_directory =
+let copy_compilation_artifacts ~exp_dir ~dump_dir ~abs_path_to_binary =
   let copy_with_wildcard src dest =
-    shell ~dir "bash" [ "-c"; sprintf "cp -f %s %s" src dest ]
+    shell ~dir:exp_dir "bash" [ "-c"; sprintf "cp -f %s %s" src dest ]
   in
-  lift_deferred (Async_shell.mkdir ~p:() dump_directory)
+  let artifacts_directory = dump_dir ^/ "artifacts" in
+  lift_deferred (Async_shell.mkdir ~p:() artifacts_directory)
+  >>=? fun () -> copy_with_wildcard (exp_dir ^/ "overrides.sexp") artifacts_directory
+  >>=? fun () -> copy_with_wildcard (exp_dir ^/ "*.sexp") artifacts_directory
+  >>=? fun () -> copy_with_wildcard (exp_dir ^/ "*.s") artifacts_directory
+  >>=? fun () -> copy_with_wildcard (exp_dir ^/ "flambda.out") artifacts_directory
+  >>=? fun () -> copy_with_wildcard (exp_dir ^/ "*.native") artifacts_directory
+  >>=? fun () -> copy_with_wildcard abs_path_to_binary artifacts_directory
   >>=? fun () ->
-  shell ~dir "make" [ "clean" ]
+  shell ~dir:exp_dir "tar" [
+    "zcf";
+    (dump_dir ^/ "artifacts.tar");
+    "-C";
+    artifacts_directory;
+    ".";
+  ]
   >>=? fun () ->
-  write_overrides (dir ^/ "overrides.sexp")
-  >>=? fun () ->
-  shell ~dir "make" [ "all" ]
-  >>=? fun () ->
+  shell ~dir:exp_dir "rm" [ "-rf"; artifacts_directory; ]
+;;
+
+let compile_binary ~dir ~bin_name ~write_overrides ~dump_directory =
   let filename = Filename.temp_file "fyp-" ("-" ^ bin_name) in
-  shell ~dir "cp" [ (bin_name ^ ".native"); filename ]
+  lift_deferred (Async_shell.mkdir ~p:() dump_directory)
+  >>=? fun () -> shell ~dir "make" [ "clean" ]
+  >>=? fun () -> write_overrides (dir ^/ "overrides.sexp")
+  >>=? fun () -> shell ~dir "make" [ "all" ]
+  >>=? fun () -> shell ~dir "cp" [ (bin_name ^ ".native"); filename ]
   >>=? fun () -> shell ~dir "chmod" [ "755"; filename ]
-  >>=? fun () -> lift_deferred (Async_shell.mkdir ~p:() dump_directory)
-  >>=? fun () -> copy_with_wildcard (dir ^/ "overrides.sexp") dump_directory
-  >>=? fun () -> copy_with_wildcard (dir ^/ "*.sexp") dump_directory
-  >>=? fun () -> copy_with_wildcard (dir ^/ "*.s") dump_directory
-  >>=? fun () -> copy_with_wildcard (dir ^/ "flambda.out") dump_directory
-  >>=? fun () -> copy_with_wildcard (dir ^/ filename) dump_directory
+  >>=? fun () ->
+  copy_compilation_artifacts ~exp_dir:dir ~dump_dir:dump_directory
+    ~abs_path_to_binary:filename
   >>=? fun () -> Deferred.Or_error.return filename
 ;;
 

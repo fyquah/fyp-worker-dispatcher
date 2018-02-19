@@ -105,13 +105,20 @@ bin_args:string ->
 Work_unit.t ->
 (Protocol.Execution_stats.t, Core_kernel__.Error.t) Async.Deferred.Result.t
 
-val compile_binary :
-dir:string ->
-bin_name:string ->
-write_overrides:(string ->
-                 (unit, Core_kernel__.Error.t) Async.Deferred.Result.t) ->
-                   dump_directory: string ->
-(string, Core_kernel__.Error.t) Async.Deferred.Result.t
+(** Copies compilation artifacts into [dump_dir] and store them as a .tar **)
+val copy_compilation_artifacts
+   : exp_dir: string
+  -> dump_dir: string
+  -> abs_path_to_binary: string
+  -> unit Deferred.Or_error.t
+
+(** Calls make clean and make all, then calls [copy_compilation_artifacts] **)
+val compile_binary
+   : dir:string
+  -> bin_name:string
+  -> write_overrides:(string -> unit Deferred.Or_error.t)
+  -> dump_directory: string
+  -> string Deferred.Or_error.t
 
 val run_in_all_workers :
 scheduler:(Work_unit.t, Common.Execution_stats.t Core_kernel.Or_error.t, 'a)
