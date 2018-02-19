@@ -14,6 +14,11 @@ module Perf_stats = struct
 
   type t = entry list [@@deriving sexp, bin_io]
 
+  let to_map (t : t) =
+    List.fold t ~init:String.Map.empty ~f:(fun unchanged entry ->
+      String.Map.add unchanged ~key:entry.name ~data:entry)
+  ;;
+
   exception Parse_error
 
   let parse lines =

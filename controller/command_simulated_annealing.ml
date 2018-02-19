@@ -7,6 +7,7 @@ open Common
 module Utils = Experiment_utils
 module SA = Optimization.Simulated_annealing
 module Work_unit = Experiment_utils.Work_unit
+module Perf_stats = Execution_stats.Perf_stats
 
 module Base_state_energy = struct
   module V0 = struct
@@ -260,15 +261,31 @@ let command_run =
             Experiment_utils.Dump_utils.execution_dump_directory
               ~step:`Initial ~sub_id:`Current
           in
+          let artifacts_directory = dump_directory ^/ "artifacts" in
           let copy_with_wildcard src dest =
             shell ~dir:exp_dir "bash" [ "-c"; sprintf "cp -f %s %s" src dest ]
           in
-          lift_deferred (Async_shell.mkdir ~p:() dump_directory)
-          >>=? fun () -> copy_with_wildcard (exp_dir ^/ "overrides.sexp") dump_directory
-          >>=? fun () -> copy_with_wildcard (exp_dir ^/ "*.sexp") dump_directory
-          >>=? fun () -> copy_with_wildcard (exp_dir ^/ "*.s") dump_directory
-          >>=? fun () -> copy_with_wildcard (exp_dir ^/ "flambda.out") dump_directory
-          >>=? fun () -> copy_with_wildcard (initial_state.path_to_bin) dump_directory)
+          lift_deferred (Async_shell.mkdir ~p:() artifacts_directory)
+          >>=? fun () ->
+          copy_with_wildcard (exp_dir ^/ "overrides.sexp") artifacts_directory
+          >>=? fun () ->
+          copy_with_wildcard (exp_dir ^/ "*.sexp") artifacts_directory
+          >>=? fun () ->
+          copy_with_wildcard (exp_dir ^/ "*.s") artifacts_directory
+          >>=? fun () ->
+          copy_with_wildcard (exp_dir ^/ "flambda.out") artifacts_directory
+          >>=? fun () ->
+          copy_with_wildcard (initial_state.path_to_bin) artifacts_directory
+          >>=? fun () ->
+          shell ~dir:exp_dir "tar" [
+            "zcf";
+            (dump_directory ^/ "artifacts.tar");
+            "-C";
+            artifacts_directory;
+            ".";
+          ]
+          >>=? fun () ->
+          shell ~dir:exp_dir "rm" [ "-rf"; artifacts_directory; ])
         >>=? fun () ->
         let process conn work_unit =
           let path_to_bin = work_unit.Work_unit.path_to_bin in
@@ -464,10 +481,131 @@ module Command_plot = struct
          done;
          Writer.close output
       ]
+  ;;
+
+  let command_v1 =
+    let open Command.Let_syntax in
+    Command.async' ~summary:"Plots runtime vs various stats"
+      [%map_open
+       let common_prefix = anon ("directory" %: string) in
+       fun () ->
+         let open Deferred.Let_syntax in
+         let module Execution_stats = Protocol.Execution_stats in
+         let module Base_state_energy = Base_state_energy.V1 in
+         let module Step = Step.V1 in
+         let files =
+           List.init 600 ~f:(fun step ->
+             List.init 3 ~f:(fun worker_id ->
+               common_prefix
+               ^/ "opt_data"
+               ^/ Int.to_string step
+               ^/ Int.to_string worker_id
+               ^/ "execution_stats.sexp"))
+           |> List.concat
+         in
+         let%map execution_stats =
+           Deferred.List.filter_map files ~how:(`Max_concurrent_jobs 32)
+             ~f:(fun file ->
+               Sys.file_exists_exn file >>= function
+               | true ->
+                 begin
+                 Reader.load_sexp_exn file [%of_sexp: Execution_stats.t]
+                 >>| fun loaded -> Some (file, loaded)
+                 end
+               | false -> return None)
+         in
+         let first_perf_fields = [
+           "branches";
+           "branch-misses";
+           "branches";
+           "branch-misses";
+           "L1-icache-load-misses";
+           "branch-load-misses";
+           "branch-loads";
+           "iTLB-load-misses";
+           "iTLB-loads";
+           "cpu-cycles";
+           "instructions";
+         ]
+         in
+         let second_perf_fields = [
+           "branches";
+           "branch-misses";
+           "L1-icache-load-misses";
+           "branch-load-misses";
+           "branch-loads";
+           "iTLB-load-misses";
+           "iTLB-loads";
+           "cpu-cycles";
+           "instructions";
+           "L1-dcache-load-misses";
+           "L1-dcache-loads";
+           "L1-dcache-stores";
+           "LLC-loads";
+           "LLC-stores";
+           "cache-misses";
+           "bus-cycles";
+           "cache-references";
+           "ref-cycles";
+           "dTLB-load-misses";
+           "dTLB-loads";
+           "dTLB-store-misses";
+           "dTLB-stores";
+         ]
+         in
+         List.iter execution_stats ~f:(fun (file, stat) ->
+           let exec_time = geometric_mean (
+             List.map ~f:Time.Span.to_sec stat.raw_execution_time)
+           in
+           let hostname = stat.worker_hostname in
+           let gc_stats =
+             match stat.parsed_gc_stats with
+             | None ->
+               Option.value_exn (
+                 Execution_stats.Gc_stats.parse
+                  (String.split_lines stat.gc_stats))
+             | Some x -> x
+           in
+           printf "%s," file;
+           printf "%s," (Option.value_exn hostname);
+           printf "%d," gc_stats.major_collections;
+           printf "%d," gc_stats.minor_collections;
+           printf "%d," gc_stats.compactions;
+           printf "%d," gc_stats.minor_words;
+           printf "%d," gc_stats.promoted_words;
+           printf "%d," gc_stats.major_words;
+           printf "%d," gc_stats.top_heap_words;
+           printf "%d," gc_stats.heap_words;
+           printf "%d," gc_stats.live_words;
+           printf "%d," gc_stats.free_words;
+           printf "%d," gc_stats.largest_free;
+           printf "%d," gc_stats.fragments;
+           printf "%d," gc_stats.live_blocks;
+           printf "%d," gc_stats.heap_chunks;
+
+           begin match Option.value_exn stat.perf_stats with
+           | [ first_perf_stats; second_perf_stats ] ->
+             let first_perf_stats = Perf_stats.to_map first_perf_stats in
+             let second_perf_stats = Perf_stats.to_map second_perf_stats in
+             List.iter first_perf_fields ~f:(fun name ->
+               printf "%d," (String.Map.find_exn first_perf_stats name).value);
+             List.iter second_perf_fields ~f:(fun name ->
+               printf "%d," (
+                 match String.Map.find second_perf_stats name with
+                 | None -> failwithf "cannot find: %s" name ()
+                 | Some x -> x
+               ).value);
+           | _ -> assert false
+           end;
+           printf "%.4f\n" exec_time)
+      ]
+  ;;
 
   let command =
     Command.group ~summary:"Something"
-      [("v0", command_v0)]
+      [("v0", command_v0);
+       ("v1-execution-stats", command_v1);
+      ]
   ;;
 end
 

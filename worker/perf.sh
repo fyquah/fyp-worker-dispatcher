@@ -59,9 +59,10 @@ perf stat -r 2 -x, \
   -e dTLB-loads \
   -e dTLB-store-misses \
   -e dTLB-stores \
-  -e node-loads \
-  -e node-stores \
   -- taskset "$TASKSET_MASK" "$PATH_TO_BINARY" $ARGS 2>&1 1>/dev/null
+
+#   -e node-loads \ (Not supported on experiment machines)
+#   -e node-stores \
 
 echo "*"
 
