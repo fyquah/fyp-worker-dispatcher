@@ -248,13 +248,13 @@ module V0 = struct
     | Declaration a, Declaration b ->
       Closure_id.equal a.closure b.closure
     | Apply_inlined_function a, Apply_inlined_function b ->
-      Closure_id.equal a.applied a.applied &&
+      Closure_id.equal a.applied b.applied &&
       Call_site.Offset.equal a.offset b.offset
     | Apply_non_inlined_function a, Apply_non_inlined_function b ->
-      Closure_id.equal a.applied a.applied &&
+      Closure_id.equal a.applied b.applied &&
       Call_site.Offset.equal a.offset b.offset
     | Apply_inlined_function a, Apply_non_inlined_function b ->
-      Closure_id.equal a.applied a.applied &&
+      Closure_id.equal a.applied b.applied &&
       Call_site.Offset.equal a.offset b.offset
     | _ , _ -> false
 
