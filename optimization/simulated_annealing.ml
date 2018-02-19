@@ -80,10 +80,8 @@ module Make(T: Simulated_annealing_intf.T) = struct
       { t with energy_cache }, deferred_energy
     | Some deferred_energy ->
       Log.Global.sexp ~level:`Info
-        [%message "Loading energy from cache for state (but going to \
-                   execute it anyway)"
+        [%message "Loading energy from cache for state"
            (s : T.state)];
-      let deferred_energy = T.energy s >>| ok_exn in
       t, deferred_energy
   ;;
 

@@ -82,7 +82,10 @@ let command_run =
          *
          * MCTS should be smart enough to retry due to sampling errors.
          * *)
-        let process = Experiment_utils.process_work_unit ~num_runs:2 ~bin_args in
+        let process =
+          Experiment_utils.process_work_unit ~num_runs:config.num_runs
+            ~bin_args
+        in
         lift_deferred (EU.Scheduler.create worker_connections ~process)
         >>=? fun scheduler ->
         let dump_directory =
