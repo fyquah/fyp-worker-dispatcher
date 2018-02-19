@@ -38,7 +38,7 @@ module Work_unit_id : sig
   val gen : unit -> t
 end = struct
   module T = struct
-    type t = int [@@deriving sexp]
+    type t = int [@@deriving sexp, hash]
 
     let hash = Int.hash
 
