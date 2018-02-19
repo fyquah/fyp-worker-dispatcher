@@ -61,7 +61,7 @@ module V0 = struct
       ]
   
   module Top_level = struct
-    type root = t list [@@deriving sexp]
+    type root = t list [@@deriving sexp, compare]
   
     let count_leaves root =
       let rec loop t =
@@ -240,7 +240,7 @@ module V0 = struct
       List.iter tree ~f:(fun t -> pp t ~indent:0);
     ;;
   
-    type t = root [@@deriving sexp]
+    type t = root [@@deriving sexp, compare]
   end
   
   let fuzzy_equal a b =
@@ -565,9 +565,31 @@ module V1 = struct
         Atom "Apply_non_inlined_function";
         Function_metadata.sexp_of_t non_inlined_function.applied;
       ]
+
+  let children t =
+    match t with
+    | Declaration decl -> decl.children
+    | Apply_inlined_function inlined -> inlined.children
+    | Apply_non_inlined_function _ -> []
+  ;;
   
+  let fuzzy_equal a b =
+    match a, b with
+    | Declaration a, Declaration b ->
+      Function_metadata.equal a.declared b.declared
+    | Apply_inlined_function a, Apply_inlined_function b ->
+      Apply_id.equal a.apply_id b.apply_id
+
+    | Apply_non_inlined_function a, Apply_non_inlined_function b ->
+      Apply_id.equal a.apply_id b.apply_id
+
+    | Apply_inlined_function a, Apply_non_inlined_function b ->
+      Apply_id.equal a.apply_id b.apply_id
+
+    | _ , _ -> false
+
   module Top_level = struct
-    type root = t list [@@deriving sexp]
+    type root = t list [@@deriving sexp, compare]
   
     let count_leaves root =
       let rec loop t =
@@ -702,6 +724,7 @@ module V1 = struct
           let trace =
             Trace_item.At_call_site { source; apply_id; applied } :: call_stack
           in
+          let call_stack = trace in
           let metadata = applied in
           let round = 0 in  (* TODO(fyq14): Support other rounds? *)
           let hd = { Decision. round; trace; action; metadata; apply_id } in
@@ -750,24 +773,48 @@ module V1 = struct
       in
       List.iter tree ~f:(fun t -> pp t ~indent:0);
     ;;
+
+    let pprint ?(indent = -1) buffer nodes =
+      let rec loop ~indent node =
+        let space = 
+         List.init indent ~f:(fun _ -> " ")  |> String.concat ~sep:""
+        in
+        match node with
+        | Declaration decl ->
+          bprintf buffer "%sDECL(%s)\n" space
+            (Format.asprintf "%a" Closure_origin.print decl.declared.closure_origin);
+          iterate_children ~indent decl.children
+        | Apply_inlined_function inlined ->
+          bprintf buffer "%sINLINE[%s](%s)\n" space
+            (Format.asprintf "%a" Apply_id.print inlined.apply_id)
+            (Format.asprintf "%a" Closure_origin.print inlined.applied.closure_origin);
+          iterate_children ~indent inlined.children
+        | Apply_non_inlined_function non_inlined -> 
+          bprintf buffer "%sDONT_INLINE(%s) %s\n" space
+            (Format.asprintf "%a" Apply_id.print non_inlined.apply_id)
+            (Format.asprintf "%a"
+              Closure_origin.print non_inlined.applied.closure_origin);
+
+      and iterate_children ~indent children =
+        List.iter children ~f:(fun child ->
+            loop ~indent:(indent + 1) child)
+      in
+      iterate_children ~indent:indent nodes
+    ;;
+
+    let rec is_super_tree ~super (tree : root) =
+      List.for_all tree ~f:(fun tree_node ->
+        match List.find super ~f:(fuzzy_equal tree_node) with
+        | Some super_node -> is_super_node ~super:super_node tree_node
+        | None -> false)
+
+    and is_super_node ~(super : t)  (tree : t) =
+      fuzzy_equal super tree
+      && is_super_tree ~super:(children super) (children tree)
+    ;;
   
-    type t = root [@@deriving sexp]
+    type t = root [@@deriving sexp, compare]
   end
-  
-  let fuzzy_equal a b =
-    match a, b with
-    | Declaration a, Declaration b ->
-      Function_metadata.equal a.declared b.declared
-    | Apply_inlined_function a, Apply_inlined_function b ->
-      Apply_id.equal a.apply_id b.apply_id
-
-    | Apply_non_inlined_function a, Apply_non_inlined_function b ->
-      Apply_id.equal a.apply_id b.apply_id
-
-    | Apply_inlined_function a, Apply_non_inlined_function b ->
-      Apply_id.equal a.apply_id b.apply_id
-
-    | _ , _ -> false
   
   let equal_t_and_trace_item (t : t) (trace_item : Trace_item.t) =
     match (t, trace_item) with

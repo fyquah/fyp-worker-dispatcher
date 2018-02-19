@@ -26,7 +26,7 @@ module V0 : sig
   [@@deriving sexp, compare]
   
   module Top_level : sig
-    type nonrec t = t list [@@deriving sexp]
+    type nonrec t = t list [@@deriving sexp, compare]
   
     val count_leaves : t -> int
   
@@ -89,7 +89,8 @@ module V1 : sig
   [@@deriving sexp, compare]
   
   module Top_level : sig
-    type nonrec t = t list [@@deriving sexp]
+
+    type nonrec t = t list [@@deriving sexp, compare]
   
     val count_leaves : t -> int
   
@@ -102,6 +103,11 @@ module V1 : sig
     val to_override_rules : t -> Overrides.t
   
     val pp : Format.formatter -> t -> unit
+
+    val pprint : ?indent:int -> Buffer.t -> t -> unit
+
+    (* [super] is larger or equal to [tree] *)
+    val is_super_tree : super: t -> t -> bool
   end
   
   module Diff : sig
