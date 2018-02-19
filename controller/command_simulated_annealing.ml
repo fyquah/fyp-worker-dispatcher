@@ -125,7 +125,7 @@ end) = struct
       let new_tree =
         let rec make () =
           if Random.bool () then
-            let modified_leaves = Int.min num_leaves (Random.int 3 + 1) in
+            let modified_leaves = 1 in
             let choices =
               unique_random_from_list ~count:modified_leaves
                 (List.init num_leaves ~f:Fn.id)
