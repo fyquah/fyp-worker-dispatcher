@@ -47,7 +47,7 @@ module V0 = struct
           Closure_id.print non_inlined_function.applied
     in
     let open Command.Let_syntax in
-    Command.async' ~summary:"diff_tree"
+    Command.async ~summary:"diff_tree"
       [%map_open
        let file_a = anon ("filename" %: string)
        and file_b = anon ("filename" %: string) in
@@ -82,7 +82,7 @@ module V0 = struct
 
   let command_pp_tree =
     let open Command.Let_syntax in
-    Command.async' ~summary:"pp"
+    Command.async ~summary:"pp"
       [%map_open
        let file = anon ("filename" %: string) in
        fun () ->
@@ -113,7 +113,7 @@ module V1 = struct
 
   let command_pp_decisions =
     let open Command.Let_syntax in
-    Command.async' ~summary:"pprint decisions"
+    Command.async ~summary:"pprint decisions"
       [%map_open
         let file = anon("filename" %: string) in
         fun () ->
@@ -155,7 +155,7 @@ module V1 = struct
 
   let command_pp_tree =
     let open Command.Let_syntax in
-    Command.async' ~summary:"pp"
+    Command.async ~summary:"pp"
       [%map_open
        let file = anon ("filename" %: string) in
        fun () ->
