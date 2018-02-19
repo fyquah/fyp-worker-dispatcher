@@ -192,10 +192,10 @@ let command_plot_exec_time =
        in
        let seconds = extract_seconds results in
        Owl.Plot.histogram (
-         Bigarray.Array2.of_array
+         Bigarray.Genarray.create
            Bigarray.float64
            Bigarray.c_layout
-           (Array.create ~len:1 seconds)
+           (Array.map ~f:Float.to_int seconds)
        );
        Deferred.unit
     ]
