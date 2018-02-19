@@ -43,6 +43,8 @@ module type S = sig
 
     val sexp_of_t : t -> Sexp.t
     val t_of_sexp : Sexp.t -> t
+
+    val pprint : Format.formatter -> t -> unit
   end
 
   (* What we decided to do at the call site, using this rather than a
@@ -63,14 +65,9 @@ module type S = sig
   end
 
   (* Can refer to either:
-   *
-   *   (0) A decision made by the compiler
-   *   (1) A decision made by the optimiser
-   *
-   * The [trace] _CONTAINS_ the applied function, that is, the TOS is
-   * always of the [At_call_site] label. This is unintended, but changing
-   * code everywhere is pretty entoxicating.
-   *)
+    *   (0) A decision made by the compiler
+    *   (1) A decision made by the optimiser
+    *)
   module Decision : sig
     type t =
       { round:    int;

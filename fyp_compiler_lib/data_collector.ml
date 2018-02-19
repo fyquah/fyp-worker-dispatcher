@@ -206,13 +206,24 @@ module V1 = struct
         At_call_site (at_call_site_of_sexp x)
       | _ -> raise (Sexp.Parse_error "oops")
 
+    let pprint ppf t =
+      match t with
+      | Enter_decl enter_decl ->
+        Format.fprintf ppf "Enter_decl(%a)"
+          Closure_origin.print enter_decl.declared.closure_origin
+      | At_call_site at_call_site ->
+        Format.fprintf ppf "At_call_site[%a](%a)"
+          Apply_id.print at_call_site.apply_id
+          Closure_origin.print at_call_site.applied.closure_origin
+    ;;
+
     let semantically_equal a b =
       match a, b with
       | Enter_decl a, Enter_decl b ->
         Closure_origin.equal a.declared.closure_origin b.declared.closure_origin
 
       | At_call_site a, At_call_site b ->
-        Apply_id.equal a.apply_id a.apply_id &&
+        Apply_id.equal a.apply_id b.apply_id &&
           (Closure_origin.equal
             a.applied.closure_origin b.applied.closure_origin)
 
@@ -307,8 +318,6 @@ module V1 = struct
       | _ -> raise (Sexp.Parse_error "oops")
     ;;
 
-    let load_from_channel ic = t_of_sexp (Sexp_file.load_from_channel ic)
-
     let of_decisions t = t
   end
 end
@@ -342,17 +351,17 @@ module Multiversion_overrides = struct
   let load_from_clflags () =
     match !Clflags.inlining_overrides with
     | None -> Don't
-    | Some arg ->
-      match String.split_on_char ':' arg with
-      | [ "v0" ; filename ] ->
-        let ic = open_in filename in
-        let ts = V0.load_from_channel ic in
-        V0 ts
-      | [ "v1" ; filename ]
-      | [ filename ] -> 
-        let ic = open_in filename in
-        let ts = V1.Overrides.load_from_channel ic in
-        V1 ts
-      | _ ->
-        Misc.fatal_errorf "Failed to parse -inlining-overrides flag %s" arg
+    | Some filename ->
+      let ic = open_in filename in
+      let sexp = Sexp_file.load_from_channel ic in
+      try
+        let chosen = V1.Overrides.t_of_sexp sexp in
+        let len = List.length chosen in
+        Printf.printf "Loadded V1 overrides (len = %d) from %s\n"
+          len filename;
+        V1 chosen
+      with
+      | Sexp.Parse_error _  ->
+        Printf.printf "Loadded (DEPREACATED) V0 overrides from %s\n" filename;
+        V0 (Sexp.list_of_sexp V0.t_of_sexp sexp)
 end
