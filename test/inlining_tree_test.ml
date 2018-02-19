@@ -51,8 +51,6 @@ module Test_v1 = struct
   module Data_collector = Data_collector.V1
   module Inlining_tree = Inlining_tree.V1
 
-  let name = "compiler-call-site-offset"
-
   let datadir = Testlib.repo_root ^/ "test/testdata/call-site-offset"
 
   let load_decision_tree () =
@@ -79,58 +77,54 @@ module Test_v1 = struct
       "bash" [ "-c"; "make all" ]
   ;;
 
-  let run_single_iter ~iter ~tree =
-    let modified_tree =
-      let rec make () =
-        if Random.bool () then
-          let leaves = Inlining_tree.Top_level.count_leaves tree in
-          Inlining_tree.Top_level.flip_nth_leaf tree (Random.int leaves)
-        else
-          let leaves = Inlining_tree.Top_level.count_leaves tree in
-          match
-            Inlining_tree.Top_level.backtrack_nth_leaf tree (Random.int leaves)
-          with
-          | None -> make ()
-          | Some x -> x
+  module Overrides_actually_work = struct
+    let name = "v1.overrides_actually_take_effect"
+
+    let run_single_iter ~iter ~tree =
+      let modified_tree =
+        let rec make () =
+          if Random.bool () then
+            let leaves = Inlining_tree.Top_level.count_leaves tree in
+            Inlining_tree.Top_level.flip_nth_leaf tree (Random.int leaves)
+          else
+            let leaves = Inlining_tree.Top_level.count_leaves tree in
+            match
+              Inlining_tree.Top_level.backtrack_nth_leaf tree (Random.int leaves)
+            with
+            | None -> make ()
+            | Some x -> x
+        in
+        make ()
       in
-      make ()
-    in
-    let%bind () = compile_with_decisions modified_tree in
-    let%map compiled_tree = load_decision_tree () in
+      let%bind () = compile_with_decisions modified_tree in
+      let%map compiled_tree = load_decision_tree () in
 
-    assert (not (Inlining_tree.Top_level.compare tree modified_tree = 0));
-    let buffer = Buffer.create 1000 in
-    Inlining_tree.Top_level.pprint buffer compiled_tree;
-    printf "COMPILED:\n%s\n" (Buffer.contents buffer);
+      assert (not (Inlining_tree.Top_level.compare tree modified_tree = 0));
+      let buffer = Buffer.create 1000 in
+      Inlining_tree.Top_level.pprint buffer compiled_tree;
+      printf "COMPILED:\n%s\n" (Buffer.contents buffer);
 
+      let buffer = Buffer.create 1000 in
+      Inlining_tree.Top_level.pprint buffer modified_tree;
+      printf "TARGET:\n%s\n" (Buffer.contents buffer);
 
-    let buffer = Buffer.create 1000 in
-    Inlining_tree.Top_level.pprint buffer modified_tree;
-    printf "TARGET:\n%s\n" (Buffer.contents buffer);
+      assert (Inlining_tree.Top_level.is_super_tree
+        ~super:compiled_tree modified_tree);
 
-    assert (Inlining_tree.Top_level.is_super_tree
-      ~super:compiled_tree modified_tree);
+      compiled_tree
+    ;;
 
-    compiled_tree
-  ;;
-
-  let run () =
-    printf "Running initial complation\n";
-    let%bind () = compile_with_decisions [] in
-    let%bind tree = load_decision_tree () in
-    Deferred.ignore (
-      List.init 10 ~f:Fn.id
-      |> Deferred.List.fold ~init:tree ~f:(fun tree iter  ->
-          run_single_iter ~iter ~tree)
-    )
-    (*
-    printf "flipped tree:\n%s" (Format.asprintf "%a" Inlining_tree.Top_level.pp modified_tree);
-    let%bind () = compile_with_decisions modified_tree in
-    let%bind tree = load_decision_tree () in
-    printf "tree 2:\n%s" (Format.asprintf "%a" Inlining_tree.Top_level.pp tree);
-    Deferred.unit
-    *)
+    let run () =
+      printf "Running initial complation\n";
+      let%bind () = compile_with_decisions [] in
+      let%bind tree = load_decision_tree () in
+      Deferred.ignore (
+        List.init 10 ~f:Fn.id
+        |> Deferred.List.fold ~init:tree ~f:(fun tree iter  ->
+            run_single_iter ~iter ~tree)
+      )
+  end
 end
 
 let () =
-  Testlib.register (module Test_v1);
+  Testlib.register (module Test_v1.Overrides_actually_work);

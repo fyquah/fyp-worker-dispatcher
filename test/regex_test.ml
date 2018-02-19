@@ -10,7 +10,7 @@ module Test = struct
       "1.84user 0.00system 0:01.84elapsed 100%CPU (0avgtext+0avgdata 18832maxresident)"
     in
     let m = Re2.Regex.first_match_exn regex haystack in
-    printf "%s" (Re2.Regex.Match.get_exn ~sub:(`Index 0) m);
+    printf "%s\n" (Re2.Regex.Match.get_exn ~sub:(`Index 0) m);
     Deferred.unit
 end
 
