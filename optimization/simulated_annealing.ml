@@ -49,7 +49,7 @@ module Make(T: Simulated_annealing_intf.T) = struct
       t_max = 0.04;
       t_min = 0.0005;
       updates = 100;
-      steps = 600;
+      steps = 200;
       workers = 3;
     }
 
