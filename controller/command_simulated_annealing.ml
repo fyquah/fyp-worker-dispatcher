@@ -176,12 +176,23 @@ end) = struct
       let copy_with_wildcard src dest =
         shell ~dir:M.exp_dir "bash" [ "-c"; sprintf "cp -f %s %s" src dest ]
       in
-      lift_deferred (Async_shell.mkdir ~p:() dump_directory)
-      >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "overrides.sexp") dump_directory
-      >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "*.sexp") dump_directory
-      >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "*.s") dump_directory
-      >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "flambda.out") dump_directory
-      >>=? fun () -> copy_with_wildcard filename dump_directory
+      let artifacts_directory = dump_directory ^/ "artifacts" in
+      lift_deferred (Async_shell.mkdir ~p:() artifacts_directory)
+      >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "overrides.sexp") artifacts_directory
+      >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "*.sexp") artifacts_directory
+      >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "*.s") artifacts_directory
+      >>=? fun () -> copy_with_wildcard (M.exp_dir ^/ "flambda.out") artifacts_directory
+      >>=? fun () -> copy_with_wildcard filename artifacts_directory
+      >>=? fun () ->
+      shell ~dir:M.exp_dir "tar" [
+        "zcf";
+        (dump_directory ^/ "artifacts.tar");
+        "-C";
+        artifacts_directory;
+        ".";
+      ]
+      >>=? fun () ->
+      shell ~dir:M.exp_dir "rm" [ "-rf"; artifacts_directory; ]
       >>=? fun () ->
       (* TODO: This is incredibly expensive -- there is a lot of potential
        * for tree structure sharing here.
