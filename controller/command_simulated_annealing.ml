@@ -496,7 +496,7 @@ module Command_plot = struct
            | true ->
              begin
              Reader.file_contents filename
-             >>| fun text -> Some (Int.of_string text)
+             >>| fun text -> Some (Int.of_string (String.strip text))
              end
            | false -> return None
          in
