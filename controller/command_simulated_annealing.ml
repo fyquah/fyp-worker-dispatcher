@@ -265,6 +265,12 @@ let command_run =
           in
           lift_deferred (Async_shell.mkdir ~p:() dump_dir)
           >>=? fun () ->
+          shell ~dir:exp_dir "ln" [
+            "-s";
+            "../current/artifacts.tar";
+            dump_dir ^/ "artifacts.tar";
+          ]
+          >>=? fun () ->
           Experiment_utils.run_binary_on_worker
             ~processor:(Utils.Worker_connection.processor conn)
             ~num_runs ~conn ~path_to_bin
