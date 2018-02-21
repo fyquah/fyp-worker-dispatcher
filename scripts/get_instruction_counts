@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -euo pipefail
+
+BIN_NAME="$1"
+
+find "$2" -name "artifacts.tar" | xargs dirname | while read -r DIR
+do
+  cd $DIR
+  mkdir -p bla/
+  cd bla
+  tar xzf ../artifacts.tar
+  a=$(objdump -dj .text $BIN_NAME.native  | grep -v '\:$' | grep -v -e '^$' | wc -l)
+  let a=a-1
+  echo $a >../instruction_count.txt
+  cd ..
+  rm -rf bla
+done
