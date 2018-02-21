@@ -284,7 +284,7 @@ let command_run =
         (* We run this 3 more times than the others to gurantee
          * stability of the distribution of initial execution times.
          *)
-        Deferred.Or_error.List.init ~how:`Sequential 3 ~f:(fun i ->
+        Deferred.Or_error.List.init ~how:`Sequential 1 ~f:(fun i ->
           Log.Global.sexp ~level:`Info
             [%message "Initial state run " (i : int)];
           Deferred.Or_error.List.init (List.length config.worker_configs)
