@@ -464,24 +464,59 @@ module Command_plot = struct
          let module Step = Step.V1 in
          let files =
            List.init 600 ~f:(fun step ->
-             List.init 3 ~f:(fun worker_id ->
+             let cur =
                common_prefix
+               ^/ "opt_data"
+               ^/ Int.to_string step
+               ^/ "current"
+               ^/ "execution_stats.sexp"
+             in
+             let rest =
+               (List.init 3 ~f:(fun worker_id ->
+                 common_prefix
                ^/ "opt_data"
                ^/ Int.to_string step
                ^/ Int.to_string worker_id
                ^/ "execution_stats.sexp"))
+             in
+             cur :: rest)
            |> List.concat
+         in
+         let init_files =
+           List.init 9 ~f:(fun worker_id ->
+             common_prefix
+             ^/ "opt_data"
+             ^/ "initial"
+             ^/ Int.to_string worker_id
+             ^/ "execution_stats.sexp")
+         in
+         let files = init_files @ files in
+         let load_instruction_count filename =
+           Sys.file_exists_exn filename >>= function
+           | true ->
+             begin
+             Reader.file_contents filename
+             >>| fun text -> Some (Int.of_string text)
+             end
+           | false -> return None
          in
          let%map execution_stats =
            Deferred.List.filter_map files ~how:(`Max_concurrent_jobs 32)
-             ~f:(fun file ->
-               Sys.file_exists_exn file >>= function
-               | true ->
-                 begin
-                 Reader.load_sexp_exn file [%of_sexp: Execution_stats.t]
-                 >>| fun loaded -> Some (file, loaded)
-                 end
-               | false -> return None)
+             ~f:(fun execution_stats_file ->
+                Sys.file_exists_exn execution_stats_file >>= function
+                | true ->
+                  begin
+                  Reader.load_sexp_exn execution_stats_file
+                   [%of_sexp: Execution_stats.t]
+                  >>= fun loaded ->
+                  let instruction_count_file =
+                    (Filename.dirname execution_stats_file) ^/ "instruction_count.txt"
+                  in
+                  load_instruction_count instruction_count_file
+                  >>| fun instruction_count ->
+                  Some (execution_stats_file, loaded, instruction_count)
+                  end
+                | false -> return None)
          in
          let first_perf_fields = [
            "branches";
@@ -522,7 +557,7 @@ module Command_plot = struct
            "dTLB-stores";
          ]
          in
-         List.iter execution_stats ~f:(fun (file, stat) ->
+         List.iter execution_stats ~f:(fun (file, stat, instruction_count) ->
            let exec_time = geometric_mean (
              List.map ~f:Time.Span.to_sec stat.raw_execution_time)
            in
@@ -565,6 +600,10 @@ module Command_plot = struct
                  | Some x -> x
                ).value);
            | _ -> assert false
+           end;
+           begin match instruction_count with
+           | Some x -> printf "%d," x
+           | None -> printf "N/A,"
            end;
            printf "%.4f\n" exec_time)
       ]
