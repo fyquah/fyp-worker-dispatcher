@@ -6,3 +6,4 @@ tmp/
 log/
 *.inlining.org
 a.out
+**/.DS_STORE
