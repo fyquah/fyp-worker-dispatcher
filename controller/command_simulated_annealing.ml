@@ -265,12 +265,6 @@ let command_run =
           in
           lift_deferred (Async_shell.mkdir ~p:() dump_dir)
           >>=? fun () ->
-          shell ~dir:exp_dir "ln" [
-            "-s";
-            "../current/artifacts.tar";
-            dump_dir ^/ "artifacts.tar";
-          ]
-          >>=? fun () ->
           Experiment_utils.run_binary_on_worker
             ~processor:(Utils.Worker_connection.processor conn)
             ~num_runs ~conn ~path_to_bin
@@ -303,7 +297,18 @@ let command_run =
                   sub_id = `Sub_id (i * (List.length config.worker_configs) + j);
                 }
               in
-              Utils.Scheduler.dispatch scheduler work_unit))
+              Utils.Scheduler.dispatch scheduler work_unit
+              >>=? fun execution_stats ->
+              let dump_dir =
+                Experiment_utils.Dump_utils.execution_dump_directory
+                  ~step:work_unit.step ~sub_id:work_unit.sub_id
+              in
+              shell ~dir:exp_dir "ln" [
+                "-s";
+                "../current/artifacts.tar";
+                dump_dir ^/ "artifacts.tar";
+              ]
+              >>|? fun () -> execution_stats))
         >>=? fun stats ->
         let stats = List.concat_no_order stats in
         let initial_execution_times =
