@@ -10,6 +10,8 @@ SCRIPT_TO_BIN_NAME = {
 
         "mcts-almabench": "almabench",
         "mcts-float_in_functor": "b",
+        "mcts-float-in-functor": "b",
+        "mcts-floats-in-functor": "b",
         "mcts-sequence_benchmark": "sequence_benchmark",
 }
 
