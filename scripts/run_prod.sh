@@ -38,15 +38,28 @@ fi
 
 bash -c "cd $EXPERIMENTS_REPO && git pull"
 
-cp prod-configs/all.sexp $RUNDIR/config.sexp
+if [ -z ${CONFIG_FILE_OVERRIDE+x} ]; then
+  cp prod-configs/all.sexp $RUNDIR/config.sexp
+else
+  echo "INFO: OVERRIDE CONFIG FILE WITH $CONFIG_FILE_OVERRIDE"
+  cp "$CONFIG_FILE_OVERRIDE" $RUNDIR/config.sexp
+fi
+
 
 if [[ ! -v ADDITIONAL_CONTROLLER_ARGS ]]; then
   ADDITIONAL_CONTROLLER_ARGS=""
 fi
 
-mkdir -p tmp
+if [ -z ${EXPERIMENT_TMP_DIR+x} ]; then
+  EXPERIMENT_TMP_DIR=tmp
+else
+  echo "INFO: OVERRIDE TMP DIR WITH $EXPERIMENT_TMP_DIR"
+fi
 
-nohup jbuilder exec controller -- \
+mkdir -p $EXPERIMENT_TMP_DIR
+
+set -x
+OPAMROOT=~/.opam nohup _build/install/default/bin/controller \
   "$1" run \
   -config "$RUNDIR/config.sexp" \
   -rundir "$RUNDIR" \
@@ -55,10 +68,10 @@ nohup jbuilder exec controller -- \
   -args "$EXPERIMENT_BIN_ARGS" \
   $ADDITIONAL_CONTROLLER_ARGS \
   1>$RUNDIR/stdout.log 2>$RUNDIR/stderr.log &
-
 PID="$!"
+set +x
 
-echo "$PID" >tmp/controller.pid
-echo "$RUNDIR" >tmp/controller.rundir
+echo "$PID" >$EXPERIMENT_TMP_DIR/controller.pid
+echo "$RUNDIR" >$EXPERIMENT_TMP_DIR/controller.rundir
 
 echo "Piping controller stdout and stderr to $RUNDIR/stdout.log and $RUNDIR/stderr.log"
