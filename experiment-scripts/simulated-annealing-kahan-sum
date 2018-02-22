@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -euo pipefail
+
+cd "$(dirname "$0")"
+cd ../
+
+export EXPERIMENT_DIR="normal/kahan_sum"
+export EXPERIMENT_BIN_NAME="kahan_sum"
+export EXPERIMENT_BIN_ARGS="300000000"
+
+if [ "$1" = "dev" ]; then
+  scripts/run_dev.sh simulated-annealing
+elif [ "$1" = "prod" ]; then
+  scripts/run_prod.sh simulated-annealing
+else
+  echo "Unknown execution mode"
+  exit 1
+fi
