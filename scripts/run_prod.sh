@@ -38,7 +38,7 @@ fi
 
 bash -c "cd $EXPERIMENTS_REPO && git pull"
 
-cp prod_config.sexp $RUNDIR/config.sexp
+cp prod-configs/all.sexp $RUNDIR/config.sexp
 
 if [[ ! -v ADDITIONAL_CONTROLLER_ARGS ]]; then
   ADDITIONAL_CONTROLLER_ARGS=""
