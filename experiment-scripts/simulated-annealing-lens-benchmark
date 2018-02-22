@@ -7,7 +7,7 @@ cd ../
 
 export EXPERIMENT_DIR="normal/lens_benchmark"
 export EXPERIMENT_BIN_NAME="lens_benchmark"
-export EXPERIMENT_BIN_ARGS="150000000"
+export EXPERIMENT_BIN_ARGS="1500000000"
 
 if [ "$1" = "dev" ]; then
   scripts/run_dev.sh simulated-annealing

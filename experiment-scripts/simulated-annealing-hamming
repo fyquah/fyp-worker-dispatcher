@@ -7,7 +7,7 @@ cd ../
 
 export EXPERIMENT_DIR="normal/hamming"
 export EXPERIMENT_BIN_NAME="hamming"
-export EXPERIMENT_BIN_ARGS="10000000"
+export EXPERIMENT_BIN_ARGS="20000000"
 
 if [ "$1" = "dev" ]; then
   scripts/run_dev.sh simulated-annealing
