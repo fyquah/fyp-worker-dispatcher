@@ -7,6 +7,11 @@ BIN_NAME="$1"
 find "$2" -name "artifacts.tar" | xargs dirname | while read -r DIR
 do
   cd $DIR
+
+  if [ -f "./instruction_count.txt" ]; then
+    continue
+  fi
+
   mkdir -p bla/
   cd bla
   tar xzf ../artifacts.tar
