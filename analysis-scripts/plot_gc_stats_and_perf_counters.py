@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
 
 PLOT_DIR = "plots/perf-counters-and-gc-stats"
 
@@ -130,8 +131,9 @@ def plot_set_of_graphs(X, Y, field_names, title, filename, marker_colors):
 
 def plot_pca_scatter(X, field_names, title, filename):
     pca = PCA(n_components=2, svd_solver='full')
-    pca.fit(X)
-    transformed = pca.transform(X)
+    X_normalise = (X - np.mean(X)) / np.std(X)
+    pca.fit(X_normalise)
+    transformed = pca.transform(X_normalise)
 
     fig = plt.figure()
     plt.title(title)
@@ -150,6 +152,7 @@ def plot_pca_scatter(X, field_names, title, filename):
             assert len(component) == len(field_names)
 
             writer.writerow([variance] + ["%.3f" % value for value in component])
+    return pca
 
 def group_by_colors(data, colors):
     ret = collections.defaultdict(list)
@@ -239,7 +242,7 @@ def plot(filename):
     for name in first_perf_fields[2:9]:
         field_names.append(name + " (NORM INST)")
 
-    plot_pca_scatter(
+    pca = plot_pca_scatter(
             X=X_pca,
             title="PCA Scatter",
             filename=os.path.splitext(os.path.basename(filename))[0] + "_pca",
