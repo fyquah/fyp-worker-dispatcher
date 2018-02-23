@@ -19,6 +19,15 @@ module Common = struct
   ;;
 end
 
+let default_config =
+  { Common.
+    t_max = 0.04;
+    t_min = 0.001;
+    updates = 100;
+    steps = 300;
+    workers = 3;
+  }
+
 module Make(T: Simulated_annealing_intf.T) = struct
 
   type t =
@@ -43,15 +52,6 @@ module Make(T: Simulated_annealing_intf.T) = struct
     type t = (T.state, T.energy) Simulated_annealing_intf.Step.t
     [@@deriving sexp]
   end
-
-  let default_config =
-    { Common.
-      t_max = 0.04;
-      t_min = 0.001;
-      updates = 100;
-      steps = 300;
-      workers = 3;
-    }
 
   let empty ?(config = default_config) state current_energy =
     { state;

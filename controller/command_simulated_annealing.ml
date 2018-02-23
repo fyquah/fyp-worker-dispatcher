@@ -345,7 +345,12 @@ let command_run =
             { Work_unit. path_to_bin; step = `Step 0; sub_id = `Current; }
           in
           let initial = { Annealer.T1. tree; work_unit; } in
-          Annealer.empty initial initial_execution_stats
+          let config = 
+            { SA.default_config with
+              workers = List.length config.worker_configs;
+            }
+          in
+          Annealer.empty ~config initial initial_execution_stats
         in
         Deferred.repeat_until_finished state (fun state ->
           Annealer.step state
