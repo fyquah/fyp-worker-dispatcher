@@ -8,6 +8,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 
+PLOT_DIR = "plots/perf-counters-and-gc-stats"
+
 gc_fields = [
         "major_collections",
         "minor_collections",
@@ -66,6 +68,13 @@ second_perf_fields = [
 
 other_fields = ["instruction-count"]
 
+def make_range(*, begin, length):
+    return list(range(begin, begin + length))
+
+PERF_INDICES = make_range(begin=len(gc_fields) + 2, length=7)
+INSTR_COUNT_INDEX = len(gc_fields) + len(first_perf_fields) \
+        + len(second_perf_fields)
+
 fields = [
         gc_fields,
         first_perf_fields,
@@ -90,63 +99,89 @@ def plot_set_of_graphs(X, Y, field_names, title, filename):
         ax.grid()
 
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
-    fig.savefig(fname=os.path.join("pca-data", filename) + ".pdf", format='pdf')
+    fig.savefig(fname=os.path.join(PLOT_DIR, filename) + ".pdf", format='pdf')
 
 
-def plot_pca_scatter(X, title, filename):
+def plot_pca_scatter(X, field_names, title, filename):
     pca = PCA(n_components=2, svd_solver='full')
     pca.fit(X)
     print(pca.explained_variance_ratio_)
     transformed = pca.transform(X)
 
+    fig = plt.figure()
     plt.title(title)
     plt.scatter(transformed[:, 0], transformed[:, 1], color='r', marker='x', s=3)
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    plt.savefig(fname=os.path.join("pca-data", filename) + ".pdf", format='pdf')
+    plt.savefig(fname=os.path.join(PLOT_DIR, filename) + ".pdf", format='pdf')
+
+    
+    for component_idx in range(2):
+        component = pca.components_[component_idx]
+        assert len(component) == len(field_names)
+
+        print("Component %d" % component_idx)
+        for name, value in zip(field_names, component):
+            print(" - %s: %.3f" % (name, value))
 
 
 def plot(filename):
     with open(filename, "r") as f:
-        data = []
+        search_data = []
+        baseline_data = []
         for line in csv.reader(f):
             assert len(line) == 1 + 2 + 1 + len(gc_fields) + len(first_perf_fields) + len(second_perf_fields)
-            data.append([float(x) for x in line[2:]])
-    data = np.array(data)
-    Y = data[:, -1]
+            row = []
+            accepted = True
+            for x in line[2:]:
+                if x == "N/A":
+                    accepted = False
+                    break
+                row.append(float(x))
+
+            if accepted:
+                search_data.append(row)
+
+    search_data = np.array(search_data)
+    Y = search_data[:, -1]
 
     plot_set_of_graphs(
-            X=data[:, :len(gc_fields)],
+            X=search_data[:, :len(gc_fields)],
             Y=Y,
             field_names=gc_fields,
             title="GC Stats vs Execution Time",
             filename=os.path.splitext(os.path.basename(filename))[0] + "_gc_stats")
+
     plot_set_of_graphs(
-            X=data[:, len(gc_fields):len(gc_fields) + 9],
+            X=search_data[:, PERF_INDICES],
             Y=Y,
-            field_names=first_perf_fields[:9],
+            field_names=first_perf_fields[2:9],
             title="Perf Stats (w/o normalisation) vs Execution Time",
             filename=os.path.splitext(os.path.basename(filename))[0] + "_raw_perf_stats")
-    cycles = data[:, len(gc_fields) + 9:len(gc_fields) + 10]
-    instructions_count = data[:, -1:]
-    plot_set_of_graphs(
-            X=data[:, len(gc_fields):len(gc_fields) + 9] / instructions_count,
-            Y=Y,
-            field_names=first_perf_fields[:9],
-            title="Perf Stats (Normalised over Cycles) vs Execution Time",
-            filename=os.path.splitext(os.path.basename(filename))[0] + "_norm_cycles_perf_stats")
 
-    pca_indices = []
-    for i in range(len(gc_fields)):
-        pca_indices.append(i)
-    for i in range(9):
-        pca_indices.append(i + len(gc_fields))
+    instructions_count = search_data[:, INSTR_COUNT_INDEX:INSTR_COUNT_INDEX+1]
+    plot_set_of_graphs(
+            X=search_data[:, PERF_INDICES] / instructions_count,
+            Y=Y,
+            field_names=first_perf_fields[2:9],
+            title="Perf Stats (Normalised over Instructions Count) vs Execution Time",
+            filename=os.path.splitext(os.path.basename(filename))[0] + "_norm_inst_count_perf_stats")
+
+    X_pca = np.concatenate([
+        search_data[:, :len(gc_fields)],
+        search_data[:, PERF_INDICES] / instructions_count
+    ], axis=1)
+    assert len(X_pca) == len(search_data)
+    field_names = []
+    for name in gc_fields:
+        field_names.append(name)
+    for name in first_perf_fields[2:9]:
+        field_names.append(name + " (NORM INST)")
 
     plot_pca_scatter(
-            X=data[:, pca_indices],
+            X=X_pca,
             title="PCA Scatter",
-            filename=os.path.splitext(os.path.basename(filename))[0] + "_pca")
-
-    # perf_features = data[:, len(gc_fields):(len(gc_fields) + 9)]
+            filename=os.path.splitext(os.path.basename(filename))[0] + "_pca",
+            field_names=field_names)
 
 
 def main():
