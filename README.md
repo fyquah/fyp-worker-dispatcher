@@ -15,10 +15,13 @@ bash <(cat ./tmp/batch_executor.log | head -n-1 | python3 ./scripts/dump_executi
 ```
 
 Get the number of instructions from `artifacts.tar` and write them into
-`instruction_count.txt` in the same directory as `artifacts.tar`
+`instruction_count.txt` in the same directory as `artifacts.tar`. This
+parallelises the tar + untar-ing to 8 cores, and works well on a SSD. on
+a HDD, the efficiency hasn't been tested yet.
+
 
 ```
-bash <(cat ./tmp/batch_executor.log | head -n-1 | ./scripts/get_instruction_counts.py)
+cat ./important-logs/batch_executor.log |  head -n-1 | ./scripts/get_instruction_counts.py   | parallel -j8 --ungroup --colsep ' ' -a - bash {} {} {}
 ```
 
 Make symbolic links to `artifacts.tar` in step directories for simulated

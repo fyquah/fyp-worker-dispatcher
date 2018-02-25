@@ -4,6 +4,8 @@ set -euo pipefail
 
 BIN_NAME="$1"
 
+echo "EXEC | $2 (binary_name = $1)"
+
 find "$2" -name "artifacts.tar" | xargs dirname | while read -r DIR
 do
   cd $DIR
@@ -21,3 +23,5 @@ do
   cd ..
   rm -rf bla
 done
+
+echo "DONE | $2 (binary_name = $1)"
