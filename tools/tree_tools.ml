@@ -263,11 +263,28 @@ module V1 = struct
       ]
   ;;
 
+  let command_decisions_to_tree =
+    let open Command.Let_syntax in
+    Command.async' ~summary:"convert compiler decisions to tree"
+      [%map_open
+        let input_file = anon ("filename" %: string)
+        and output_file =  flag "-output" (required string) ~doc:"STRING" in
+        fun () ->
+          let open Deferred.Let_syntax in
+          let%bind decisions =
+            Reader.load_sexp_exn input_file [%of_sexp: Decision.t list]
+          in
+          let tree = Inlining_tree.build decisions in
+          let sexp = Inlining_tree.Top_level.sexp_of_t tree in
+          Writer.save_sexp output_file sexp
+      ]
+
   let command =
     Command.group ~summary:"Tree tools (for v1)"
       [("print-tree", command_pp_tree);
        ("print-decisions", command_pp_decisions);
        ("diff-tree", command_diff_tree);
+       ("decisions-to-tree", command_decisions_to_tree);
       ]
 end
 
