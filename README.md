@@ -1,3 +1,45 @@
+## Configuring a new machine to run FYP things
+
+Install apt packages that we definitely require:
+
+```bash
+sudo apt-get install zip build-essential git
+
+# These are required by owl
+sudo apt-get install libgsl0-dev liblapacke-dev libopenblas-dev pkg-config libplplot-dev libshp-dev m4
+```
+
+Clone all the relevant repos:
+
+```bash
+mkdir -p ~/fyp
+git clone git@github.com:fyquah95/fyp-worker-dispatcher.git worker-dispatcher
+git clone git@github.com:fyquah95/fyp-ocaml.git ocaml
+git clone git@github.com:fyquah95/fyp-experiments.git experiments
+git clone git@github.com:fyquah95/fyp-opam-repo-dev.git opam-repo-dev
+```
+
+Install opam
+
+```bash
+wget https://raw.github.com/ocaml/opam/master/shell/opam_installer.sh -O - | sh -s /usr/local/bin
+```
+
+Setup the FYP compilation environment
+
+```bash
+cd ~/fyp/worker-dispatcher
+./scripts/configure-fyp-env
+```
+
+Install the packages we need to compile worker dispatcher and friends:
+
+```bash
+opam install core=v0.9.1  # Version here is important, our code doesn't compile with
+                          # the newer core versions
+opam install jbuilder async async_shell async_unix menhir owl
+```
+
 ## Cheatsheet
 
 _Why aren't this a shell script? These are generally one-off things, and the
