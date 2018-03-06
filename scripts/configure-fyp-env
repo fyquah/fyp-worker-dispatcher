@@ -3,6 +3,7 @@
 export OPAMROOT=$HOME/fyp/opam-root/
 
 cd "$(dirname "$0")/../../ocaml/"
+mkdir -p ../ocaml-tarballs
 git archive --format tar --prefix ocaml/ HEAD | gzip >../ocaml-tarballs/tarball.tar.gz
 
 opam init -n
