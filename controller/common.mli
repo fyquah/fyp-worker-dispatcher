@@ -34,4 +34,8 @@ val lift_deferred : 'a Deferred.t -> 'a Deferred.Or_error.t
 
 val geometric_mean : float list -> float
 
+val arithmetic_mean : float list -> float
+
+val standard_deviation : float list -> float
+
 val gmean_exec_time : Execution_stats.t -> Time.Span.t

@@ -36,12 +36,16 @@ let selection all_results =
              * of the kernel's behaviour with buffering etc.
              *)
             let alpha = 0.4 in
+            assert false
+            (*
             let side = Owl.Stats.BothSide in
             let (h, _, _) =
               Owl.Stats.t_test_unpaired ~equal_var:false ~alpha ~side
                 null.exec_times alternate.exec_times
             in
-            not h || (null.mean < alternate.mean)))
+            not h || (null.mean < alternate.mean)
+            *)
+            ))
     in
     if List.length new_list = List.length exec_times
     then new_list
@@ -54,7 +58,7 @@ let selection all_results =
           ~f:Time.Span.to_sec
       in
       let id = results.id in
-      let mean = Owl.Stats.mean exec_times in
+      let mean = Common.arithmetic_mean (Array.to_list exec_times) in
       { id; exec_times; mean; })
   in
   let filtered_exec_times = loop exec_times in
