@@ -3,7 +3,8 @@
 Install apt packages that we definitely require:
 
 ```bash
-sudo apt-get install zip build-essential git
+sudo apt-get install zip build-essential git tmux curl
+curl -sSL https://gist.githubusercontent.com/fyquah95/2621159524ec7341e0be/raw/51980b660d1b59f19b4a6c582f21a32c159a3c2f/.tmux.conf | sed -e 's/zsh/bash/g' >~/.tmux.conf
 
 # These are required by owl
 sudo apt-get install libgsl0-dev liblapacke-dev libopenblas-dev pkg-config libplplot-dev libshp-dev m4
