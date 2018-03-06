@@ -12,6 +12,10 @@ sudo apt-get install libgsl0-dev liblapacke-dev libopenblas-dev pkg-config libpl
 Clone all the relevant repos:
 
 ```bash
+ssh-keygen
+
+##### Then, Add ssh key to github #####
+
 mkdir -p ~/fyp
 git clone git@github.com:fyquah95/fyp-worker-dispatcher.git worker-dispatcher
 git clone git@github.com:fyquah95/fyp-ocaml.git ocaml
@@ -38,6 +42,24 @@ Install the packages we need to compile worker dispatcher and friends:
 opam install core=v0.9.1  # Version here is important, our code doesn't compile with
                           # the newer core versions
 opam install jbuilder async async_shell async_unix menhir owl
+```
+
+"installing" ocamlnow
+
+```bash
+echo 'export PATH="$PATH:$HOME/bin/"' >> ~/.bashrc
+mkdir -p ~/bin/
+cp _build/default/tools/now.exe ~/bin/ocamlnow
+source ~/.bashrc
+```
+
+Finally, add your ssh keys to all the workers
+
+```bash
+SSH_PUB_key=$(cat ~/.ssh/id_rsa.pub)
+ssh fyquah@192.168.0.10 "echo '$SSH_PUB_key=' >>~/.ssh/authorized_keys"
+ssh fyquah@192.168.0.11 "echo '$SSH_PUB_key=' >>~/.ssh/authorized_keys"
+ssh fyquah@192.168.0.12 "echo '$SSH_PUB_key=' >>~/.ssh/authorized_keys"
 ```
 
 ## Cheatsheet
