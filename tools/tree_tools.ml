@@ -276,7 +276,8 @@ module V1 = struct
           in
           let tree = Inlining_tree.build decisions in
           let sexp = Inlining_tree.Top_level.sexp_of_t tree in
-          Writer.save_sexp output_file sexp
+          let%map wrt = Writer.open_file output_file in
+          Writer.write wrt (Sexp.to_string sexp)
       ]
 
   let command =
