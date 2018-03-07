@@ -230,6 +230,13 @@ def pprint_tree(fp, tree, indent=0):
         pprint_tree(fp, child, indent=indent+1)
 
 
+def max_depth(tree):
+    if len(tree.children) == 0:
+        return 1
+    else:
+        return 1 + max(max_depth(node) for node in tree.children)
+
+
 class Path(object):
 
     def __init__(self, trace):
@@ -240,8 +247,10 @@ class Path(object):
         for item in self._trace:
             if item[0] == "function":
                 ret.append("%s<%s>" % (item[1], item[2]))
-            else:
+            elif item[0] == "declaration":
                 ret.append("{%s}" % item[1])
+            else:
+                raise RuntimeError("Unknown item[0] %s" % item[0])
         return "/".join(ret)
 
     def __eq__(self, other):

@@ -131,6 +131,46 @@ def collect_unique_nodes(acc, trace, tree):
         assert False
 
 
+def relabel_to_paths(tree, trace):
+    assert isinstance(tree, inlining_tree.Node)
+
+    if tree.name == "Top_level":
+        assert trace == []
+        children = [relabel_to_paths(child, trace) for child in tree.children]
+        return inlining_tree.Node(
+                name=tree.name, children=children, value=None)
+            
+    elif tree.name == "Inlined" or tree.name == "Non_inlined":
+        new_trace = trace + [(
+            "function",
+            tree.value.function.closure_origin.id(),
+            tree.value.apply_id.id()
+        )]
+        children = [
+                relabel_to_paths(child, new_trace)
+                for child in tree.children
+        ]
+        return inlining_tree.Node(
+                name=tree.name, children=children,
+                value=inlining_tree.Path(new_trace)
+        )
+
+    elif tree.name == "Declaration":
+        new_trace = trace + [(
+            "declaration",
+            tree.value.closure_origin.id()
+        )]
+        children = [
+                relabel_to_paths(child, new_trace)
+                for child in tree.children
+        ]
+        return inlining_tree.Node(
+                name=tree.name, children=children, value=None)
+    else:
+        print(tree.name)
+        assert False
+
+
 def count_nodes(tree):
     acc = 1
 
@@ -165,7 +205,7 @@ def main():
     tasks = []
     for task in iterate_rundirs(rundirs):
         tasks.append(task)
-        if len(tasks) >= 100:
+        if len(tasks) >= 10:
             break
 
     trees = []
@@ -177,10 +217,18 @@ def main():
     loop.close()
 
     tree_paths = set()
+    tree_path_to_ids = {}
+
     for tree in trees:
         collect_unique_nodes(tree_paths, [], tree)
 
-    print(len(tree_paths))
+    for i, tree_path in enumerate(tree_paths):
+        tree_path_to_ids[tree_path] = i
+
+    tree_with_path_labels = [relabel_to_paths(tree, []) for tree in trees]
+    print(max(inlining_tree.max_depth(tree) for tree in tree_with_path_labels))
+
+
 
 
 if __name__  == "__main__":
