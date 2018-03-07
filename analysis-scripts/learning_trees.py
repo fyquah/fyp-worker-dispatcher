@@ -1,223 +1,16 @@
+import asyncio
 import collections
+import concurrent.futures
+import csv
+import os
 import sys
+import shutil
+import subprocess
 
+import aiofiles
 import sexpdata
 
-Node = collections.namedtuple("Node", ["name", "value", "children"])
-Compilation_unit_base = collections.namedtuple("Compilation_unit",
-        ["ident", "linkage_name"])
-Variable_base = collections.namedtuple("Variable",
-        ["kind", "compilation_unit", "name", "stamp"])
-Function_metadata_base = collections.namedtuple("Function_metadata",
-        ["closure_id", "set_of_closure_id", "closure_origin"])
-Function_call_base = collections.namedtuple("Function_call",
-        ["function", "apply_id"])
-Apply_id_base = collections.namedtuple("Apply_id",
-        ["compilation_unit", "stamp"])
-Apply_stamp_base = collections.namedtuple("Apply_stamp_base",
-        ["kind", "stamp"])
-
-
-class Apply_stamp(Apply_stamp_base):
-
-    def __str__(self):
-        return "%s[%s]" % (str(self.kind), str(self.stamp))
-
-
-class Apply_id(Apply_id_base):
-
-    def pprint(self, fp, prefix):
-        fp.write("%s | compilation_unit = %s\n" % (prefix, str(self.compilation_unit)))
-        fp.write("%s | apply stamp = %s\n" % (prefix, str(self.stamp)))
-
-
-class Compilation_unit(Compilation_unit_base):
-
-    def pprint(self, fp, prefix):
-        fp.write("%s | ident = %s\n" % (prefix, str(self.ident)))
-        fp.write("%s | linkage_name = %s\n" % (prefix, str(self.linkage_name)))
-
-    def __str__(self):
-        return "%s/%s" % (self.linkage_name, self.ident)
-
-
-class Variable(Variable_base):
-
-    def __str__(self):
-        return "%s/%s/%s" % (
-                self.compilation_unit.linkage_name,
-                str(self.name),
-                str(self.stamp)
-        )
-
-
-class Function_metadata(Function_metadata_base):
-
-    def pprint(self, fp, prefix):
-        fp.write("%s | closure_id = %s\n" % (prefix, str(self.closure_id)))
-        fp.write("%s | set_of_closure_id = %s\n" % (prefix, str(self.set_of_closure_id)))
-        fp.write("%s | closure_origin = %s\n" % (prefix, str(self.closure_origin)))
-
-
-class Function_call(Function_call_base):
-
-    def pprint(self, fp, prefix):
-        fp.write("%s | function:\n" % prefix)
-        self.function.pprint(fp, prefix + "  ")
-        fp.write("%s | apply_id:\n" % prefix)
-        self.apply_id.pprint(fp, prefix + "  ")
-
-
-def unpack_atom(atom):
-    if isinstance(atom, str) or isinstance(atom, int):
-        return atom
-    elif isinstance(atom, sexpdata.Symbol):
-        return atom.value()
-    else:
-        assert False
-
-
-def sexp_to_map(sexp):
-    assert isinstance(sexp, list)
-    ret = {}
-    for (a, b) in sexp:
-        assert is_atom(a)
-        ret[unpack_atom(a)] = b
-    return ret
-
-def is_atom(sexp):
-    return isinstance(sexp, str) \
-            or isinstance(sexp, sexpdata.Symbol) \
-            or isinstance(sexp, int)
-
-
-def compilation_unit_of_sexp(sexp):
-    assert len(sexp) == 2
-    return Compilation_unit(ident=unpack_atom(sexp[0]), linkage_name=unpack_atom(sexp[1]))
-    
-
-def variable_of_sexp(kind, sexp):
-    assert len(sexp) == 3
-    return Variable(
-            kind= kind,
-            compilation_unit= compilation_unit_of_sexp(sexp[0]),
-            name= unpack_atom(sexp[1]),
-            stamp= unpack_atom(sexp[2]),
-    )
-
-
-def closure_id_of_sexp(sexp):
-    return variable_of_sexp("closure_id", sexp)
-
-
-def closure_id_of_sexp(sexp):
-    return variable_of_sexp("closure_id_of_sexp", sexp)
-
-
-def closure_origin_of_sexp(sexp):
-    return variable_of_sexp("closure_origin", sexp)
-
-
-def set_of_closure_id_of_sexp(sexp):
-    raise NotImplementedError(
-            "[set_of_closure_id_of_sexp] has not been implemented")
-
-
-def option_of_sexp(sexp, *, f):
-    assert isinstance(sexp, list)
-    if len(sexp) == 0:
-        return None
-    else:
-        assert len(sexp) == 1
-        return f(sexp[0])
-
-
-def apply_id_stamp_of_sexp(sexp):
-    kind = unpack_atom(sexp[0])
-    if kind == "Plain_apply" or kind == "Over_application":
-        stamp = unpack_atom(sexp[1])
-        return Apply_stamp(kind=kind, stamp=stamp)
-    else:
-        assert len(sexp) == 1
-        return Apply_stamp(kind=kind, stamp=None)
-
-
-def apply_id_of_sexp(sexp):
-    compilation_unit = compilation_unit_of_sexp(sexp[0])
-    stamp = apply_id_stamp_of_sexp(sexp[1])
-    return Apply_id(
-            compilation_unit=compilation_unit,
-            stamp=stamp
-    )
-
-
-def function_metadata_of_sexp(sexp):
-    assert isinstance(sexp, list)
-    assert len(sexp) == 3
-    option_closure_id = option_of_sexp(sexp[0], f=closure_id_of_sexp)
-    option_set_of_closure_id = option_of_sexp(
-            sexp[1], f=set_of_closure_id_of_sexp)
-    closure_origin = closure_origin_of_sexp(sexp[2])
-
-    return Function_metadata(
-            closure_id=option_closure_id,
-            set_of_closure_id=option_set_of_closure_id,
-            closure_origin=closure_origin
-    )
-
-
-def declaration_of_sexp(sexp):
-    m = sexp_to_map(sexp)
-    name = "Declaration"
-    value = function_metadata_of_sexp(m["declared"])
-    children = [inlining_tree_of_sexp(child) for child in m["children"]]
-    return Node(name=name, value=value, children=children)
-
-
-def inlined_of_sexp(sexp):
-    m = sexp_to_map(sexp)
-    name = "Inlined"
-    value = Function_call(
-            function=function_metadata_of_sexp(m["applied"]),
-            apply_id=apply_id_of_sexp(m["apply_id"]))
-    children = [inlining_tree_of_sexp(child) for child in m["children"]]
-    return Node(name=name, value=value, children=children)
-
-
-def non_inlined_of_sexp(sexp):
-    m = sexp_to_map(sexp)
-    name = "Non_inlined"
-    value = Function_call(
-            function=function_metadata_of_sexp(m["applied"]),
-            apply_id=apply_id_of_sexp(m["apply_id"]))
-    return Node(name=name, value=value, children=[])
-    
-
-# Subject to the function prototype
-def inlining_tree_of_sexp(sexp):
-    dispatch_table = {
-            "Declaration": declaration_of_sexp,
-            "Apply_inlined_function": inlined_of_sexp,
-            "Apply_non_inlined_function": non_inlined_of_sexp,
-    }
-    return dispatch_table[unpack_atom(sexp[0])](sexp[1])
-
-
-# Something
-def top_level_of_sexp(sexp):
-    children = [inlining_tree_of_sexp(s) for s in sexp]
-    value = None
-    name = "Top_level"
-    return Node(name=name, value=value, children=children)
-
-
-def pprint_tree(fp, tree, indent=0):
-    spaces = str("--" * indent)
-    fp.write("%s %s\n" % (spaces, tree.name))
-    if tree.value is not None:
-        tree.value.pprint(fp, spaces)
-    for child in tree.children:
-        pprint_tree(fp, child, indent=indent+1)
+import inlining_tree
 
 
 def remove_brackets_from_sexp(sexp):
@@ -225,7 +18,7 @@ def remove_brackets_from_sexp(sexp):
         if isinstance(s, list):
             return "".join(flatten(x) for x in s)
         else:
-            return unpack_atom(s)
+            return inlining_tree.unpack_atom(s)
 
 
     assert not(isinstance(sexp, sexpdata.Bracket))
@@ -234,7 +27,7 @@ def remove_brackets_from_sexp(sexp):
         ret = []
         for child in sexp:
             if isinstance(child, sexpdata.Bracket):
-                ret[-1] = unpack_atom(ret[-1]) + flatten(child.value())
+                ret[-1] = inlining_tree.unpack_atom(ret[-1]) + flatten(child.value())
             else:
                 ret.append(remove_brackets_from_sexp(child))
         return ret
@@ -243,10 +36,151 @@ def remove_brackets_from_sexp(sexp):
         return sexp
 
 
+def build_tree_from_str(s):
+    s = s.decode("utf-8")
+    return inlining_tree.top_level_of_sexp(remove_brackets_from_sexp(sexpdata.loads(s)))
+
+sem = asyncio.Semaphore(4)
+
+
+async def async_load_tree_from_rundir(substep_dir):
+    print("Loading tree from %s" % substep_dir)
+    substep_tmp_dir = os.path.join(substep_dir, "tmp")
+
+    if not os.path.exists(substep_tmp_dir):
+        os.mkdir(substep_tmp_dir)
+
+    with open(os.devnull, 'w') as FNULL:
+        async with sem:
+            print("Created tar process for", substep_dir)
+            proc = await asyncio.subprocess.create_subprocess_exec("tar", 
+                "xzvf",
+                os.path.join(substep_dir, "artifacts.tar"),
+                "-C", substep_tmp_dir,
+                stdout=FNULL, stderr=FNULL)
+            print("Waiting on tar process for", substep_dir)
+            _stdout, _stderr = await proc.communicate()
+
+    data_collector_file = os.path.join(
+            substep_tmp_dir, "main.0.data_collector.v1.sexp")
+
+    if not os.path.exists(data_collector_file):
+        return None
+
+    async with sem:
+        proc = await asyncio.subprocess.create_subprocess_exec(
+            "../_build/default/tools/tree_tools.exe", "v1",
+            "decisions-to-tree",
+            data_collector_file,
+            "-output", "/dev/stdout",
+            stdout=subprocess.PIPE)
+        tree = build_tree_from_str(await proc.stdout.read())
+        await proc.wait()
+
+    shutil.rmtree(substep_tmp_dir)
+    print("Done with %s" % substep_dir)
+    return tree
+
+
+def iterate_rundirs(rundirs):
+    for rundir in rundirs:
+        opt_data_dir = os.path.join(rundir, "opt_data")
+
+        # initial (can have up to 9 sub steps)
+        for substep in range(0, 9):
+            substep_dir = os.path.join(opt_data_dir, "initial", str(substep))
+            if not os.path.exists(substep_dir):
+                continue
+            yield async_load_tree_from_rundir(substep_dir)
+
+        # parse every step
+        for step in range(0, 299):
+            for substep in range(0, 3):
+                substep_dir = os.path.join(
+                        opt_data_dir, str(step), str(substep))
+                if not os.path.exists(substep_dir):
+                    continue
+                yield async_load_tree_from_rundir(substep_dir)
+
+
+def collect_unique_nodes(acc, trace, tree):
+    assert isinstance(tree, inlining_tree.Node)
+
+    if tree.name == "Top_level":
+        assert trace == []
+        for child in tree.children:
+            collect_unique_nodes(acc, trace, child)
+    elif tree.name == "Inlined" or tree.name == "Non_inlined":
+        new_trace = trace + [(
+            "function",
+            tree.value.function.closure_origin.id(),
+            tree.value.apply_id.id()
+        )]
+        acc.add(inlining_tree.Path(new_trace))
+        for child in tree.children:
+            collect_unique_nodes(acc, new_trace, child)
+    elif tree.name == "Declaration":
+        new_trace = trace + [(
+            "declaration",
+            tree.value.closure_origin.id()
+        )]
+        for child in tree.children:
+            collect_unique_nodes(acc, new_trace, child)
+    else:
+        print(tree.name)
+        assert False
+
+
+def count_nodes(tree):
+    acc = 1
+
+    if tree.name == "Top_level":
+        for child in tree.children:
+            acc += count_nodes(child)
+
+    elif tree.name == "Inlined" or tree.name == "Non_inlined":
+        for child in tree.children:
+            acc += count_nodes(child)
+    elif tree.name == "Declaration":
+        for child in tree.children:
+            acc += count_nodes(child)
+    else:
+        print(tree.name)
+        assert False
+
+    return acc
+
+
 def main():
-    with open(sys.argv[1], "r") as f:
-        tree = top_level_of_sexp(remove_brackets_from_sexp(sexpdata.load(f)))
-    pprint_tree(sys.stdout, tree)
+    rundirs = []
+    with open("../important-logs/batch_executor.log") as batch_f:
+        for line in csv.reader(batch_f):
+            (script_name, rundir) = line
+            if script_name == "./experiment-scripts/simulated-annealing-lexifi-g2pp_benchmark":
+                rundir = "/media/usb" + rundir
+                print(rundir)
+                if os.path.exists(rundir):
+                    rundirs.append(rundir)
+
+    tasks = []
+    for task in iterate_rundirs(rundirs):
+        tasks.append(task)
+        if len(tasks) >= 100:
+            break
+
+    trees = []
+    loop = asyncio.get_event_loop()
+    done, pending = loop.run_until_complete(asyncio.wait(tasks))
+    assert len(pending) == 0
+    for task in done:
+        trees.append(task.result())
+    loop.close()
+
+    tree_paths = set()
+    for tree in trees:
+        collect_unique_nodes(tree_paths, [], tree)
+
+    print(len(tree_paths))
 
 
 if __name__  == "__main__":
