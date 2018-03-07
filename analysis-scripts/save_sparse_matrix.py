@@ -216,30 +216,6 @@ def filling_sparse_matrices(tree, tree_path_to_ids, sparse_matrices, level):
         filling_sparse_matrices(child, tree_path_to_ids, sparse_matrices, level+1)
 
 
-ProblemProperties = collections.namedtuple("ProblemProperties", [
-    "depth", "tree_path_to_ids"])
-
-
-class Problem(object):
-
-    def __init__(self, tree_path_to_ids, matrices):
-        self.properties = ProblemProperties(
-                depth=len(matrices), tree_path_to_ids=tree_path_to_ids
-        )
-        self.matrices = matrices
-
-    def dump(self, directory):
-        with open(os.path.join(directory, "properties.pkl"), "wb") as f:
-            pickle.dump(self.properties, f)
-
-        for i, matrix in self.matrices.items():
-            dense_matrix = matrix.todense()
-            np.save(
-                    os.path.join(directory, ("adjacency_matrix_%d.npz" % i)),
-                    dense_matrix,
-            )
-
-
 def trees_to_sparse_matrices(raw_trees):
 
     tree_paths = set()
@@ -261,7 +237,8 @@ def trees_to_sparse_matrices(raw_trees):
     for tree in trees_with_path_labels:
         filling_sparse_matrices(tree, tree_path_to_ids, matrices, level=0)
 
-    return Problem(tree_path_to_ids=tree_path_to_ids, matrices=matrices)
+    return inlining_tree.Problem(
+            tree_path_to_ids=tree_path_to_ids, matrices=matrices)
 
 
 def main():

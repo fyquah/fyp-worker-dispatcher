@@ -258,3 +258,27 @@ class Path(object):
 
     def __hash__(self):
         return hash(str(self))
+
+
+ProblemProperties = collections.namedtuple("ProblemProperties", [
+    "depth", "tree_path_to_ids"])
+
+
+class Problem(object):
+
+    def __init__(self, tree_path_to_ids, matrices):
+        self.properties = ProblemProperties(
+                depth=len(matrices), tree_path_to_ids=tree_path_to_ids
+        )
+        self.matrices = matrices
+
+    def dump(self, directory):
+        with open(os.path.join(directory, "properties.pkl"), "wb") as f:
+            pickle.dump(self.properties, f)
+
+        for i, matrix in self.matrices.items():
+            dense_matrix = matrix.todense()
+            np.save(
+                    os.path.join(directory, ("adjacency_matrix_%d.npz" % i)),
+                    dense_matrix,
+            )
