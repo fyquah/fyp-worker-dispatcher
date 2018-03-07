@@ -3,12 +3,15 @@ import collections
 import concurrent.futures
 import csv
 import os
+import pickle
 import sys
 import shutil
 import subprocess
 
 import aiofiles
+import numpy as np
 import sexpdata
+import scipy.sparse
 
 import inlining_tree
 
@@ -108,6 +111,7 @@ def collect_unique_nodes(acc, trace, tree):
 
     if tree.name == "Top_level":
         assert trace == []
+        acc.add(inlining_tree.Path([]))
         for child in tree.children:
             collect_unique_nodes(acc, trace, child)
     elif tree.name == "Inlined" or tree.name == "Non_inlined":
@@ -124,6 +128,7 @@ def collect_unique_nodes(acc, trace, tree):
             "declaration",
             tree.value.closure_origin.id()
         )]
+        acc.add(inlining_tree.Path(new_trace))
         for child in tree.children:
             collect_unique_nodes(acc, new_trace, child)
     else:
@@ -138,7 +143,10 @@ def relabel_to_paths(tree, trace):
         assert trace == []
         children = [relabel_to_paths(child, trace) for child in tree.children]
         return inlining_tree.Node(
-                name=tree.name, children=children, value=None)
+                name=tree.name,
+                children=children,
+                value=inlining_tree.Path([])
+        )
             
     elif tree.name == "Inlined" or tree.name == "Non_inlined":
         new_trace = trace + [(
@@ -165,7 +173,9 @@ def relabel_to_paths(tree, trace):
                 for child in tree.children
         ]
         return inlining_tree.Node(
-                name=tree.name, children=children, value=None)
+                name=tree.name, children=children,
+                value=inlining_tree.Path(new_trace)
+        )
     else:
         print(tree.name)
         assert False
@@ -191,6 +201,69 @@ def count_nodes(tree):
     return acc
 
 
+def filling_sparse_matrices(tree, tree_path_to_ids, sparse_matrices, level):
+    assert isinstance(tree, inlining_tree.Node)
+
+    src_path = tree.value
+    src = tree_path_to_ids[src_path]
+
+    for child in tree.children:
+        if child.name == "Inlined" or child.name == "Non_inlined":
+            dest_path = child.value
+            dest = tree_path_to_ids[dest_path]
+            sparse_matrices[level][src, dest] += 1
+
+        filling_sparse_matrices(child, tree_path_to_ids, sparse_matrices, level+1)
+
+
+ProblemProperties = collections.namedtuple("ProblemProperties", [
+    "depth", "tree_path_to_ids"])
+
+
+class Problem(object):
+
+    def __init__(self, tree_path_to_ids, matrices):
+        self.properties = ProblemProperties(
+                depth=len(matrices), tree_path_to_ids=tree_path_to_ids
+        )
+        self.matrices = matrices
+
+    def dump(self, directory):
+        with open(os.path.join(directory, "properties.pkl"), "wb") as f:
+            pickle.dump(self.properties, f)
+
+        for i, matrix in self.matrices.items():
+            dense_matrix = matrix.todense()
+            np.save(
+                    os.path.join(directory, ("adjacency_matrix_%d.npz" % i)),
+                    dense_matrix,
+            )
+
+
+def trees_to_sparse_matrices(raw_trees):
+
+    tree_paths = set()
+    tree_path_to_ids = {}
+
+    for tree in raw_trees:
+        collect_unique_nodes(tree_paths, [], tree)
+
+    for i, tree_path in enumerate(tree_paths):
+        tree_path_to_ids[tree_path] = i
+
+    trees_with_path_labels = [relabel_to_paths(tree, []) for tree in raw_trees]
+    num_unique_paths = len(tree_paths)
+    matrices = collections.defaultdict(
+            lambda : scipy.sparse.lil_matrix(
+                (num_unique_paths, num_unique_paths),
+                dtype=np.int32)
+    )
+    for tree in trees_with_path_labels:
+        filling_sparse_matrices(tree, tree_path_to_ids, matrices, level=0)
+
+    return Problem(tree_path_to_ids=tree_path_to_ids, matrices=matrices)
+
+
 def main():
     rundirs = []
     with open("../important-logs/batch_executor.log") as batch_f:
@@ -205,30 +278,21 @@ def main():
     tasks = []
     for task in iterate_rundirs(rundirs):
         tasks.append(task)
-        if len(tasks) >= 10:
-            break
+    #    if len(tasks) >= 10:
+    #        break
 
     trees = []
     loop = asyncio.get_event_loop()
     done, pending = loop.run_until_complete(asyncio.wait(tasks))
     assert len(pending) == 0
     for task in done:
-        trees.append(task.result())
+        tree = task.result()
+        if tree is not None:
+            trees.append(tree)
     loop.close()
 
-    tree_paths = set()
-    tree_path_to_ids = {}
-
-    for tree in trees:
-        collect_unique_nodes(tree_paths, [], tree)
-
-    for i, tree_path in enumerate(tree_paths):
-        tree_path_to_ids[tree_path] = i
-
-    tree_with_path_labels = [relabel_to_paths(tree, []) for tree in trees]
-    print(max(inlining_tree.max_depth(tree) for tree in tree_with_path_labels))
-
-
+    problem = trees_to_sparse_matrices(trees)
+    problem.dump("lexifi")
 
 
 if __name__  == "__main__":
