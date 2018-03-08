@@ -63,6 +63,21 @@ let geometric_mean l =
   base ** power
 ;;
 
+let arithmetic_mean l =
+  let n = float_of_int (List.length l) in
+  let sum = List.fold l ~init:0.0 ~f:(fun a b -> a +. b) in
+  sum /. n
+;;
+
+let standard_deviation l =
+  let n = float_of_int (List.length l) in
+  let mew = arithmetic_mean l in
+  let sum =
+    List.fold l ~init:0.0 ~f:(fun a b -> a +. Float.int_pow (b -. mew) 2)
+  in
+  Float.sqrt (sum /. n)
+;;
+
 let gmean_exec_time t =
   t.Execution_stats.raw_execution_time
   |> List.map ~f:Time.Span.to_sec

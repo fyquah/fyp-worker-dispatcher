@@ -14,7 +14,7 @@
      fyp_stats
      optimization
 
-     owl
+     ; owl
      ))))
 
 (install

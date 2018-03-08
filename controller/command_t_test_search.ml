@@ -202,8 +202,8 @@ let command =
                  Array.of_list_map result.benchmark.raw_execution_time
                    ~f:Time.Span.to_sec
                in
-               let mean = Time.Span.of_sec (Owl.Stats.mean seconds) in
-               let sd = Time.Span.of_sec (Owl.Stats.std seconds) in
+               let mean = Time.Span.of_sec (arithmetic_mean (Array.to_list seconds)) in
+               let sd = Time.Span.of_sec (standard_deviation (Array.to_list seconds)) in
                printf
                  !"[GENERATION %d] Work unit %{Work_unit_id}: %{Time.Span} (sd: %{Time.Span})\n"
                  generation.gen
