@@ -45,6 +45,19 @@ def build_tree_from_str(s):
 
 sem = asyncio.Semaphore(4)
 
+def parse_time(s):
+    if s[-1] == 's':
+        return float(s[:-1])
+    elif s[-1] == 'm':
+        return float(s[:-1]) * 60
+
+
+def geometric_mean(times):
+    p = 1
+    for t in times:
+        p = p * t
+    return p ** (1.0 / len(times))
+
 
 async def async_load_tree_from_rundir(substep_dir):
     print("Loading tree from %s" % substep_dir)
@@ -66,8 +79,12 @@ async def async_load_tree_from_rundir(substep_dir):
 
     data_collector_file = os.path.join(
             substep_tmp_dir, "main.0.data_collector.v1.sexp")
+    execution_stats_file = os.path.join(substep_dir, "execution_stats.sexp")
 
     if not os.path.exists(data_collector_file):
+        return None
+
+    if not os.path.exists(execution_stats_file):
         return None
 
     async with sem:
@@ -80,9 +97,17 @@ async def async_load_tree_from_rundir(substep_dir):
         tree = build_tree_from_str(await proc.stdout.read())
         await proc.wait()
 
+    with open(execution_stats_file) as f:
+        execution_stats_sexp = sexpdata.load(f)
+        m = inlining_tree.sexp_to_map(execution_stats_sexp)
+        execution_time = geometric_mean([
+                parse_time(inlining_tree.unpack_atom(x))
+                for x in m["raw_execution_time"]
+        ])
+
     shutil.rmtree(substep_tmp_dir)
     print("Done with %s" % substep_dir)
-    return tree
+    return (tree, execution_time)
 
 
 def iterate_rundirs(rundirs):
@@ -117,7 +142,6 @@ def collect_unique_nodes(acc, trace, tree):
     elif tree.name == "Inlined" or tree.name == "Non_inlined":
         new_trace = trace + [(
             "function",
-            tree.value.function.closure_origin.id(),
             tree.value.apply_id.id()
         )]
         acc.add(inlining_tree.Path(new_trace))
@@ -151,7 +175,6 @@ def relabel_to_paths(tree, trace):
     elif tree.name == "Inlined" or tree.name == "Non_inlined":
         new_trace = trace + [(
             "function",
-            tree.value.function.closure_origin.id(),
             tree.value.apply_id.id()
         )]
         children = [
@@ -216,7 +239,24 @@ def filling_sparse_matrices(tree, tree_path_to_ids, sparse_matrices, level):
         filling_sparse_matrices(child, tree_path_to_ids, sparse_matrices, level+1)
 
 
-def trees_to_sparse_matrices(raw_trees):
+def filling_vertices(tree, tree_path_to_ids, vertices):
+    assert isinstance(tree, inlining_tree.Node)
+
+    src_path = tree.value
+    src = tree_path_to_ids[src_path]
+
+    index_dispatch = {
+            "Inlined": 0,
+            "Non_inlined": 1,
+            "Declaration": 2,
+            "Top_level":   3,
+    }
+    vertices[tree_path_to_ids[tree.value], index_dispatch[tree.name]] = 1
+    for child in tree.children:
+        filling_vertices(child, tree_path_to_ids, vertices)
+
+
+def formulate_problem(raw_trees, execution_times):
 
     tree_paths = set()
     tree_path_to_ids = {}
@@ -234,11 +274,25 @@ def trees_to_sparse_matrices(raw_trees):
                 (num_unique_paths, num_unique_paths),
                 dtype=np.int32)
     )
+    train_x = []
+
     for tree in trees_with_path_labels:
+        vertices = np.zeros((len(tree_paths), 4))
+        filling_vertices(tree, tree_path_to_ids, vertices)
         filling_sparse_matrices(tree, tree_path_to_ids, matrices, level=0)
+        train_x.append(vertices)
+
+    node_labels = np.array(train_x)
+
+    assert len(node_labels) == len(execution_times)
+
+    matrices = {k: scipy.sparse.csr_matrix(v) for k, v in matrices.items()}
 
     return inlining_tree.Problem(
-            tree_path_to_ids=tree_path_to_ids, matrices=matrices)
+            tree_path_to_ids=tree_path_to_ids,
+            matrices=matrices,
+            node_labels=node_labels,
+            execution_times=execution_times)
 
 
 def main():
@@ -255,20 +309,21 @@ def main():
     tasks = []
     for task in iterate_rundirs(rundirs):
         tasks.append(task)
-    #    if len(tasks) >= 10:
-    #        break
 
-    trees = []
+    results = []
     loop = asyncio.get_event_loop()
     done, pending = loop.run_until_complete(asyncio.wait(tasks))
     assert len(pending) == 0
     for task in done:
-        tree = task.result()
-        if tree is not None:
-            trees.append(tree)
+        result = task.result()
+        if result is not None:
+            results.append(result)
     loop.close()
 
-    problem = trees_to_sparse_matrices(trees)
+    print("Loaded %d samples to train on" % len(results))
+    trees, execution_times = zip(*results)
+
+    problem = formulate_problem(trees, execution_times)
     problem.dump("lexifi")
 
 

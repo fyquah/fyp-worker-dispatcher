@@ -1,5 +1,9 @@
 import collections
+import os
+import pickle
 
+import numpy as np
+import scipy.sparse
 import sexpdata
 
 
@@ -246,7 +250,7 @@ class Path(object):
         ret = []
         for item in self._trace:
             if item[0] == "function":
-                ret.append("%s<%s>" % (item[1], item[2]))
+                ret.append("<%s>" % (item[1]))
             elif item[0] == "declaration":
                 ret.append("{%s}" % item[1])
             else:
@@ -259,6 +263,9 @@ class Path(object):
     def __hash__(self):
         return hash(str(self))
 
+    def is_apply_node(self):
+        return len(self._trace) >= 1 and self._trace[-1][0] == "function"
+
 
 ProblemProperties = collections.namedtuple("ProblemProperties", [
     "depth", "tree_path_to_ids"])
@@ -266,10 +273,12 @@ ProblemProperties = collections.namedtuple("ProblemProperties", [
 
 class Problem(object):
 
-    def __init__(self, tree_path_to_ids, matrices):
+    def __init__(self, tree_path_to_ids, matrices, node_labels, execution_times):
         self.properties = ProblemProperties(
                 depth=len(matrices), tree_path_to_ids=tree_path_to_ids
         )
+        self.node_labels = node_labels
+        self.execution_times = execution_times
         self.matrices = matrices
 
     def dump(self, directory):
@@ -277,8 +286,32 @@ class Problem(object):
             pickle.dump(self.properties, f)
 
         for i, matrix in self.matrices.items():
-            dense_matrix = matrix.todense()
-            np.save(
+            scipy.sparse.save_npz(
                     os.path.join(directory, ("adjacency_matrix_%d.npz" % i)),
-                    dense_matrix,
+                    matrix,
             )
+
+        np.save(
+                os.path.join(directory, "execution_times"),
+                self.execution_times)
+        np.save(
+                os.path.join(directory, "node_labels"),
+                self.node_labels)
+
+    @classmethod
+    def load(cls, directory):
+        with open(os.path.join(directory, "properties.pkl"), "rb") as f:
+            properties = pickle.load(f)
+        matrices = []
+        for i in range(properties.depth):
+            matrix = scipy.sparse.load_npz(
+                    os.path.join(directory, ("adjacency_matrix_%d.npz" % i)))
+            matrices.append(matrix)
+        execution_times = np.load(os.path.join(directory, "execution_times.npy"))
+        node_labels = np.load(os.path.join(directory, "node_labels.npy"))
+        return cls(
+                tree_path_to_ids=properties.tree_path_to_ids,
+                matrices=matrices,
+                node_labels=node_labels,
+                execution_times=execution_times,
+        )
