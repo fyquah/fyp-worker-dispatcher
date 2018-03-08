@@ -273,17 +273,21 @@ ProblemProperties = collections.namedtuple("ProblemProperties", [
 
 class Problem(object):
 
-    def __init__(self, tree_path_to_ids, matrices, node_labels, execution_times):
+    def __init__(self, tree_path_to_ids, matrices, node_labels, execution_times, edges_lists):
         self.properties = ProblemProperties(
                 depth=len(matrices), tree_path_to_ids=tree_path_to_ids
         )
         self.node_labels = node_labels
         self.execution_times = execution_times
         self.matrices = matrices
+        self.edges_lists = edges_lists
 
     def dump(self, directory):
         with open(os.path.join(directory, "properties.pkl"), "wb") as f:
             pickle.dump(self.properties, f)
+
+        with open(os.path.join(directory, "edges_lists.pkl"), "wb") as f:
+            pickle.dump(self.edges_lists, f)
 
         for i, matrix in self.matrices.items():
             scipy.sparse.save_npz(
@@ -302,6 +306,8 @@ class Problem(object):
     def load(cls, directory):
         with open(os.path.join(directory, "properties.pkl"), "rb") as f:
             properties = pickle.load(f)
+        with open(os.path.join(directory, "edges_lists.pkl"), "rb") as f:
+            edges_lists = pickle.load(f)
         matrices = []
         for i in range(properties.depth):
             matrix = scipy.sparse.load_npz(
@@ -314,4 +320,5 @@ class Problem(object):
                 matrices=matrices,
                 node_labels=node_labels,
                 execution_times=execution_times,
+                edges_lists=edges_lists,
         )

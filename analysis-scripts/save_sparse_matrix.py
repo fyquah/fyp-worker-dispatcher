@@ -256,6 +256,17 @@ def filling_vertices(tree, tree_path_to_ids, vertices):
         filling_vertices(child, tree_path_to_ids, vertices)
 
 
+def populate_edge_list(edge_list, tree_path_to_ids, tree):
+
+    for child in tree.children:
+        dest_path = child.value
+        dest = tree_path_to_ids[dest_path]
+        src = tree_path_to_ids[tree.value]
+        edge_list.append((src, dest, child.name))
+
+        populate_edge_list(edge_list, tree_path_to_ids, child)
+
+
 def formulate_problem(raw_trees, execution_times):
 
     tree_paths = set()
@@ -287,12 +298,19 @@ def formulate_problem(raw_trees, execution_times):
     assert len(node_labels) == len(execution_times)
 
     matrices = {k: scipy.sparse.csr_matrix(v) for k, v in matrices.items()}
+    edge_lists = []
+
+    for tree in trees_with_path_labels:
+        edges = []
+        populate_edge_list(edges, tree_path_to_ids, tree)
+        edge_lists.append(edges)
 
     return inlining_tree.Problem(
             tree_path_to_ids=tree_path_to_ids,
             matrices=matrices,
             node_labels=node_labels,
-            execution_times=execution_times)
+            execution_times=execution_times,
+            edges_lists=edge_lists)
 
 
 def main():
