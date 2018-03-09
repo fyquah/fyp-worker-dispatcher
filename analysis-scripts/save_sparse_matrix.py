@@ -215,6 +215,7 @@ def formulate_problem(raw_trees, execution_times):
 parser = argparse.ArgumentParser(description="formulate the problem")
 parser.add_argument("--script-name", type=str, help="Name of script", required=True)
 parser.add_argument("--output-dir", type=str, help="output dir", required=True)
+parser.add_argument("--bin-name", type=str, help="output dir", required=True)
 
 
 def main():
@@ -223,7 +224,7 @@ def main():
     with open("../important-logs/batch_executor.log") as batch_f:
         for line in csv.reader(batch_f):
             (script_name, sub_rundir) = line
-            if script_name == "./experiment-scripts/simulated-annealing-lexifi-g2pp_benchmark":
+            if script_name == args.script_name:
                 rundir = "/media/usb" + sub_rundir
                 if os.path.exists(rundir):
                     rundirs.append(rundir)
@@ -237,7 +238,7 @@ def main():
 
     pool = concurrent.futures.ThreadPoolExecutor(8)
     futures = [
-            pool.submit(inlining_tree.load_tree_from_rundir, task)
+            pool.submit(inlining_tree.load_tree_from_rundir, task, args.bin_name)
             for task in tasks
     ]
     results = [r.result() for r in concurrent.futures.as_completed(futures)]
@@ -256,7 +257,7 @@ def main():
     trees, execution_times = zip(*results)
 
     problem = formulate_problem(trees, execution_times)
-    problem.dump("lexifi")
+    problem.dump(args.output_dir)
 
 
 if __name__  == "__main__":

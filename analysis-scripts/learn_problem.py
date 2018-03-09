@@ -1,5 +1,6 @@
 import math
 import sys
+import os
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,8 +18,8 @@ def reduce_to_first_order():
 ALPHA = 100.0  # Scales benefit to something reasonable
 BENEFIT_DECAY = 0.5
 LOSS_PROPORTIONS = {
-        "benefit": 0.5,
-        "contribution": 0.5,
+        "benefit": 5.0,
+        "contribution": 1.0,
 }
 LEARNING_RATE = 0.0005
 NUM_EPOCH = 10000
@@ -73,7 +74,7 @@ def construct_linear_benefit_relation(root, num_nodes, edge_list):
     return benefit_relation, participation
 
 
-def do_some_sexy_math(reference_benefit, benefit_relations, participation_mask):
+def do_some_sexy_math(reference_benefit, benefit_relations, participation_mask, dump_dir):
     num_examples = len(reference_benefit)
     num_features = benefit_relations.shape[1]
     num_nodes = num_features / 2
@@ -107,7 +108,7 @@ def do_some_sexy_math(reference_benefit, benefit_relations, participation_mask):
     non_empty_contribution_mean = \
             non_empty_contributions \
             / tf.cast(non_empty_participation_count, tf.float64)  # (num_non_zero_features, )
-    contribution_deviation = tf.reduce_sum(
+    contribution_deviation = tf.reduce_mean(
             (tf.square(X_relevant - non_empty_contribution_mean)),
             axis=0)  / tf.cast(non_empty_participation_count, tf.float64)  # (num_non_zero_features, )
 
@@ -128,11 +129,18 @@ def do_some_sexy_math(reference_benefit, benefit_relations, participation_mask):
 
     dbg = tf.reduce_sum(A)
 
-    with tf.Session() as sess:
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.47)
+
+    with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         sess.run(tf.global_variables_initializer())
         for epoch in range(NUM_EPOCH):
-            _, epoch_loss = sess.run([stepper, loss], feed_dict={})
-            print("Epoch %d -- loss = %.5f" % (epoch, epoch_loss))
+            _, epoch_loss, epoch_benefit_error, epoch_contribution_error = sess.run(
+                    [stepper, loss, benefit_error, contribution_error], feed_dict={})
+            print("Epoch %d -- loss = %.5f (contribution = %.5f, benefit = %.5f)" % (epoch, epoch_loss, epoch_contribution_error, epoch_benefit_error))
+
+            if epoch % 100 == 0 or epoch_loss < CONVERGENCE:
+                np.save(os.path.join(dump_dir, ("learnt-values-%d" % epoch)),
+                        sess.run(X, feed_dict={}))
 
             if epoch_loss < CONVERGENCE:
                 break
@@ -163,8 +171,8 @@ def main():
     execution_times = np.array(problem.execution_times)
 
     reference_benefit = ALPHA * np.log(execution_times / time_average)
-    plt.hist(reference_benefit)
-    plt.show()
+    # plt.hist(reference_benefit)
+    # plt.show()
 
     participation_mask = np.zeros((num_runs, num_vertices * 2))
     benefit_relations = np.zeros((num_runs, num_vertices * 2))
@@ -176,25 +184,10 @@ def main():
         participation_mask[i, :] = participation
 
     node_valuations = do_some_sexy_math(
-            reference_benefit, benefit_relations, participation_mask)
+            reference_benefit, benefit_relations, participation_mask, directory)
 
     participation_counts = np.sum(participation_mask, axis=0)
     assert participation_counts.shape == (num_vertices * 2,)
-
-    for i in range(num_vertices):
-        path = id_to_tree_path[i]
-
-        lhs = olaf(np.sum(node_valuations[:, i * 2]), participation_counts[i * 2])
-        rhs = olaf(np.sum(node_valuations[:, i * 2 + 1]), participation_counts[i * 2 + 1])
-
-        print ("%s\t%s\t%s" % (path, lhs, rhs))
-
-
-def olaf(a, n):
-    if n == 0:
-        return "N/A"
-    else:
-        return "%.5f" % (float(a) / float(n))
 
 
 if __name__ == "__main__":

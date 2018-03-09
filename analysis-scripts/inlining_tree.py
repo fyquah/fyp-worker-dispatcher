@@ -39,7 +39,7 @@ class Apply_id(Apply_id_base):
         fp.write("%s | apply stamp = %s\n" % (prefix, str(self.stamp)))
 
     def id(self):
-        return "%s__%s"% (Aelf.compilation_unit.linkage_name, str(self.stamp.stamp))
+        return "%s__%s"% (self.compilation_unit.linkage_name, str(self.stamp.stamp))
 
 
 class Compilation_unit(Compilation_unit_base):
@@ -64,7 +64,7 @@ class Variable(Variable_base):
     def id(self):
         return "%s__%s" % (
                 self.compilation_unit.linkage_name,
-                str(self.name),
+                str(self.name),  # once again, bug with closure origin
         )
 
 
@@ -385,7 +385,7 @@ def parse_time(s):
         return float(s[:-1]) * 60
 
 
-def load_tree_from_rundir(substep_dir):
+def load_tree_from_rundir(substep_dir, bin_name):
     print("Loading tree from %s" % substep_dir)
     substep_tmp_dir = os.path.join(substep_dir, "tmp")
 
@@ -399,7 +399,7 @@ def load_tree_from_rundir(substep_dir):
                 stdout=FNULL, stderr=FNULL)
 
         data_collector_file = os.path.join(
-                substep_tmp_dir, "main.0.data_collector.v1.sexp")
+                substep_tmp_dir, bin_name + ".0.data_collector.v1.sexp")
         execution_stats_file = os.path.join(substep_dir, "execution_stats.sexp")
 
         if not os.path.exists(data_collector_file):
