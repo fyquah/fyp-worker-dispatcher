@@ -1,5 +1,6 @@
 import collections
 import contextlib
+import logging
 import os
 import pickle
 import threading
@@ -310,6 +311,7 @@ class Problem(object):
 
     @classmethod
     def load(cls, directory):
+        logging.info("Loading problem definitions and objects from %s" % directory)
         with open(os.path.join(directory, "properties.pkl"), "rb") as f:
             properties = pickle.load(f)
         with open(os.path.join(directory, "edges_lists.pkl"), "rb") as f:
