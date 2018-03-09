@@ -1,9 +1,13 @@
+import asyncio
 import collections
+import contextlib
 import os
 import pickle
+import subprocess
 
 import numpy as np
 import scipy.sparse
+import shutil
 import sexpdata
 
 
@@ -87,6 +91,8 @@ def unpack_atom(atom):
         return atom
     elif isinstance(atom, sexpdata.Symbol):
         return atom.value()
+    elif isinstance(atom, sexpdata.Quoted):
+        return atom.value()
     else:
         assert False
 
@@ -122,10 +128,6 @@ def variable_of_sexp(kind, sexp):
 
 def closure_id_of_sexp(sexp):
     return variable_of_sexp("closure_id", sexp)
-
-
-def closure_id_of_sexp(sexp):
-    return variable_of_sexp("closure_id_of_sexp", sexp)
 
 
 def closure_origin_of_sexp(sexp):
@@ -168,9 +170,12 @@ def apply_id_of_sexp(sexp):
 def function_metadata_of_sexp(sexp):
     assert isinstance(sexp, list)
     assert len(sexp) == 3
-    option_closure_id = option_of_sexp(sexp[0], f=closure_id_of_sexp)
-    option_set_of_closure_id = option_of_sexp(
-            sexp[1], f=set_of_closure_id_of_sexp)
+
+    # TODO: fix this
+    # option_closure_id = option_of_sexp(sexp[0], f=closure_id_of_sexp)
+    # option_set_of_closure_id = option_of_sexp(sexp[1], f=set_of_closure_id_of_sexp)
+    option_closure_id = None
+    option_set_of_closure_id = None
     closure_origin = closure_origin_of_sexp(sexp[2])
 
     return Function_metadata(
@@ -314,7 +319,8 @@ class Problem(object):
                     os.path.join(directory, ("adjacency_matrix_%d.npz" % i)))
             matrices.append(matrix)
         execution_times = np.load(os.path.join(directory, "execution_times.npy"))
-        node_labels = np.load(os.path.join(directory, "node_labels.npy"))
+        # node_labels = np.load(os.path.join(directory, "node_labels.npy"))
+        node_labels = None
         return cls(
                 tree_path_to_ids=properties.tree_path_to_ids,
                 matrices=matrices,
@@ -322,3 +328,112 @@ class Problem(object):
                 execution_times=execution_times,
                 edges_lists=edges_lists,
         )
+
+
+def geometric_mean(times):
+    p = 1
+    for t in times:
+        p = p * t
+    return p ** (1.0 / len(times))
+
+
+@contextlib.contextmanager
+def in_temporary_directory(substep_tmp_dir):
+    if not os.path.exists(substep_tmp_dir):
+        os.mkdir(substep_tmp_dir)
+    yield
+    print("Removed %s" % substep_tmp_dir)
+    shutil.rmtree(substep_tmp_dir)
+
+
+def remove_brackets_from_sexp(sexp):
+    def flatten(s):
+        if isinstance(s, list):
+            return "".join(flatten(x) for x in s)
+        else:
+            return unpack_atom(s)
+
+
+    assert not(isinstance(sexp, sexpdata.Bracket))
+
+    if isinstance(sexp, list):
+        ret = []
+        for child in sexp:
+            if isinstance(child, sexpdata.Bracket):
+                ret[-1] = unpack_atom(ret[-1]) + flatten(child.value())
+            else:
+                ret.append(remove_brackets_from_sexp(child))
+        return ret
+
+    else:
+        return sexp
+
+
+def build_tree_from_str(s):
+    s = s.decode("utf-8")
+    try:
+        return top_level_of_sexp(remove_brackets_from_sexp(sexpdata.loads(s)))
+    except sexpdata.ExpectClosingBracket:
+        return None
+
+
+def parse_time(s):
+    if s[-1] == 's':
+        return float(s[:-1])
+    elif s[-1] == 'm':
+        return float(s[:-1]) * 60
+
+
+process_semaphore = asyncio.Semaphore(4)
+
+async def async_load_tree_from_rundir(substep_dir):
+    print("Loading tree from %s" % substep_dir)
+    substep_tmp_dir = os.path.join(substep_dir, "tmp")
+
+    async with process_semaphore:
+        with in_temporary_directory(substep_tmp_dir):
+            with open(os.devnull, 'w') as FNULL:
+                print("Created tar process for", substep_dir)
+                proc = await asyncio.subprocess.create_subprocess_exec("tar", 
+                    "xzvf",
+                    os.path.join(substep_dir, "artifacts.tar"),
+                    "-C", substep_tmp_dir,
+                    stdout=FNULL, stderr=FNULL)
+                print("Waiting on tar process for", substep_dir)
+                _stdout, _stderr = await proc.communicate()
+
+            data_collector_file = os.path.join(
+                    substep_tmp_dir, "main.0.data_collector.v1.sexp")
+            execution_stats_file = os.path.join(substep_dir, "execution_stats.sexp")
+
+            if not os.path.exists(data_collector_file):
+                print("Dropping %s due to missing data collector file" % substep_dir)
+                return None
+
+            if not os.path.exists(execution_stats_file):
+                print("Dropping %s due to missing execution stats" % substep_dir)
+                return None
+
+            proc = await asyncio.subprocess.create_subprocess_exec(
+                "../_build/default/tools/tree_tools.exe", "v1",
+                "decisions-to-tree",
+                data_collector_file,
+                "-output", "/dev/stdout",
+                stdout=subprocess.PIPE)
+
+            tree = build_tree_from_str(await proc.stdout.read())
+            if tree is None:
+                print("Dropping %s because cannot parse sexp correctly" % substep_dir)
+                return None
+            await proc.wait()
+
+            with open(execution_stats_file) as f:
+                execution_stats_sexp = sexpdata.load(f)
+                m = sexp_to_map(execution_stats_sexp)
+                execution_time = geometric_mean([
+                        parse_time(unpack_atom(x))
+                        for x in m["raw_execution_time"]
+                ])
+
+            print("Done with %s" % substep_dir)
+    return (tree, execution_time)
