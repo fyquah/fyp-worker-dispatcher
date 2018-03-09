@@ -39,7 +39,7 @@ class Apply_id(Apply_id_base):
         fp.write("%s | apply stamp = %s\n" % (prefix, str(self.stamp)))
 
     def id(self):
-        return str(self.stamp.stamp)
+        return "%s__%s"% (Aelf.compilation_unit.linkage_name, str(self.stamp.stamp))
 
 
 class Compilation_unit(Compilation_unit_base):
@@ -62,10 +62,9 @@ class Variable(Variable_base):
         )
 
     def id(self):
-        return "%s__%s_%s" % (
+        return "%s__%s" % (
                 self.compilation_unit.linkage_name,
                 str(self.name),
-                str(self.stamp)
         )
 
 
@@ -265,7 +264,7 @@ class Path(object):
         return "/".join(ret)
 
     def __eq__(self, other):
-        return self._trace == other._trace
+        return str(self) == str(other)
 
     def __hash__(self):
         return hash(str(self))
