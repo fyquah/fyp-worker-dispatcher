@@ -1,3 +1,6 @@
+import argparse
+import collections
+import logging
 import math
 import os
 import sys
@@ -16,34 +19,75 @@ def olaf(a, n):
     else:
         return "%.5f" % (sum(a) / float(n))
 
+parser = argparse.ArgumentParser(description="formulate the problem")
+parser.add_argument("dir", type=str, help="experiment dir")
+parser.add_argument("--epoch", type=int, help="Epoch that we are interespted in", required=True)
+parser.add_argument("--opt-info", action="store_true")
+parser.add_argument("--components", action="store_true")
+
+
 def main():
-    directory = sys.argv[1]
-    epoch = int(sys.argv[2])
+    logging.getLogger().setLevel(logging.INFO)
+    args = parser.parse_args()
+    directory = args.dir
+    epoch = args.epoch
     problem = inlining_tree.Problem.load(directory)
 
     id_to_tree_path  = { v: k for k, v in problem.properties.tree_path_to_ids.items() }
     num_vertices = len(problem.properties.tree_path_to_ids)
     num_runs = len(problem.execution_times)
 
-    participation_mask = np.zeros((num_runs, num_vertices * 2))
-    benefit_relations = np.zeros((num_runs, num_vertices * 2))
-    for i, edge_list in enumerate(problem.edges_lists):
-        root = problem.properties.tree_path_to_ids[inlining_tree.Path([])]
-        benefit_relation, participation = learn_problem.construct_linear_benefit_relation(
-                root, num_vertices, edge_list)
-        benefit_relations[i, :] = benefit_relation
-        participation_mask[i, :] = participation
+    time_average = np.mean(problem.execution_times)
+    execution_times = problem.execution_times
+    reference_benefit = learn_problem.ALPHA * np.log(execution_times / time_average)
+    X_estimate = np.load(os.path.join(directory, "learnt-values-%d.npy" % epoch))
 
-    X = np.load(os.path.join(directory, "learnt-values-%d.npy" % epoch))
-    participation_counts = np.sum(participation_mask, axis=0)
+    problem_matrices = learn_problem.construct_problem_matrices(problem)
+    objective_tensors = learn_problem.construct_objective(
+            reference_benefit=reference_benefit,
+            benefit_relations=problem_matrices.benefit_relations,
+            participation_mask=problem_matrices.participation_mask,
+            X_init=tf.constant_initializer(X_estimate))
 
-    for i in range(num_vertices):
-        path = id_to_tree_path[i]
+    print(">>>>>>> Solution after %d epoch <<<<<<<<" % epoch)
 
-        lhs = olaf(X[:, i * 2], participation_counts[i * 2])
-        rhs = olaf(X[:, i * 2 + 1], participation_counts[i * 2 + 1])
+    if args.components:
+        participation_counts = np.sum(
+                problem_matrices.participation_mask, axis=0)
+        arr = []
+        for i in range(num_vertices):
+            path = id_to_tree_path[i]
+            lhs = olaf(X_estimate[:, i * 2], participation_counts[i * 2])
+            rhs = olaf(X_estimate[:, i * 2 + 1], participation_counts[i * 2 + 1])
+            arr.append((path, lhs, rhs))
 
-        print ("%s\t%s\t%s" % (path, lhs, rhs))
+        arr.sort(key=lambda (a,b,c): a)
+        lhs_size = max(len(x) for (_, x, _) in arr) + 1
+        rhs_size = max(len(x) for (_, _, x) in arr) + 1
+
+        for (path, lhs, rhs) in arr:
+            print lhs,
+            print (" " * (lhs_size - len(lhs))),
+            print " | ",
+            print rhs,
+            print (" " * (lhs_size - len(rhs))),
+            print " |", str(path)
+
+    elif args.opt_info:
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            loss, benefit_loss, variance_loss = sess.run([
+                    objective_tensors.loss,
+                    objective_tensors.benefit_loss,
+                    objective_tensors.variance_loss,
+                ], feed_dict={})
+
+            print("- Loss = %.6f" % loss)
+            print("- Benefit loss = %.6f" % benefit_loss)
+            print("- Variance loss = %.6f" % variance_loss)
+
+    else:
+        parser.print_help()
 
 
 if __name__ == "__main__":

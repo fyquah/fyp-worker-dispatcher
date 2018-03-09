@@ -1,6 +1,8 @@
+import collections
 import math
 import sys
 import os
+import logging
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -73,8 +75,30 @@ def construct_linear_benefit_relation(root, num_nodes, edge_list):
 
     return benefit_relation, participation
 
+ObjectiveTensors = collections.namedtuple("ObjectiveTensors", [
+        "step", "loss", "variance_loss", "benefit_loss", "estimates"])
 
-def do_some_sexy_math(reference_benefit, benefit_relations, participation_mask, dump_dir):
+ProblemMatrices = collections.namedtuple("ProblemMatrices", [
+    "participation_mask", "benefit_relations"])
+
+
+def construct_problem_matrices(problem):
+    logging.info("Constructing problem matrices")
+    num_runs = len(problem.execution_times)
+    num_vertices = len(problem.properties.tree_path_to_ids)
+    participation_mask = np.zeros((num_runs, num_vertices * 2))
+    benefit_relations = np.zeros((num_runs, num_vertices * 2))
+    for i, edge_list in enumerate(problem.edges_lists):
+        root = problem.properties.tree_path_to_ids[inlining_tree.Path([])]
+        benefit_relation, participation = construct_linear_benefit_relation(
+                root, num_vertices, edge_list)
+        benefit_relations[i, :] = benefit_relation
+        participation_mask[i, :] = participation
+    return ProblemMatrices(participation_mask, benefit_relations)
+
+
+def construct_objective(reference_benefit, benefit_relations, participation_mask, X_init=None):
+    logging.info("Constructing tensor graph")
     num_examples = len(reference_benefit)
     num_features = benefit_relations.shape[1]
     num_nodes = num_features / 2
@@ -84,7 +108,7 @@ def do_some_sexy_math(reference_benefit, benefit_relations, participation_mask, 
     assert benefit_relations.shape == (num_examples, num_nodes * 2)
     assert participation_mask.shape == (num_examples, num_features)
 
-    X = tf.get_variable("X", (num_examples, num_features), dtype=tf.float64)
+    X = tf.get_variable("X", (num_examples, num_features), dtype=tf.float64, initializer=X_init)
 
     # TODO: consider using sparse for this
     A = tf.constant(benefit_relations, name="benefits_relation")
@@ -127,25 +151,13 @@ def do_some_sexy_math(reference_benefit, benefit_relations, participation_mask, 
     optimiser = tf.train.AdamOptimizer(LEARNING_RATE)
     stepper = optimiser.minimize(loss)
 
-    dbg = tf.reduce_sum(A)
-
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.47)
-
-    with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
-        sess.run(tf.global_variables_initializer())
-        for epoch in range(NUM_EPOCH):
-            _, epoch_loss, epoch_benefit_error, epoch_contribution_error = sess.run(
-                    [stepper, loss, benefit_error, contribution_error], feed_dict={})
-            print("Epoch %d -- loss = %.5f (contribution = %.5f, benefit = %.5f)" % (epoch, epoch_loss, epoch_contribution_error, epoch_benefit_error))
-
-            if epoch % 100 == 0 or epoch_loss < CONVERGENCE:
-                np.save(os.path.join(dump_dir, ("learnt-values-%d" % epoch)),
-                        sess.run(X, feed_dict={}))
-
-            if epoch_loss < CONVERGENCE:
-                break
-
-        return sess.run(X, feed_dict={})
+    return ObjectiveTensors(
+            step=stepper,
+            loss=loss,
+            variance_loss=contribution_error,
+            benefit_loss=benefit_error,
+            estimates=X,
+    )
 
 
 def main():
@@ -174,20 +186,30 @@ def main():
     # plt.hist(reference_benefit)
     # plt.show()
 
-    participation_mask = np.zeros((num_runs, num_vertices * 2))
-    benefit_relations = np.zeros((num_runs, num_vertices * 2))
-    for i, edge_list in enumerate(problem.edges_lists):
-        root = problem.properties.tree_path_to_ids[inlining_tree.Path([])]
-        benefit_relation, participation = construct_linear_benefit_relation(
-                root, num_vertices, edge_list)
-        benefit_relations[i, :] = benefit_relation
-        participation_mask[i, :] = participation
-
-    node_valuations = do_some_sexy_math(
+    problem_matrices = construct_problem_matrices(problem)
+    tensors = construct_objective(
             reference_benefit, benefit_relations, participation_mask, directory)
 
-    participation_counts = np.sum(participation_mask, axis=0)
-    assert participation_counts.shape == (num_vertices * 2,)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.47)
+    with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
+        sess.run(tf.global_variables_initializer())
+        for epoch in range(NUM_EPOCH):
+            _, epoch_loss, epoch_benefit_error, epoch_contribution_error = \
+                    sess.run([
+                            tensors.step, tensors.loss,
+                            tensors.benefit_loss, tensors.variance_loss],
+                        feed_dict={})
+            print("Epoch %d -- loss = %.5f (contribution = %.5f, benefit = %.5f)"
+                    % (epoch, epoch_loss, epoch_contribution_error, epoch_benefit_error))
+
+            if epoch % 100 == 0 or epoch_loss < CONVERGENCE:
+                np.save(os.path.join(directory, ("learnt-values-%d" % epoch)),
+                        sess.run(X, feed_dict={}))
+
+            if epoch_loss < CONVERGENCE:
+                break
+                print("Loss less than requirement!")
+    print("Optimistaion done!")
 
 
 if __name__ == "__main__":
