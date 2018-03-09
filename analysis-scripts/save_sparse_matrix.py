@@ -1,3 +1,4 @@
+import argparse
 import collections
 import concurrent.futures
 import csv
@@ -211,8 +212,13 @@ def formulate_problem(raw_trees, execution_times):
             execution_times=execution_times,
             edges_lists=edge_lists)
 
+parser = argparse.ArgumentParser(description="formulate the problem")
+parser.add_argument("--script-name", type=str, help="Name of script", required=True)
+parser.add_argument("--output-dir", type=str, help="output dir", required=True)
+
 
 def main():
+    args = parser.parse_args()
     rundirs = []
     with open("../important-logs/batch_executor.log") as batch_f:
         for line in csv.reader(batch_f):
