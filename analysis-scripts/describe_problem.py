@@ -107,7 +107,7 @@ def do_some_sexy_math(reference_benefit, benefit_relations, participation_mask):
             (tf.square(X_relevant - non_empty_contribution_mean)),
             axis=0)  / non_empty_participation_count  # (num_non_zero_features, )
 
-    benefit_error = tf.reduce_mean(T_hat - T_reference)
+    benefit_error = tf.reduce_mean((T_hat - T_reference) ** 2)
     contribution_error = tf.reduce_mean(contribution_deviation)
     assert benefit_error.shape == ()
     assert contribution_error.shape == ()
@@ -127,8 +127,8 @@ def do_some_sexy_math(reference_benefit, benefit_relations, participation_mask):
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         for epoch in range(NUM_EPOCH):
-            epoch_loss, dbg_value = sess.run([loss, dbg], feed_dict={})
-            print("Epoch %d -- loss = %.5f %.3f" % (epoch, epoch_loss, dbg_value))
+            _, epoch_loss = sess.run([stepper, loss], feed_dict={})
+            print("Epoch %d -- loss = %.5f" % (epoch, epoch_loss))
 
 
 def main():
@@ -150,6 +150,7 @@ def main():
     print("Inlining tree depth =", problem.properties.depth)
     print("Number of unique node identifiers =", num_vertices)
     print("Number of apply nodes =", len(apply_nodes))
+    print("Number of runs =", num_runs)
     execution_times = np.array(problem.execution_times)
 
     reference_benefit = sigmoid(alpha * np.log(execution_times / time_average))
