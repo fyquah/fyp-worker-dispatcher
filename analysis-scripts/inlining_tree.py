@@ -1,8 +1,8 @@
-import asyncio
 import collections
 import contextlib
 import os
 import pickle
+import threading
 import subprocess
 
 import numpy as np
@@ -87,7 +87,9 @@ class Function_call(Function_call_base):
 
 
 def unpack_atom(atom):
-    if isinstance(atom, str) or isinstance(atom, int):
+    if isinstance(atom, unicode):
+        return str(atom)
+    elif isinstance(atom, str) or isinstance(atom, int):
         return atom
     elif isinstance(atom, sexpdata.Symbol):
         return atom.value()
@@ -139,7 +141,7 @@ def set_of_closure_id_of_sexp(sexp):
             "[set_of_closure_id_of_sexp] has not been implemented")
 
 
-def option_of_sexp(sexp, *, f):
+def option_of_sexp(sexp, f):
     assert isinstance(sexp, list)
     if len(sexp) == 0:
         return None
@@ -384,56 +386,50 @@ def parse_time(s):
         return float(s[:-1]) * 60
 
 
-process_semaphore = asyncio.Semaphore(4)
-
-async def async_load_tree_from_rundir(substep_dir):
+def load_tree_from_rundir(substep_dir):
     print("Loading tree from %s" % substep_dir)
     substep_tmp_dir = os.path.join(substep_dir, "tmp")
 
-    async with process_semaphore:
-        with in_temporary_directory(substep_tmp_dir):
-            with open(os.devnull, 'w') as FNULL:
-                print("Created tar process for", substep_dir)
-                proc = await asyncio.subprocess.create_subprocess_exec("tar", 
-                    "xzvf",
-                    os.path.join(substep_dir, "artifacts.tar"),
-                    "-C", substep_tmp_dir,
-                    stdout=FNULL, stderr=FNULL)
-                print("Waiting on tar process for", substep_dir)
-                _stdout, _stderr = await proc.communicate()
+    with in_temporary_directory(substep_tmp_dir):
+        with open(os.devnull, 'w') as FNULL:
+            print("Created tar process for", substep_dir)
+            subprocess.call(["tar", 
+                "xzvf",
+                os.path.join(substep_dir, "artifacts.tar"),
+                "-C", substep_tmp_dir],
+                stdout=FNULL, stderr=FNULL)
 
-            data_collector_file = os.path.join(
-                    substep_tmp_dir, "main.0.data_collector.v1.sexp")
-            execution_stats_file = os.path.join(substep_dir, "execution_stats.sexp")
+        data_collector_file = os.path.join(
+                substep_tmp_dir, "main.0.data_collector.v1.sexp")
+        execution_stats_file = os.path.join(substep_dir, "execution_stats.sexp")
 
-            if not os.path.exists(data_collector_file):
-                print("Dropping %s due to missing data collector file" % substep_dir)
-                return None
+        if not os.path.exists(data_collector_file):
+            print("Dropping %s due to missing data collector file" % substep_dir)
+            return None
 
-            if not os.path.exists(execution_stats_file):
-                print("Dropping %s due to missing execution stats" % substep_dir)
-                return None
+        if not os.path.exists(execution_stats_file):
+            print("Dropping %s due to missing execution stats" % substep_dir)
+            return None
 
-            proc = await asyncio.subprocess.create_subprocess_exec(
-                "../_build/default/tools/tree_tools.exe", "v1",
-                "decisions-to-tree",
-                data_collector_file,
-                "-output", "/dev/stdout",
-                stdout=subprocess.PIPE)
+        proc = subprocess.Popen([
+            "../_build/default/tools/tree_tools.exe", "v1",
+            "decisions-to-tree",
+            data_collector_file,
+            "-output", "/dev/stdout"], stdout=subprocess.PIPE)
 
-            tree = build_tree_from_str(await proc.stdout.read())
-            if tree is None:
-                print("Dropping %s because cannot parse sexp correctly" % substep_dir)
-                return None
-            await proc.wait()
+        tree = build_tree_from_str(proc.stdout.read())
+        if tree is None:
+            print("Dropping %s because cannot parse sexp correctly" % substep_dir)
+            return None
+        proc.wait()
 
-            with open(execution_stats_file) as f:
-                execution_stats_sexp = sexpdata.load(f)
-                m = sexp_to_map(execution_stats_sexp)
-                execution_time = geometric_mean([
-                        parse_time(unpack_atom(x))
-                        for x in m["raw_execution_time"]
-                ])
+        with open(execution_stats_file) as f:
+            execution_stats_sexp = sexpdata.load(f)
+            m = sexp_to_map(execution_stats_sexp)
+            execution_time = geometric_mean([
+                    parse_time(unpack_atom(x))
+                    for x in m["raw_execution_time"]
+            ])
 
-            print("Done with %s" % substep_dir)
+        print("Done with %s" % substep_dir)
     return (tree, execution_time)
