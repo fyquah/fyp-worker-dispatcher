@@ -1,4 +1,3 @@
-import asyncio
 import collections
 import concurrent.futures
 import csv
@@ -8,13 +7,11 @@ import sys
 import shutil
 import subprocess
 
-import aiofiles
 import numpy as np
 import sexpdata
 import scipy.sparse
 
 import inlining_tree
-
 
 
 def iterate_rundirs(rundirs):
@@ -26,7 +23,7 @@ def iterate_rundirs(rundirs):
             substep_dir = os.path.join(opt_data_dir, "initial", str(substep))
             if not os.path.exists(substep_dir):
                 continue
-            yield inlining_tree.async_load_tree_from_rundir(substep_dir)
+            yield substep_dir
 
         # parse every step
         for step in range(0, 299):
@@ -35,7 +32,7 @@ def iterate_rundirs(rundirs):
                         opt_data_dir, str(step), str(substep))
                 if not os.path.exists(substep_dir):
                     continue
-                yield inlining_tree.async_load_tree_from_rundir(substep_dir)
+                yield substep_dir
 
 
 def collect_unique_nodes(acc, trace, tree):
@@ -192,17 +189,12 @@ def formulate_problem(raw_trees, execution_times):
                 (num_unique_paths, num_unique_paths),
                 dtype=np.int32)
     )
-    train_x = []
 
     for tree in trees_with_path_labels:
         vertices = np.zeros((len(tree_paths), 4))
-        filling_vertices(tree, tree_path_to_ids, vertices)
         filling_sparse_matrices(tree, tree_path_to_ids, matrices, level=0)
-        train_x.append(vertices)
-
-    node_labels = np.array(train_x)
-
-    assert len(node_labels) == len(execution_times)
+        # filling_vertices(tree, tree_path_to_ids, vertices)
+        # train_x.append(vertices)
 
     matrices = {k: scipy.sparse.csr_matrix(v) for k, v in matrices.items()}
     edge_lists = []
@@ -215,7 +207,7 @@ def formulate_problem(raw_trees, execution_times):
     return inlining_tree.Problem(
             tree_path_to_ids=tree_path_to_ids,
             matrices=matrices,
-            node_labels=node_labels,
+            node_labels=None,
             execution_times=execution_times,
             edges_lists=edge_lists)
 
@@ -235,19 +227,24 @@ def main():
                     rundirs.append(rundir)
 
     np.random.shuffle(rundirs)
-    tasks = []
-    for task in iterate_rundirs(rundirs):
-        tasks.append(task)
+    tasks = list(iterate_rundirs(rundirs))
 
-    results = []
-    loop = asyncio.get_event_loop()
-    done, pending = loop.run_until_complete(asyncio.wait(tasks))
-    assert len(pending) == 0
-    for task in done:
-        result = task.result()
-        if result is not None:
-            results.append(result)
-    loop.close()
+    pool = concurrent.futures.ThreadPoolExecutor(8)
+    futures = [
+            pool.submit(inlining_tree.load_tree_from_rundir, task)
+            for task in tasks
+    ]
+    results = [r.result() for r in concurrent.futures.as_completed(futures)]
+    results = [r for r in results if r is not None]
+
+    # loop = asyncio.get_event_loop()
+    # done, pending = loop.run_until_complete(asyncio.wait(tasks))
+    # assert len(pending) == 0
+    # for task in done:
+    #     result = task.result()
+    #     if result is not None:
+    #         results.append(result)
+    # loop.close()
 
     print("Loaded %d samples to train on" % len(results))
     trees, execution_times = zip(*results)
