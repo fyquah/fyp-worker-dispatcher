@@ -514,24 +514,29 @@ module V1 = struct
   module Trace_item = Data_collector.V1.Trace_item
   module Action = Data_collector.V1.Action
 
-  type t =
-    | Declaration of declaration
-    | Apply_inlined_function of inlined_function
-    | Apply_non_inlined_function of non_inlined_function
-  and declaration =
-    { declared  : Function_metadata.t;
-      children  : t list;
-    }
-  and non_inlined_function =
-    { applied   : Function_metadata.t;
-      apply_id  : Apply_id.t;
-    }
-  and inlined_function =
-    { applied   : Function_metadata.t;
-      apply_id  : Apply_id.t;
-      children  : t list;
-    }
-  [@@deriving sexp, compare]
+  module T = struct
+    type t =
+      | Declaration of declaration
+      | Apply_inlined_function of inlined_function
+      | Apply_non_inlined_function of non_inlined_function
+    and declaration =
+      { declared  : Function_metadata.t;
+        children  : t list;
+      }
+    and non_inlined_function =
+      { applied   : Function_metadata.t;
+        apply_id  : Apply_id.t;
+      }
+    and inlined_function =
+      { applied   : Function_metadata.t;
+        apply_id  : Apply_id.t;
+        children  : t list;
+      }
+    [@@deriving sexp, compare]
+  end
+  
+  include T
+  include Comparable.Make(T)
   
   let is_leaf t =
     match t with
@@ -812,8 +817,13 @@ module V1 = struct
       fuzzy_equal super tree
       && is_super_tree ~super:(children super) (children tree)
     ;;
-  
-    type t = root [@@deriving sexp, compare]
+ 
+    module T = struct
+      type t = root [@@deriving sexp, compare]
+    end
+
+    include T
+    include Comparable.Make(T)
   end
   
   let equal_t_and_trace_item (t : t) (trace_item : Trace_item.t) =

@@ -112,9 +112,24 @@ let command_run =
           Experiment_utils.Scheduler.dispatch scheduler work_unit
         in
         let initial_tree = Inlining_tree.build initial_state.v1_decisions in
+        let cache = ref (
+          Inlining_tree.Top_level.Map.of_alist_exn []
+        )
+        in
         Deferred.repeat_until_finished (0, initial_tree) (fun (step, previous_tree) ->
           let tree = pertubate_tree previous_tree in
-          execute_tree ~step:(`Step step) ~sub_id:`Current tree
+          begin
+            match Inlining_tree.Top_level.Map.find !cache tree with
+            | Some exc_stats ->
+              Log.Global.info "[Step %d] Load tree from cache" step;
+              Deferred.Or_error.return exc_stats
+            | None ->
+              Log.Global.info "[Step %d] Dispatching to worker" step;
+              execute_tree ~step:(`Step step) ~sub_id:`Current tree
+              >>=? fun exc_stats ->
+              cache := (Inlining_tree.Top_level.Map.add !cache tree exc_stats);
+              Deferred.Or_error.return exc_stats
+          end
           >>= function
           | Ok (_ : Execution_stats.t) ->
             begin
