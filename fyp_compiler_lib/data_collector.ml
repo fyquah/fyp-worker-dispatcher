@@ -223,7 +223,7 @@ module V1 = struct
           Closure_origin.print at_call_site.applied.closure_origin
     ;;
 
-    let semantically_equal a b =
+    let equal_ignoring_source a b =
       match a, b with
       | Enter_decl a, Enter_decl b ->
         Closure_origin.equal a.declared.closure_origin b.declared.closure_origin
@@ -308,7 +308,7 @@ module V1 = struct
       match
         List.find_opt (fun (decision : Decision.t) ->
             Apply_id.equal decision.apply_id apply_id
-            && Helper.list_equal Trace_item.semantically_equal decision.trace trace)
+            && Helper.list_equal Trace_item.equal_ignoring_source decision.trace trace)
           overrides
       with
       | None -> None
@@ -389,7 +389,7 @@ module Simple_overrides = struct
       let linkage_name = Linkage_name.t_of_sexp linkage_name in
       let name = Sexp.string_of_t name in
       { linkage_name; name; }
-    | _ -> assert false
+    | _ -> raise (Sexp.Parse_error "bla")
   ;;
 
   let apply_of_sexp sexp =
@@ -399,7 +399,30 @@ module Simple_overrides = struct
       let linkage_name = Linkage_name.t_of_sexp linkage_name in
       let stamp = Option.t_of_sexp Sexp.int_of_t stamp in
       { linkage_name; stamp; }
-    | _ -> assert false
+    | _ -> raise (Sexp.Parse_error "bla")
+  ;;
+
+  let sexp_of_apply a =
+    let { linkage_name; stamp; } = a in
+    Sexp.List [
+      Linkage_name.sexp_of_t linkage_name;
+      Option.sexp_of_t Sexp.t_of_int stamp;
+    ]
+  ;;
+
+  let sexp_of_decl d =
+    let { linkage_name; name; } = d in
+    Sexp.List [
+      Linkage_name.sexp_of_t linkage_name;
+      Sexp.t_of_string name;
+    ]
+  ;;
+
+  let sexp_of_trace_item ti =
+    let open Sexp in 
+    match ti with
+    | Apply a -> List [ Atom "Apply"; sexp_of_apply a; ]
+    | Decl d  -> List [ Atom "Decl"; sexp_of_decl d; ]
   ;;
 
   let trace_item_of_sexp sexp =
@@ -407,7 +430,7 @@ module Simple_overrides = struct
     match sexp with
     | List [ Atom "Apply"; x ] -> Apply (apply_of_sexp x)
     | List [ Atom "Decl"; x ] -> Decl (decl_of_sexp x)
-    | _ -> assert false
+    | _ -> raise (Sexp.Parse_error "bla")
   ;;
 
   let entry_of_sexp sexp =
@@ -420,7 +443,18 @@ module Simple_overrides = struct
       let action = Action.t_of_sexp action in
       { round; apply_id_stamp; trace; action; }
     | _ ->
-      assert false
+      raise (Sexp.Parse_error "bla")
+  ;;
+
+  let sexp_of_entry entry =
+    let open Sexp in
+    let { round; apply_id_stamp; trace; action } = entry in
+    List [
+      Sexp.t_of_int round;
+      Option.sexp_of_t Sexp.t_of_int apply_id_stamp;
+      Sexp.t_of_list sexp_of_trace_item trace;
+      Action.sexp_of_t action;
+    ]
   ;;
 
   let load_from_channel ic =
@@ -428,6 +462,8 @@ module Simple_overrides = struct
   ;;
 
   let t_of_sexp sexp = Sexp.list_of_t entry_of_sexp sexp
+
+  let sexp_of_t t = Sexp.t_of_list sexp_of_entry t
 
   let trace_semantically_equal (our_trace : trace_item list) (v1_trace : Trace_item.t list) =
     let rec loop our_trace v1_trace =
@@ -450,6 +486,44 @@ module Simple_overrides = struct
     with
     | None -> None
     | Some a -> Some a.action
+  ;;
+
+  let of_v1_overrides (v1_overrides : V1.Overrides.t) =
+    List.map (fun (v1_override : V1.Decision.t) ->
+        let apply_id_stamp =
+          Apply_id.get_stamp v1_override.apply_id.stamp
+        in
+        let trace =
+          List.map (fun (trace_item : V1.Trace_item.t) ->
+              match trace_item with
+              | V1.Trace_item.At_call_site acs ->
+                let linkage_name =
+                  Compilation_unit.get_linkage_name (
+                    Apply_id.get_compilation_unit acs.apply_id
+                  )
+                in
+                let stamp = Apply_id.get_stamp acs.apply_id.stamp in
+                Apply { linkage_name; stamp; }
+              | V1.Trace_item.Enter_decl enter_decl ->
+                let linkage_name =
+                  Compilation_unit.get_linkage_name (
+                    Closure_origin.get_compilation_unit (
+                      enter_decl.declared.closure_origin
+                    )
+                  )
+                in
+                let name =
+                  Closure_origin.get_name enter_decl.declared.closure_origin
+                in
+                Decl { linkage_name; name; })
+            v1_override.trace 
+        in
+        { round = v1_override.round;
+          apply_id_stamp;
+          action = v1_override.action;
+          trace;
+        })
+      v1_overrides 
   ;;
 end
 
@@ -492,7 +566,7 @@ module Multiversion_overrides = struct
       try
         let chosen = Simple_overrides.t_of_sexp sexp in
         let len = List.length chosen in
-        Format.eprintf "Loadded Simple overrides (len = %d) from %s\n"
+        Format.printf "Loadded Simple overrides (len = %d) from %s\n"
           len filename;
         V_simple chosen
       with
@@ -501,13 +575,16 @@ module Multiversion_overrides = struct
         try
           let chosen = V1.Overrides.t_of_sexp sexp in
           let len = List.length chosen in
-          Format.eprintf "Loadded V1 overrides (len = %d) from %s\n"
+          Format.printf "Loadded V1 overrides (len = %d) from %s\n"
             len filename;
           V1 chosen
         with
         | Sexp.Parse_error _  ->
-          Format.eprintf "Loadded (DEPREACATED) V0 overrides from %s\n"
+          let res = 
+            V0 (Sexp.list_of_sexp V0.t_of_sexp sexp)
+          in
+          Format.printf "Loadded (DEPREACATED) V0 overrides from %s\n"
               filename;
-          V0 (Sexp.list_of_sexp V0.t_of_sexp sexp)
+          res
         end
 end

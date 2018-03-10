@@ -56,3 +56,6 @@ let int_of_t t =
     raise (Parse_error (
       Format.asprintf "Cannot parse %a as int" print_mach otherwise))
 
+let t_of_int x = Atom (string_of_int x)
+
+let t_of_string s = Atom s
