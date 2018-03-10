@@ -1,3 +1,4 @@
+import argparse
 import collections
 import math
 import sys
@@ -17,6 +18,12 @@ def sigmoid(x):
 def reduce_to_first_order():
     pass
 
+
+parser = argparse.ArgumentParser(description="formulate the problem")
+parser.add_argument("directory", type=str, help="experiment dir")
+parser.add_argument("--resume-from", type=int, help="Epoch to start training from", default=None)
+parser.add_argument("--total-epoch", type=int, default=10000)
+
 ALPHA = 100.0  # Scales benefit to something reasonable
 BENEFIT_DECAY = 0.5
 LOSS_PROPORTIONS = {
@@ -24,7 +31,6 @@ LOSS_PROPORTIONS = {
         "contribution": 1.0,
 }
 LEARNING_RATE = 0.0005
-NUM_EPOCH = 10000
 CONVERGENCE = 0.0002
 
 
@@ -108,6 +114,15 @@ def construct_objective(reference_benefit, benefit_relations, participation_mask
     assert benefit_relations.shape == (num_examples, num_nodes * 2)
     assert participation_mask.shape == (num_examples, num_features)
 
+    participation_count = np.sum(participation_mask, axis=0)
+    assert participation_count.shape == (num_features, )
+
+    (non_zero_indices,) = participation_count.nonzero()
+    non_zero_indices = non_zero_indices.astype(np.int32)
+    num_non_zero_features = len(non_zero_indices)
+    trimmed_participation_mask = np.squeeze(participation_mask[:, non_zero_indices])
+    assert trimmed_participation_mask.shape == (num_examples, num_non_zero_features)
+
     X = tf.get_variable("X", (num_examples, num_features), dtype=tf.float64, initializer=X_init)
 
     # TODO: consider using sparse for this
@@ -117,23 +132,19 @@ def construct_objective(reference_benefit, benefit_relations, participation_mask
     assert T_hat.shape == (num_examples,)
     assert T_reference.shape == (num_examples, )
 
-    participation_count = np.sum(participation_mask, axis=0)
-    assert participation_count.shape == (num_features, )
-    print("Number of features with non zero participants", sum(participation_count > 0))
-
-    X_relevant = tf.boolean_mask(X * participation_mask, participation_count > 0, axis=1)  # (num_examples, num_non_zero_features)
-    print(X_relevant.shape)
-
-    participation_count = tf.constant(
-            np.sum(participation_mask, axis=0))  # (num_features, )
+    X_relevant = X * participation_mask
+    X_relevant = tf.gather(X_relevant, non_zero_indices, axis=1)  # (num_examples, num_non_zero_features)
     contribution_sum = tf.reduce_sum(X, axis=0)  # (num_features, )
-    non_empty_contributions = tf.boolean_mask(contribution_sum, participation_count > 0)
-    non_empty_participation_count = tf.boolean_mask(participation_count, participation_count > 0)
+    non_empty_contributions = tf.reduce_sum(X_relevant, axis=0)
+    non_empty_participation_count = participation_count[non_zero_indices]
+    assert non_empty_contributions.shape == (num_non_zero_features,)
+    assert non_empty_participation_count.shape == (num_non_zero_features,)
+
     non_empty_contribution_mean = \
             non_empty_contributions \
             / tf.cast(non_empty_participation_count, tf.float64)  # (num_non_zero_features, )
     contribution_deviation = tf.reduce_mean(
-            (tf.square(X_relevant - non_empty_contribution_mean)),
+            (tf.square((X_relevant - non_empty_contribution_mean) * trimmed_participation_mask)),
             axis=0)  / tf.cast(non_empty_participation_count, tf.float64)  # (num_non_zero_features, )
 
     benefit_error = tf.reduce_mean((T_hat - T_reference) ** 2)
@@ -161,7 +172,9 @@ def construct_objective(reference_benefit, benefit_relations, participation_mask
 
 
 def main():
-    directory = sys.argv[1]
+    logging.getLogger().setLevel(logging.INFO)
+    args = parser.parse_args()
+    directory = args.directory
     problem = inlining_tree.Problem.load(directory)
 
     id_to_tree_path  = { v: k for k, v in problem.properties.tree_path_to_ids.items() }
@@ -176,10 +189,10 @@ def main():
 
     assert len(problem.execution_times) == len(problem.edges_lists)
 
-    print("Inlining tree depth =", problem.properties.depth)
-    print("Number of unique node identifiers =", num_vertices)
-    print("Number of apply nodes =", len(apply_nodes))
-    print("Number of runs =", num_runs)
+    print("Inlining tree depth = %d" % problem.properties.depth)
+    print("Number of unique node identifiers = %d" % num_vertices)
+    print("Number of apply nodes = %d" % len(apply_nodes))
+    print("Number of runs = %d" % num_runs)
     execution_times = np.array(problem.execution_times)
 
     reference_benefit = ALPHA * np.log(execution_times / time_average)
@@ -187,24 +200,41 @@ def main():
     # plt.show()
 
     problem_matrices = construct_problem_matrices(problem)
+    if args.resume_from is not None:
+        X_init = np.load(os.path.join(directory, "learnt-values-%d.npy" % args.resume_from))
+        X_init = tf.constant_initializer(X_init)
+    else:
+        X_init = None
     tensors = construct_objective(
-            reference_benefit, benefit_relations, participation_mask, directory)
+            reference_benefit,
+            problem_matrices.benefit_relations,
+            problem_matrices.participation_mask,
+            X_init=X_init)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.47)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         sess.run(tf.global_variables_initializer())
-        for epoch in range(NUM_EPOCH):
+        epoch_start_from = args.resume_from
+        for epoch in range(epoch_start_from, args.total_epoch):
             _, epoch_loss, epoch_benefit_error, epoch_contribution_error = \
                     sess.run([
                             tensors.step, tensors.loss,
                             tensors.benefit_loss, tensors.variance_loss],
                         feed_dict={})
-            print("Epoch %d -- loss = %.5f (contribution = %.5f, benefit = %.5f)"
+            logging.info(
+                    "Epoch %d -- loss = %.5f (contribution = %.5f, benefit = %.5f)"
                     % (epoch, epoch_loss, epoch_contribution_error, epoch_benefit_error))
 
-            if epoch % 100 == 0 or epoch_loss < CONVERGENCE:
-                np.save(os.path.join(directory, ("learnt-values-%d" % epoch)),
-                        sess.run(X, feed_dict={}))
+            checkpoint_able = (
+                    epoch % 100 == 0 or
+                    epoch_loss < CONVERGENCE or
+                    epoch == args.total_epoch - 1)
+            if epoch != args.resume_from and checkpoint_able:
+                logging.info("Saving values for epoch %d" % epoch)
+                scipy.sparse.save_npz(
+                        os.path.join(directory, ("learnt-values-%d-sparse.npz" % epoch)),
+                        scipy.sparse.csc_matrix(sess.run(tensors.estimates, feed_dict={}))
+                )
 
             if epoch_loss < CONVERGENCE:
                 break
