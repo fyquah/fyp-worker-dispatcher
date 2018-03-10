@@ -84,6 +84,11 @@ module Data_collector = struct
     end
   end
 
+  module Simple_overrides = struct
+    include Fyp_compiler_lib.Data_collector.Simple_overrides
+    include Make_core_sexp(Fyp_compiler_lib.Data_collector.V1.Simple_overrides)
+  end
+
   include V1
 end
 

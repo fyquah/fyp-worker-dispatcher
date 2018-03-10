@@ -214,6 +214,10 @@ module V0 = struct
       List.concat_map root ~f:(fun node ->
         loop_node ~source:None ~call_stack:[] ~node)
     ;;
+
+    let to_simple_overrides root =
+      Simple_overrides.of_v1_overrides (to_override_rules root)
+    ;;
   
     let pp ppf (tree : root) =
       let mk_indent indent = String.make indent ' ' in
