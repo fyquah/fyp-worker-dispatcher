@@ -26,6 +26,20 @@ parser.add_argument("--opt-info", action="store_true")
 parser.add_argument("--components", action="store_true")
 
 
+def load_estimates(directory, epoch):
+    path = os.path.join(directory, "learnt-values-%d-sparse.npz" % epoch)
+    if os.path.exists(path):
+        return scipy.sparse.load_npz(path)
+
+    path = os.path.join(directory, "learnt-values-%d.npz" % epoch)
+    if os.path.exists(path):
+        return np.load(path)
+
+    path = os.path.join(directory, "learnt-values-%d.npy" % epoch)
+    if os.path.exists(path):
+        return np.load(path)
+
+
 def main():
     logging.getLogger().setLevel(logging.INFO)
     args = parser.parse_args()
@@ -40,9 +54,11 @@ def main():
     time_average = np.mean(problem.execution_times)
     execution_times = problem.execution_times
     reference_benefit = learn_problem.ALPHA * np.log(execution_times / time_average)
-    X_estimate = np.load(os.path.join(directory, "learnt-values-%d.npy" % epoch))
 
+    X_estimate = load_estimates(directory, args.epoch)
     problem_matrices = learn_problem.construct_problem_matrices(problem)
+    # X_estimate = problem_matrices.participation_mask * X_estimate
+
     objective_tensors = learn_problem.construct_objective(
             reference_benefit=reference_benefit,
             benefit_relations=problem_matrices.benefit_relations,
