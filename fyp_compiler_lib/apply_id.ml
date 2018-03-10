@@ -49,6 +49,11 @@ let get_stamp_exn = function
   | Over_application a -> a
   | Stub -> assert false
 
+let get_stamp = function
+  | Plain_apply a
+  | Over_application a -> Some a
+  | Stub -> None
+
 let compare_stamp t1 t2 = 
   match t1, t2 with
   | Stub, Stub -> 0
