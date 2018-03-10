@@ -3,6 +3,7 @@ import collections
 import math
 import sys
 import os
+import pickle
 import logging
 
 import matplotlib.pyplot as plt
@@ -24,18 +25,19 @@ parser = argparse.ArgumentParser(description="formulate the problem")
 parser.add_argument("directory", type=str, help="experiment dir")
 parser.add_argument("--resume-from", type=int, help="Epoch to start training from", default=None)
 parser.add_argument("--total-epoch", type=int, default=10000)
+parser.add_argument("--variance-factor", type=float, default=None)
+parser.add_argument("--decay-factor", type=float, default=None)
+
 
 ALPHA = 100.0  # Scales benefit to something reasonable
-BENEFIT_DECAY = 0.5
-LOSS_PROPORTIONS = {
-        "benefit": 5.0,
-        "contribution": 1.0,
-}
-LEARNING_RATE = 0.0005
-CONVERGENCE = 0.0002
+LEARNING_RATE = 0.0005   # Not super important, adam usally does reasonably
+CONVERGENCE = 0.00002
+
+HyperParameters = collections.namedtuple("HyperParameters",
+        ["decay_factor", "variance_factor"])
 
 
-def construct_linear_benefit_relation(root, num_nodes, edge_list):
+def construct_linear_benefit_relation(root, num_nodes, edge_list, hyperparams):
     adjacency_list = []
     for _ in range(num_nodes):
         adjacency_list.append([])
@@ -71,7 +73,7 @@ def construct_linear_benefit_relation(root, num_nodes, edge_list):
             if not visited[child]:
                 visited[child] = True
                 s.append({
-                    "factor": factor * BENEFIT_DECAY / float(len(adjacency_list[node])),
+                    "factor": factor * hyperparams.decay_factor / float(len(adjacency_list[node])),
                     "node":   child,
                     "kind":   kind,
                 })
@@ -89,7 +91,7 @@ ProblemMatrices = collections.namedtuple("ProblemMatrices", [
     "participation_mask", "benefit_relations"])
 
 
-def construct_problem_matrices(problem):
+def construct_problem_matrices(problem, hyperparams):
     logging.info("Constructing problem matrices")
     num_runs = len(problem.execution_times)
     num_vertices = len(problem.properties.tree_path_to_ids)
@@ -98,13 +100,18 @@ def construct_problem_matrices(problem):
     for i, edge_list in enumerate(problem.edges_lists):
         root = problem.properties.tree_path_to_ids[inlining_tree.Path([])]
         benefit_relation, participation = construct_linear_benefit_relation(
-                root, num_vertices, edge_list)
+                root, num_vertices, edge_list, hyperparams=hyperparams)
         benefit_relations[i, :] = benefit_relation
         participation_mask[i, :] = participation
     return ProblemMatrices(participation_mask, benefit_relations)
 
 
-def construct_objective(reference_benefit, benefit_relations, participation_mask, X_init=None):
+def construct_objective(
+        reference_benefit,
+        benefit_relations,
+        participation_mask,
+        X_init,
+        hyperparams):
     logging.info("Constructing tensor graph")
     num_examples = len(reference_benefit)
     num_features = benefit_relations.shape[1]
@@ -124,7 +131,9 @@ def construct_objective(reference_benefit, benefit_relations, participation_mask
     trimmed_participation_mask = np.squeeze(participation_mask[:, non_zero_indices])
     assert trimmed_participation_mask.shape == (num_examples, num_non_zero_features)
 
-    X = tf.get_variable("X", (num_examples, num_features), dtype=tf.float64, initializer=X_init)
+    X = tf.get_variable(
+            "X", (num_examples, num_features), dtype=tf.float64,
+            initializer=X_init)
 
     # TODO: consider using sparse for this
     A = tf.constant(benefit_relations, name="benefits_relation")
@@ -153,13 +162,7 @@ def construct_objective(reference_benefit, benefit_relations, participation_mask
     assert benefit_error.shape == ()
     assert contribution_error.shape == ()
 
-    loss = (
-            (LOSS_PROPORTIONS["benefit"] * benefit_error)
-            + (LOSS_PROPORTIONS["contribution"] * contribution_error))
-
-    contribution_normaliser = sum(LOSS_PROPORTIONS.values())
-    loss = loss / contribution_normaliser
-
+    loss = benefit_error + hyperparams.variance_factor * contribution_error
     optimiser = tf.train.AdamOptimizer(LEARNING_RATE)
     stepper = optimiser.minimize(loss)
 
@@ -170,6 +173,11 @@ def construct_objective(reference_benefit, benefit_relations, participation_mask
             benefit_loss=benefit_error,
             estimates=X,
     )
+
+
+def load_hyperparams(directory):
+    with open(os.path.join(directory, "hyperparams.pkl"), "rb") as f:
+        return pickle.load(f)
 
 
 def main():
@@ -196,13 +204,40 @@ def main():
     print("Number of runs = %d" % num_runs)
     execution_times = np.array(problem.execution_times)
 
-    reference_benefit = ALPHA * np.log(execution_times / time_average)
-    # plt.hist(reference_benefit)
-    # plt.show()
+    hyperparams_from_cmd_line = HyperParameters(
+            decay_factor=args.decay_factor,
+            variance_factor=args.variance_factor)
+    hyperparams_path = os.path.join(directory, "hyperparams.pkl")
+    if os.path.exists(hyperparams_path):
+        logging.info(
+                "Loading hyperparameters from %s and checking for "
+                "consistency with command line arguments"
+                % hyperparams_path
+        )
+        with open(hyperparams_path, "rb") as f:
+            hyperparams = pickle.load(f)
 
-    problem_matrices = construct_problem_matrices(problem)
+        for i, v in enumerate(hyperparams_from_cmd_line):
+            assert v is None or hyperparams[i] == v
+    else:
+        logging.info(
+                "Saving hyperparameters to %s"
+                % hyperparams_path
+        )
+        for v in hyperparams_from_cmd_line:
+            assert v is not None
+        hyperparams = hyperparams_from_cmd_line
+        with open(hyperparams_path, "wb") as f:
+            pickle.dump(hyperparams, f)
+
+    # TODO(fyq14): Think through this again ...
+    reference_benefit = ALPHA * np.log(execution_times / time_average)
+
+    problem_matrices = construct_problem_matrices(problem, hyperparams)
     if args.resume_from is not None:
-        X_init = np.load(os.path.join(directory, "learnt-values-%d.npy" % args.resume_from))
+        path_to_x_init = os.path.join(
+                directory, "learnt-values-%d.npy" % args.resume_from)
+        X_init = np.load(path_to_x_init)
         X_init = tf.constant_initializer(X_init)
     else:
         X_init = None
@@ -210,7 +245,8 @@ def main():
             reference_benefit,
             problem_matrices.benefit_relations,
             problem_matrices.participation_mask,
-            X_init=X_init)
+            X_init=X_init,
+            hyperparams=hyperparams)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.47)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:

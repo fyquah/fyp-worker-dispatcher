@@ -1,6 +1,7 @@
 import argparse
 import collections
 import logging
+import pickle
 import math
 import os
 import sys
@@ -11,6 +12,8 @@ import scipy.sparse
 
 import inlining_tree
 import learn_problem
+from learn_problem import HyperParameters
+# above hacky import statement required for pickle to work correctly
 
 
 def olaf(a, n):
@@ -30,7 +33,8 @@ def load_estimates(directory, epoch):
     path = os.path.join(directory, "learnt-values-%d-sparse.npz" % epoch)
     if os.path.exists(path):
         logging.info("Loading values from %s " % path)
-        # TODO(fyq14): Really assume that it is a dense matrix?
+        # TODO(fyq14): Really assume that it is a dense matrix? What are the
+        #              performance implications.
         return scipy.sparse.load_npz(path).todense()
 
     path = os.path.join(directory, "learnt-values-%d.npz" % epoch)
@@ -50,6 +54,7 @@ def main():
     directory = args.dir
     epoch = args.epoch
     problem = inlining_tree.Problem.load(directory)
+    hyperparams = learn_problem.load_hyperparams(directory)
 
     id_to_tree_path  = { v: k for k, v in problem.properties.tree_path_to_ids.items() }
     num_vertices = len(problem.properties.tree_path_to_ids)
@@ -60,15 +65,18 @@ def main():
     reference_benefit = learn_problem.ALPHA * np.log(execution_times / time_average)
 
     X_estimate = load_estimates(directory, args.epoch)
-    problem_matrices = learn_problem.construct_problem_matrices(problem)
+    problem_matrices = learn_problem.construct_problem_matrices(
+            problem, hyperparams=hyperparams)
     # X_estimate = problem_matrices.participation_mask * X_estimate
 
     objective_tensors = learn_problem.construct_objective(
             reference_benefit=reference_benefit,
             benefit_relations=problem_matrices.benefit_relations,
             participation_mask=problem_matrices.participation_mask,
-            X_init=tf.constant_initializer(X_estimate))
+            X_init=tf.constant_initializer(X_estimate),
+            hyperparams=hyperparams)
 
+    print "Hyperparameters =", hyperparams
     print(">>>>>>> Solution after %d epoch <<<<<<<<" % epoch)
 
     if args.components:
