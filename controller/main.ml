@@ -7,5 +7,6 @@ let () =
     [ ("t-test-search", Command_t_test_search.command);
       ("simulated-annealing", Command_simulated_annealing.command);
       ("rl", Command_rl.command);
+      ("random-walk", Command_random.command);
     ]
   |> Command.run

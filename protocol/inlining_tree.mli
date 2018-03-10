@@ -87,10 +87,14 @@ module V1 : sig
       children  : t list;
     }
   [@@deriving sexp, compare]
+
+  include Comparable.S with type t := t
   
   module Top_level : sig
 
     type nonrec t = t list [@@deriving sexp, compare]
+
+    include Comparable.S with type t := t
   
     val count_leaves : t -> int
   

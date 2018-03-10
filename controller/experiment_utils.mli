@@ -99,11 +99,11 @@ val init_connection
   -> Socket.Address.Inet.t Worker_connection.t Deferred.Or_error.t
 
 val process_work_unit
-: num_runs:int ->
-bin_args:string ->
-[< Async.Socket.Address.t ] Worker_connection.t ->
-Work_unit.t ->
-(Protocol.Execution_stats.t, Core_kernel__.Error.t) Async.Deferred.Result.t
+   : num_runs:int
+  -> bin_args:string
+  -> [< Async.Socket.Address.t ] Worker_connection.t
+  -> Work_unit.t
+  -> Protocol.Execution_stats.t Deferred.Or_error.t
 
 (** Copies compilation artifacts into [dump_dir] and store them as a .tar **)
 val copy_compilation_artifacts
@@ -120,10 +120,9 @@ val compile_binary
   -> dump_directory: string
   -> string Deferred.Or_error.t
 
-val run_in_all_workers :
-scheduler:(Work_unit.t, Common.Execution_stats.t Core_kernel.Or_error.t, 'a)
-          Scheduler.t ->
-times:int ->
-config:Common.Config.t ->
-path_to_bin:string ->
-(Common.Execution_stats.t, Core_kernel__.Error.t) Async.Deferred.Result.t
+val run_in_all_workers
+   : scheduler:(Work_unit.t, Common.Execution_stats.t Core_kernel.Or_error.t, 'a) Scheduler.t
+  -> times:int
+  -> config:Common.Config.t
+  -> path_to_bin:string
+  -> Common.Execution_stats.t Deferred.Or_error.t
