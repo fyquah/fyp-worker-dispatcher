@@ -7,6 +7,7 @@ import logging
 
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy import linalg
 import scipy.sparse
 import tensorflow as tf
 
@@ -231,10 +232,22 @@ def main():
                     epoch == args.total_epoch - 1)
             if epoch != args.resume_from and checkpoint_able:
                 logging.info("Saving values for epoch %d" % epoch)
-                scipy.sparse.save_npz(
-                        os.path.join(directory, ("learnt-values-%d-sparse.npz" % epoch)),
-                        scipy.sparse.csc_matrix(sess.run(tensors.estimates, feed_dict={}))
-                )
+                rows, cols = problem_matrices.participation_mask.nonzero()
+                estimates = sess.run(tensors.estimates, feed_dict={})
+
+                entries = estimates[rows, cols]
+                assert len(rows) == len(cols)
+                num_sparse_entries = len(rows)
+                logging.info("Converting estimates to sparse matrix with %d entries"
+                        % num_sparse_entries)
+                sparse_estimates = scipy.sparse.coo_matrix(
+                        (entries, (rows, cols)), shape=estimates.shape)
+                assert sparse_estimates.shape == estimates.shape
+                output_filename = os.path.join(
+                        directory, ("learnt-values-%d-sparse.npz" % epoch))
+
+                logging.info("Dumping to %s" % output_filename)
+                scipy.sparse.save_npz(output_filename, sparse_estimates)
 
             if epoch_loss < CONVERGENCE:
                 break

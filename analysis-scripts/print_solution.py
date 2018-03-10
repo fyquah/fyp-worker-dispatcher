@@ -29,14 +29,18 @@ parser.add_argument("--components", action="store_true")
 def load_estimates(directory, epoch):
     path = os.path.join(directory, "learnt-values-%d-sparse.npz" % epoch)
     if os.path.exists(path):
-        return scipy.sparse.load_npz(path)
+        logging.info("Loading values from %s " % path)
+        # TODO(fyq14): Really assume that it is a dense matrix?
+        return scipy.sparse.load_npz(path).todense()
 
     path = os.path.join(directory, "learnt-values-%d.npz" % epoch)
     if os.path.exists(path):
+        logging.info("Loading values from %s " % path)
         return np.load(path)
 
     path = os.path.join(directory, "learnt-values-%d.npy" % epoch)
     if os.path.exists(path):
+        logging.info("Loading values from %s " % path)
         return np.load(path)
 
 
