@@ -40,3 +40,19 @@ let list_of_sexp a_of_sexp sexp =
       Format.asprintf "Cannot parse %a as list" print_mach otherwise))
 
 let list_of_t = list_of_sexp
+
+let string_of_t t =
+  match t with
+  | Atom a -> a
+  | otherwise -> 
+    raise (Parse_error (
+      Format.asprintf "Cannot parse %a as string" print_mach otherwise))
+;;
+
+let int_of_t t =
+  match t with
+  | Atom a -> int_of_string a
+  | otherwise -> 
+    raise (Parse_error (
+      Format.asprintf "Cannot parse %a as int" print_mach otherwise))
+

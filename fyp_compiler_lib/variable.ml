@@ -142,6 +142,8 @@ let rename ?current_compilation_unit ?append t =
 let in_compilation_unit t cu =
   Compilation_unit.equal cu t.compilation_unit
 
+let get_name t = t.name
+
 let get_compilation_unit t = t.compilation_unit
 
 let unique_name t =

@@ -60,6 +60,12 @@ module Action = V1.Action
 module Decision = V1.Decision
 module Overrides = V1.Overrides
 
+module Simple_overrides : sig
+  type t
+
+  val load_from_channel : in_channel -> t
+end
+
 
 (* Strictly used only by the compiler to make overrides, so no need sexp
  * functions here.
@@ -68,6 +74,7 @@ module Multiversion_overrides : sig
   type t =
     | V0 of V0.t list
     | V1 of V1.Overrides.t
+    | V_simple of Simple_overrides.t
     | Don't
 
   type query = V0.Query.t * V1.Overrides.query
