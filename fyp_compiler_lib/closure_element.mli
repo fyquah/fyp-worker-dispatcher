@@ -26,6 +26,7 @@ val unwrap_set : Set.t -> Variable.Set.t
 
 val in_compilation_unit : t -> Compilation_unit.t -> bool
 val get_compilation_unit : t -> Compilation_unit.t
+val get_name : t -> string
 
 val unique_name : t -> string
 

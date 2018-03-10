@@ -27,3 +27,7 @@ end)
 
 let create t = t
 let to_string t = t
+
+let t_of_sexp = Sexp.string_of_t
+
+let sexp_of_t = Sexp.t_of_string

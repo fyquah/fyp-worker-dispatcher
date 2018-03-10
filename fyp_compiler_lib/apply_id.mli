@@ -39,3 +39,5 @@ val in_compilation_unit : t -> Compilation_unit.t -> bool
 val get_compilation_unit : t -> Compilation_unit.t
 
 val print : Format.formatter -> t -> unit
+
+val get_stamp : stamp -> int option

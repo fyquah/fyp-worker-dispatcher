@@ -15,3 +15,8 @@ val list_of_sexp : (t -> 'a) -> t -> 'a list
 val t_of_bool : bool -> t
 val bool_of_t : t -> bool
 
+val string_of_t : t -> string
+val t_of_string : string -> t
+
+val int_of_t : t -> int
+val t_of_int : int -> t
