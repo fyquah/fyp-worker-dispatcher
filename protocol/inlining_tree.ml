@@ -239,7 +239,7 @@ module V0 = struct
       in
       List.iter tree ~f:(fun t -> pp t ~indent:0);
     ;;
-  
+
     type t = root [@@deriving sexp, compare]
   end
   
@@ -824,6 +824,10 @@ module V1 = struct
 
     include T
     include Comparable.Make(T)
+
+    let to_simple_overrides root =
+      Data_collector.Simple_overrides.of_v1_overrides (to_override_rules root)
+    ;;
   end
   
   let equal_t_and_trace_item (t : t) (trace_item : Trace_item.t) =

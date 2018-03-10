@@ -112,6 +112,8 @@ module V1 : sig
 
     (* [super] is larger or equal to [tree] *)
     val is_super_tree : super: t -> t -> bool
+
+    val to_simple_overrides : t -> Data_collector.Simple_overrides.t
   end
   
   module Diff : sig
