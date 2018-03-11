@@ -12,7 +12,7 @@ import shutil
 import sexpdata
 
 
-Node = collections.namedtuple("Node", ["name", "value", "children"])
+NodeBase = collections.namedtuple("NodeBase", ["name", "value", "children"])
 Compilation_unit_base = collections.namedtuple("Compilation_unit",
         ["ident", "linkage_name"])
 Variable_base = collections.namedtuple("Variable",
@@ -25,6 +25,19 @@ Apply_id_base = collections.namedtuple("Apply_id",
         ["compilation_unit", "stamp"])
 Apply_stamp_base = collections.namedtuple("Apply_stamp_base",
         ["kind", "stamp"])
+
+
+class Node(NodeBase):
+
+    def map(self, f):
+        name, value = f(self)
+        children = [child.map(f) for child in self.children]
+        return Node(name=name, value=value, children=children)
+
+    def iter(self, f):
+        f(self)
+        for child in self.children:
+            child.iter(f)
 
 
 class Apply_stamp(Apply_stamp_base):
@@ -236,7 +249,10 @@ def pprint_tree(fp, tree, indent=0):
     spaces = str("--" * indent)
     fp.write("%s %s\n" % (spaces, tree.name))
     if tree.value is not None:
-        tree.value.pprint(fp, spaces)
+        if hasattr(tree.value, "pprint"):
+            tree.value.pprint(fp, spaces)
+        else:
+            fp.write("%s | %s\n" % (spaces, str(tree.value)))
     for child in tree.children:
         pprint_tree(fp, child, indent=indent+1)
 
@@ -252,6 +268,10 @@ class Path(object):
 
     def __init__(self, trace):
         self._trace = tuple(trace)
+
+    @property
+    def trace(self):
+        return self._trace
 
     def __str__(self):
         ret = []
@@ -385,6 +405,41 @@ def parse_time(s):
         return float(s[:-1])
     elif s[-1] == 'm':
         return float(s[:-1]) * 60
+
+
+def adjacency_list_from_edge_lists(num_nodes, edge_lists):
+    adjacency_list = []
+    for _ in range(num_nodes):
+        adjacency_list.append(set())
+
+    for edge_list in edge_lists:
+        for edge in edge_list:
+            adjacency_list[edge[0]].add((edge[1], edge[2]))
+
+    return adjacency_list
+
+
+def build_from_adjacency_list(visited, root, adjacency_list):
+    """
+    builds a tree with node.value set to None
+    """
+    assert isinstance(root, int)
+    if visited[root]:
+        return None
+
+    visited[root] = True
+    children = []
+    for child, _kind in adjacency_list[root]:
+        assert isinstance(child, int)
+        child_node = build_from_adjacency_list(visited, child, adjacency_list)
+        if child_node is not None:
+            children.append(child_node)
+
+    return Node(name=root, value=None, children=children)
+
+
+def edge_list_to_adjacency_list():
+    pass
 
 
 def load_tree_from_rundir(substep_dir, bin_name):
