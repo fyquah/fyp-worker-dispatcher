@@ -46,7 +46,7 @@ def construct_linear_benefit_relation(root, num_nodes, edge_list, hyperparams):
 
     s = [{"factor": 1, "node": root, "kind": "Top_level"}]
     visited = [False] * (2 * num_nodes)
-    visited[0] = True
+    visited[root] = True
     benefit_relation = np.zeros(2 * num_nodes, dtype=np.float64)
     participation = np.zeros(2 * num_nodes)
 
@@ -66,6 +66,8 @@ def construct_linear_benefit_relation(root, num_nodes, edge_list, hyperparams):
             print("unexpected kind =", kind)
             assert False
 
+        num_children = float(len(adjacency_list[node]))
+
         for child, kind in adjacency_list[node]:
             # TODO: Why is this check needed?? Technically we are dealing
             #       with trees. This implies there is unintended redundancy
@@ -73,7 +75,7 @@ def construct_linear_benefit_relation(root, num_nodes, edge_list, hyperparams):
             if not visited[child]:
                 visited[child] = True
                 s.append({
-                    "factor": factor * hyperparams.decay_factor / float(len(adjacency_list[node])),
+                    "factor": factor * hyperparams.decay_factor / num_children,
                     "node":   child,
                     "kind":   kind,
                 })

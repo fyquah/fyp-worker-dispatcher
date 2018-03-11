@@ -29,6 +29,9 @@ group1.add_argument(
 group1.add_argument(
         "--optimal-decision", action="store_true",
         help="dump about how much the model has done something")
+group1.add_argument(
+        "--inspect-run", type=int, default=None,
+        help="dump about how much the model has done something")
 
 
 def choose_left(a, b):
@@ -84,6 +87,25 @@ def get_optimal_decisions(tree, hyperparams, optimal_decisions):
     else:
         optimal_decisions.append((tree.name, constants.DONT_INLINE))
         return rhs_value
+
+
+def project_benefit_tree(root, hyperparams, adjacency_list, contributions, mask):
+    if mask[2 * root]:
+        base = contributions[2 * root]
+        acc = 0.0
+        for child, kind in adjacency_list[root]:
+            assert isinstance(child, int)
+            acc += project_benefit_tree(
+                    child, hyperparams, adjacency_list, contributions, mask)
+        if len(adjacency_list[root]):
+            return base + (acc / float(len(adjacency_list[root])))
+        else:
+            return base
+    elif mask[2 * root + 1]:
+        return contributions[2 * root + 1]
+    else:
+        logging.info("Failed to project benefit at %d" % root)
+        assert False
 
 
 def main():
@@ -156,6 +178,31 @@ def main():
         sexp_buffer = StringIO.StringIO()
         sexp_utils.dump_without_quotes(sexp_buffer, decisions_sexp)
         print(sexp_buffer.getvalue())
+
+    elif args.inspect_run:
+        adjacency_list = inlining_tree.adjacency_list_from_edge_lists(
+                num_nodes=num_nodes,
+                edge_lists=problem.edges_lists)
+        tree_path_to_ids = problem.properties.tree_path_to_ids
+
+        index = args.inspect_run
+        A = problem_matrices.benefit_relations
+        target_benefit = target_benefit[index]
+        projected_benefit = np.matmul(A, w)[index]
+        projected_benefit_with_dfs = project_benefit_tree(
+                root=tree_path_to_ids[inlining_tree.Path([])],
+                hyperparams=hyperparams,
+                adjacency_list=adjacency_list,
+                contributions=w,
+                mask=problem_matrices.participation_mask[index, :])
+
+        print "--- Information on run %d ---" % index
+        print "Target benefit =", target_benefit
+        print "Projected benefit (with matmul) =", projected_benefit
+        print "Projected benefit (with DFS) =", projected_benefit_with_dfs
+
+    else:
+        assert False
 
 
 if __name__ == "__main__":
