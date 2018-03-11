@@ -70,6 +70,12 @@ def compute_vector_space_of_solutions(R, rhs):
     print(w)
 
 
+def construct_benefit_from_exec_time(execution_times):
+    time_average = np.mean(execution_times)
+    return learn_problem.sigmoid(
+            -20 * (execution_times - time_average) / time_average)
+
+
 def main():
     logging.getLogger().setLevel(logging.INFO)
     args = parser.parse_args()
@@ -86,14 +92,13 @@ def main():
     if not os.path.exists(exp_directory):
         os.makedirs(exp_directory)
 
-    with open(os.path.join(exp_directory, "hyerparams.pkl"), "wb") as f:
+    with open(os.path.join(exp_directory, "hyperparams.pkl"), "wb") as f:
         pickle.dump(hyperparams, f)
 
     problem_matrices = learn_problem.construct_problem_matrices(
             problem, hyperparams)
-    time_average = np.mean(execution_times)
-    target_benefit = learn_problem.sigmoid(
-            -20 * (execution_times - time_average) / time_average)
+
+    target_benefit = construct_benefit_from_exec_time(execution_times)
     num_features = problem_matrices.benefit_relations.shape[1]
 
     if args.vector_space:
@@ -126,7 +131,8 @@ def main():
         logging.info("Finding _a single_ solution")
         A = problem_matrices.benefit_relations
         w = linalg.lstsq(A, target_benefit)
-        np.save(os.path.join(exp_directory, "contributions.npz"), w)
+        with open(os.path.join(exp_directory, "contributions.npy"), "wb") as f:
+            np.save(f, w)
 
 
 if __name__ == "__main__":
