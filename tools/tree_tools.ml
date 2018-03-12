@@ -268,17 +268,25 @@ module V1 = struct
     Command.async' ~summary:"convert compiler decisions to tree"
       [%map_open
         let input_file = anon ("filename" %: string)
-        and output_file =  flag "-output" (required string) ~doc:"STRING" in
+        and output_file =  flag "-output" (required string) ~doc:"STRING"
+        and expand = flag "-expand" no_arg ~doc:"FLAG" in
         fun () ->
           let open Deferred.Let_syntax in
           let%bind decisions =
             Reader.load_sexp_exn input_file [%of_sexp: Decision.t list]
           in
           let tree = Inlining_tree.build decisions in
+          let tree =
+            if expand then
+              Inlining_tree.Top_level.expand_decisions tree
+            else
+              tree
+          in
           let sexp = Inlining_tree.Top_level.sexp_of_t tree in
           let%map wrt = Writer.open_file output_file in
           Writer.write wrt (Sexp.to_string sexp)
       ]
+  ;;
 
   let command =
     Command.group ~summary:"Tree tools (for v1)"
