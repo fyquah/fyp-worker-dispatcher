@@ -2,6 +2,7 @@ import argparse
 import collections
 import concurrent.futures
 import csv
+import logging
 import os
 import pickle
 import sys
@@ -222,6 +223,7 @@ parser.add_argument("--bin-name", type=str, help="output dir", required=True)
 
 
 def main():
+    logging.getLogger().setLevel(logging.INFO)
     args = parser.parse_args()
     rundirs = []
     with open("../important-logs/batch_executor.log") as batch_f:
@@ -256,10 +258,12 @@ def main():
     #         results.append(result)
     # loop.close()
 
-    print("Loaded %d samples to train on" % len(results))
+    logging.info("Loaded %d samples to train on" % len(results))
     execution_directories, trees, execution_times = zip(*results)
 
     problem = formulate_problem(trees, execution_times, execution_directories)
+    if not os.path.exists(args.output_dir):
+        os.mkdir(args.output_dir)
     problem.dump(args.output_dir)
 
 

@@ -370,7 +370,7 @@ def in_temporary_directory(substep_tmp_dir):
     if not os.path.exists(substep_tmp_dir):
         os.mkdir(substep_tmp_dir)
     yield
-    print("Removed %s" % substep_tmp_dir)
+    logging.info("Removed %s" % substep_tmp_dir)
     shutil.rmtree(substep_tmp_dir)
 
 
@@ -446,12 +446,12 @@ def edge_list_to_adjacency_list():
 
 
 def load_tree_from_rundir(substep_dir, bin_name):
-    print("Loading tree from %s" % substep_dir)
+    logging.info("Loading tree from %s" % substep_dir)
     substep_tmp_dir = os.path.join(substep_dir, "tmp")
 
     with in_temporary_directory(substep_tmp_dir):
         with open(os.devnull, 'w') as FNULL:
-            print("Created tar process for", substep_dir)
+            logging.info("Created tar process for %s" % substep_dir)
             subprocess.call(["tar", 
                 "xzvf",
                 os.path.join(substep_dir, "artifacts.tar"),
@@ -463,11 +463,11 @@ def load_tree_from_rundir(substep_dir, bin_name):
         execution_stats_file = os.path.join(substep_dir, "execution_stats.sexp")
 
         if not os.path.exists(data_collector_file):
-            print("Dropping %s due to missing data collector file" % substep_dir)
+            logging.info("Dropping %s due to missing data collector file" % substep_dir)
             return None
 
         if not os.path.exists(execution_stats_file):
-            print("Dropping %s due to missing execution stats" % substep_dir)
+            logging.info("Dropping %s due to missing execution stats" % substep_dir)
             return None
 
         proc = subprocess.Popen([
@@ -478,7 +478,7 @@ def load_tree_from_rundir(substep_dir, bin_name):
 
         tree = build_tree_from_str(proc.stdout.read())
         if tree is None:
-            print("Dropping %s because cannot parse sexp correctly" % substep_dir)
+            logging.info("Dropping %s because cannot parse sexp correctly" % substep_dir)
             return None
         proc.wait()
 
@@ -490,5 +490,5 @@ def load_tree_from_rundir(substep_dir, bin_name):
                     for x in m["raw_execution_time"]
             ])
 
-        print("Done with %s" % substep_dir)
+        logging.info("Done with %s" % substep_dir)
     return (tree, execution_time)
