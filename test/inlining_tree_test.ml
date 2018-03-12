@@ -29,7 +29,7 @@ module Test_v0 = struct
       Writer.save_sexp (datadir ^/ "overrides.sexp")
         ([%sexp_of: Data_collector.t list] decisions)
     in
-    Async_shell.run ~echo:true ~verbose:true ~expect:[ 0 ] ~working_dir
+    Async_shell.run ~echo:false ~verbose:false ~expect:[ 0 ] ~working_dir
       "bash" [ "-c"; "make all" ]
   ;;
 
@@ -85,11 +85,11 @@ module Test_v1 = struct
     assert (not (Inlining_tree.Top_level.compare tree modified_tree = 0));
     let buffer = Buffer.create 1000 in
     Inlining_tree.Top_level.pprint buffer compiled_tree;
-    printf "COMPILED:\n%s\n" (Buffer.contents buffer);
+    (* printf "COMPILED:\n%s\n" (Buffer.contents buffer); *)
 
     let buffer = Buffer.create 1000 in
     Inlining_tree.Top_level.pprint buffer modified_tree;
-    printf "TARGET:\n%s\n" (Buffer.contents buffer);
+    (* printf "TARGET:\n%s\n" (Buffer.contents buffer); *)
 
     assert (Inlining_tree.Top_level.is_super_tree
       ~super:compiled_tree modified_tree);
@@ -100,14 +100,14 @@ module Test_v1 = struct
   let compile_with_decisions ~overrides_sexp_of_tree root =
     let working_dir = datadir in
     let%bind () =
-      Async_shell.run ~echo:true ~verbose:true ~expect:[ 0 ] ~working_dir
+      Async_shell.run ~echo:false ~verbose:false ~expect:[ 0 ] ~working_dir
         "bash" [ "-c"; "make clean" ]
     in
     let%bind () =
       let overrides = overrides_sexp_of_tree root in
       Writer.save_sexp (datadir ^/ "overrides.sexp") overrides
     in
-    Async_shell.run ~echo:true ~verbose:true ~expect:[ 0 ] ~working_dir
+    Async_shell.run ~echo:false ~verbose:false ~expect:[ 0 ] ~working_dir
       "bash" [ "-c"; "make all" ]
   ;;
 
@@ -125,7 +125,7 @@ module Test_v1 = struct
     ;;
 
     let run () =
-      printf "Running initial complation\n";
+      (* printf "Running initial complation\n"; *)
       let%bind () = compile_with_decisions [] in
       let%bind tree = load_decision_tree () in
       Deferred.ignore (
@@ -149,7 +149,7 @@ module Test_v1 = struct
     ;;
 
     let run () =
-      printf "Running  initial complation\n";
+      (* printf "Running  initial complation\n";*)
       let%bind () = compile_with_decisions [] in
       let%bind tree = load_decision_tree () in
       Deferred.ignore (
@@ -158,8 +158,38 @@ module Test_v1 = struct
             run_single_iter ~iter ~tree ~compile_with_decisions)
       )
   end
+
+  module Verify_expansion = struct
+    let name = "v1.verify_expansion"
+
+    let run () =
+      List.iteri Expansion_testdata.examples ~f:(fun i (input, expected_output) ->
+          let obtained = Inlining_tree.Top_level.expand_decisions input in
+          let c =
+            Inlining_tree.Top_level.compare obtained expected_output
+          in
+          if not (c = 0) then begin
+            let buffer = Buffer.create 1000 in
+            printf ">>> FAILED IN test %d <<<\n" i;
+            Inlining_tree.Top_level.pprint buffer input;
+            printf "INPUT:\n%s\n" (Buffer.contents buffer);
+            Buffer.clear buffer;
+
+            Inlining_tree.Top_level.pprint buffer expected_output;
+            printf "EXPECTED:\n%s\n" (Buffer.contents buffer);
+            Buffer.clear buffer;
+
+            Inlining_tree.Top_level.pprint buffer obtained;
+            printf "OBTAINED:\n%s\n" (Buffer.contents buffer);
+            Buffer.clear buffer;
+          end;
+          assert (c = 0)
+        );
+      Deferred.unit
+  end
 end
 
 let () =
   Testlib.register (module Test_v1.Verify_v1_overrides);
-  Testlib.register (module Test_v1.Verify_simple_overrides)
+  Testlib.register (module Test_v1.Verify_simple_overrides);
+  Testlib.register (module Test_v1.Verify_expansion)

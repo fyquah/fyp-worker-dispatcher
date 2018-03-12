@@ -870,6 +870,10 @@ module V1 = struct
           match node with
           | Declaration decl ->
             let new_children =
+              let declaration_map =
+                Closure_origin.Map.add decl.declared.closure_origin decl
+                  declaration_map
+              in
               expand_decisions_in_call_site ~declaration_map decl.children
             in
             let rewritten_decl = { decl with children = new_children } in
