@@ -47,7 +47,8 @@ def collect_unique_nodes(acc, trace, tree):
     elif tree.name == "Inlined" or tree.name == "Non_inlined":
         new_trace = trace + [(
             "function",
-            tree.value.apply_id.id()
+            tree.value.apply_id.id(),
+            tree.value.function.closure_origin.id(),
         )]
         acc.add(inlining_tree.Path(new_trace))
         for child in tree.children:
@@ -80,7 +81,8 @@ def relabel_to_paths(tree, trace):
     elif tree.name == "Inlined" or tree.name == "Non_inlined":
         new_trace = trace + [(
             "function",
-            tree.value.apply_id.id()
+            tree.value.apply_id.id(),
+            tree.value.function.closure_origin.id(),
         )]
         children = [
                 relabel_to_paths(child, new_trace)
@@ -210,6 +212,7 @@ def formulate_problem(raw_trees, execution_times):
             matrices=matrices,
             node_labels=None,
             execution_times=execution_times,
+            execution_directories=execution_directories,
             edges_lists=edge_lists)
 
 parser = argparse.ArgumentParser(description="formulate the problem")
@@ -242,7 +245,7 @@ def main():
             for task in tasks
     ]
     results = [r.result() for r in concurrent.futures.as_completed(futures)]
-    results = [r for r in results if r is not None]
+    results = [(d, r[0], r[1]) for d, r in zip(tasks, results) if r is not None]
 
     # loop = asyncio.get_event_loop()
     # done, pending = loop.run_until_complete(asyncio.wait(tasks))
@@ -254,9 +257,9 @@ def main():
     # loop.close()
 
     print("Loaded %d samples to train on" % len(results))
-    trees, execution_times = zip(*results)
+    execution_directories, trees, execution_times = zip(*results)
 
-    problem = formulate_problem(trees, execution_times)
+    problem = formulate_problem(trees, execution_times, execution_directories)
     problem.dump(args.output_dir)
 
 

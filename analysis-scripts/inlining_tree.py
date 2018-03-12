@@ -277,7 +277,7 @@ class Path(object):
         ret = []
         for item in self._trace:
             if item[0] == "function":
-                ret.append("<%s>" % (item[1]))
+                ret.append("<%s__%s>" % (item[1], item[2]))
             elif item[0] == "declaration":
                 ret.append("{%s}" % item[1])
             else:
@@ -300,7 +300,7 @@ ProblemProperties = collections.namedtuple("ProblemProperties", [
 
 class Problem(object):
 
-    def __init__(self, tree_path_to_ids, matrices, node_labels, execution_times, edges_lists):
+    def __init__(self, tree_path_to_ids, matrices, node_labels, execution_times, edges_lists, execution_directories):
         self.properties = ProblemProperties(
                 depth=len(matrices), tree_path_to_ids=tree_path_to_ids
         )
@@ -308,11 +308,13 @@ class Problem(object):
         self.execution_times = execution_times
         self.matrices = matrices
         self.edges_lists = edges_lists
+        self.execution_directories = execution_directories
 
     def dump(self, directory):
         with open(os.path.join(directory, "properties.pkl"), "wb") as f:
             pickle.dump(self.properties, f)
-
+        with open(os.path.join(directory, "execution_directories.pkl"), "wb") as f:
+            pickle.dump(self.execution_directories, f)
         with open(os.path.join(directory, "edges_lists.pkl"), "wb") as f:
             pickle.dump(self.edges_lists, f)
 
@@ -336,6 +338,8 @@ class Problem(object):
             properties = pickle.load(f)
         with open(os.path.join(directory, "edges_lists.pkl"), "rb") as f:
             edges_lists = pickle.load(f)
+        with open(os.path.join(directory, "execution_directories.pkl"), "rb") as f:
+            execution_directories = pickle.load(f)
         matrices = []
         for i in range(properties.depth):
             matrix = scipy.sparse.load_npz(
@@ -350,6 +354,7 @@ class Problem(object):
                 node_labels=node_labels,
                 execution_times=execution_times,
                 edges_lists=edges_lists,
+                execution_directories=execution_directories,
         )
 
 
@@ -414,7 +419,7 @@ def adjacency_list_from_edge_lists(num_nodes, edge_lists):
 
     for edge_list in edge_lists:
         for edge in edge_list:
-            adjacency_list[edge[0]].add((edge[1], edge[2]))
+            adjacency_list[edge[0]].add((edge[1]))
 
     return adjacency_list
 
@@ -424,16 +429,14 @@ def build_from_adjacency_list(visited, root, adjacency_list):
     builds a tree with node.value set to None
     """
     assert isinstance(root, int)
-    if visited[root]:
-        return None
+    assert not visited[root]
 
     visited[root] = True
     children = []
-    for child, _kind in adjacency_list[root]:
+    for child in adjacency_list[root]:
         assert isinstance(child, int)
         child_node = build_from_adjacency_list(visited, child, adjacency_list)
-        if child_node is not None:
-            children.append(child_node)
+        children.append(child_node)
 
     return Node(name=root, value=None, children=children)
 

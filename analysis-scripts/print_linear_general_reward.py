@@ -89,23 +89,36 @@ def get_optimal_decisions(tree, hyperparams, optimal_decisions):
         return rhs_value
 
 
-def project_benefit_tree(root, hyperparams, adjacency_list, contributions, mask):
+def project_benefit_tree(
+        root, hyperparams, id_to_tree_path, adjacency_list, contributions, mask, indent=0):
+    space = " " * indent
     if mask[2 * root]:
+        logging.info(
+                "%sLooking into %d(%s)" % (space, root, id_to_tree_path[root]))
         base = contributions[2 * root]
         acc = 0.0
-        for child, kind in adjacency_list[root]:
+        num_children = len(adjacency_list[root])
+        for child in adjacency_list[root]:
             assert isinstance(child, int)
-            acc += project_benefit_tree(
-                    child, hyperparams, adjacency_list, contributions, mask)
-        if len(adjacency_list[root]):
-            return base + (acc / float(len(adjacency_list[root])))
+            child_value = project_benefit_tree(
+                    child, hyperparams, id_to_tree_path, adjacency_list,
+                    contributions, mask, indent=indent+1)
+            if child_value is None:
+                num_children -= 1
+            else:
+                acc += child_value
+        if num_children:
+            return base + (hyperparams.decay_factor * acc / float(num_children))
         else:
             return base
     elif mask[2 * root + 1]:
+        logging.info(
+                "%s Terminating at %d(%s)" % (space, root, id_to_tree_path[root]))
         return contributions[2 * root + 1]
     else:
-        logging.info("Failed to project benefit at %d" % root)
-        assert False
+        logging.info(
+                "%sFailed to project benefit at %d(%s)" % (space, root, id_to_tree_path[root]))
+        return None
 
 
 def main():
@@ -180,21 +193,26 @@ def main():
         print(sexp_buffer.getvalue())
 
     elif args.inspect_run:
+        index = args.inspect_run
+
         adjacency_list = inlining_tree.adjacency_list_from_edge_lists(
                 num_nodes=num_nodes,
-                edge_lists=problem.edges_lists)
+                edge_lists=[problem.edges_lists[index]])
         tree_path_to_ids = problem.properties.tree_path_to_ids
+        id_to_tree_path = {v: k for k, v in tree_path_to_ids.iteritems()}
 
-        index = args.inspect_run
         A = problem_matrices.benefit_relations
         target_benefit = target_benefit[index]
         projected_benefit = np.matmul(A, w)[index]
+        participation_mask = problem_matrices.participation_mask[index, :]
+        assert participation_mask.shape == (num_nodes * 2,)
         projected_benefit_with_dfs = project_benefit_tree(
                 root=tree_path_to_ids[inlining_tree.Path([])],
                 hyperparams=hyperparams,
                 adjacency_list=adjacency_list,
+                id_to_tree_path=id_to_tree_path,
                 contributions=w,
-                mask=problem_matrices.participation_mask[index, :])
+                mask=participation_mask)
 
         print "--- Information on run %d ---" % index
         print "Target benefit =", target_benefit

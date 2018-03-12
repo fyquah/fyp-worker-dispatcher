@@ -38,15 +38,11 @@ HyperParameters = collections.namedtuple("HyperParameters",
 
 
 def construct_linear_benefit_relation(root, num_nodes, edge_list, hyperparams):
-    adjacency_list = []
-    for _ in range(num_nodes):
-        adjacency_list.append([])
-    for edge in edge_list:
-        adjacency_list[edge[0]].append((edge[1], edge[2]))
+    adjacency_list = inlining_tree.adjacency_list_from_edge_lists(
+            num_nodes, [edge_list])
 
     s = [{"factor": 1, "node": root, "kind": "Top_level"}]
     visited = [False] * (2 * num_nodes)
-    visited[root] = True
     benefit_relation = np.zeros(2 * num_nodes, dtype=np.float64)
     participation = np.zeros(2 * num_nodes)
 
@@ -55,6 +51,10 @@ def construct_linear_benefit_relation(root, num_nodes, edge_list, hyperparams):
         factor = tos["factor"]
         node = tos["node"]
         kind = tos["kind"]
+
+        if visited[node]:
+            continue
+        visited[node] = True
 
         if kind == "Inlined" or kind == "Top_level" or kind == "Declaration":
             benefit_relation[2 * node] = factor
@@ -68,17 +68,17 @@ def construct_linear_benefit_relation(root, num_nodes, edge_list, hyperparams):
 
         num_children = float(len(adjacency_list[node]))
 
-        for child, kind in adjacency_list[node]:
+        for child in adjacency_list[node]:
+            assert isinstance(child, int)
+            assert not visited[child]
             # TODO: Why is this check needed?? Technically we are dealing
             #       with trees. This implies there is unintended redundancy
             #       in data source
-            if not visited[child]:
-                visited[child] = True
-                s.append({
-                    "factor": factor * hyperparams.decay_factor / num_children,
-                    "node":   child,
-                    "kind":   kind,
-                })
+            s.append({
+                "factor": factor * hyperparams.decay_factor / num_children,
+                "node":   child,
+                "kind":   kind,
+            })
 
     assert not(
         all(not visited[x] or benefit_relation[x] > 0
