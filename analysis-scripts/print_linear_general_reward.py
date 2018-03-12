@@ -92,6 +92,7 @@ def get_optimal_decisions(tree, hyperparams, optimal_decisions):
 def project_benefit_tree(
         root, hyperparams, id_to_tree_path, adjacency_list, contributions, mask, indent=0):
     space = " " * indent
+    assert not (mask[2 * root] and mask[2 * root + 1])
     if mask[2 * root]:
         logging.info(
                 "%sLooking into %d(%s)" % (space, root, id_to_tree_path[root]))
@@ -113,12 +114,12 @@ def project_benefit_tree(
             return base
     elif mask[2 * root + 1]:
         logging.info(
-                "%s Terminating at %d(%s)" % (space, root, id_to_tree_path[root]))
+                "%sTerminating at %d(%s)" % (space, root, id_to_tree_path[root]))
         return contributions[2 * root + 1]
     else:
         logging.info(
                 "%sFailed to project benefit at %d(%s)" % (space, root, id_to_tree_path[root]))
-        return None
+        return contributions[2 * root + 1]
 
 
 def main():
@@ -197,7 +198,7 @@ def main():
 
         adjacency_list = inlining_tree.adjacency_list_from_edge_lists(
                 num_nodes=num_nodes,
-                edge_lists=[problem.edges_lists[index]])
+                edge_lists=problem.edges_lists)
         tree_path_to_ids = problem.properties.tree_path_to_ids
         id_to_tree_path = {v: k for k, v in tree_path_to_ids.iteritems()}
 
@@ -215,6 +216,7 @@ def main():
                 mask=participation_mask)
 
         print "--- Information on run %d ---" % index
+        print "Execution directory =", problem.execution_directories[index]
         print "Target benefit =", target_benefit
         print "Projected benefit (with matmul) =", projected_benefit
         print "Projected benefit (with DFS) =", projected_benefit_with_dfs

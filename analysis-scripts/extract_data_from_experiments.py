@@ -174,7 +174,7 @@ def populate_edge_list(edge_list, tree_path_to_ids, tree):
         populate_edge_list(edge_list, tree_path_to_ids, child)
 
 
-def formulate_problem(raw_trees, execution_times):
+def formulate_problem(raw_trees, execution_times, execution_directories):
 
     tree_paths = set()
     tree_path_to_ids = {}

@@ -40,6 +40,9 @@ HyperParameters = collections.namedtuple("HyperParameters",
 def construct_linear_benefit_relation(root, num_nodes, edge_list, hyperparams):
     adjacency_list = inlining_tree.adjacency_list_from_edge_lists(
             num_nodes, [edge_list])
+    kind_map = {}
+    for u, v, kind in edge_list:
+        kind_map[(u, v)] = kind
 
     s = [{"factor": 1, "node": root, "kind": "Top_level"}]
     visited = [False] * (2 * num_nodes)
@@ -71,13 +74,16 @@ def construct_linear_benefit_relation(root, num_nodes, edge_list, hyperparams):
         for child in adjacency_list[node]:
             assert isinstance(child, int)
             assert not visited[child]
+            child_kind = kind_map[(node, child)]
+            assert isinstance(child_kind, str)
+
             # TODO: Why is this check needed?? Technically we are dealing
             #       with trees. This implies there is unintended redundancy
             #       in data source
             s.append({
                 "factor": factor * hyperparams.decay_factor / num_children,
                 "node":   child,
-                "kind":   kind,
+                "kind":   child_kind,
             })
 
     assert not(
