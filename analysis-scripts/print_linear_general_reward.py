@@ -119,7 +119,7 @@ def project_benefit_tree(
     else:
         logging.info(
                 "%sFailed to project benefit at %d(%s)" % (space, root, id_to_tree_path[root]))
-        return contributions[2 * root + 1]
+        return None
 
 
 def main():
