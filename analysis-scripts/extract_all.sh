@@ -6,7 +6,7 @@ set -x
 BIN="python ./extract_data_from_experiments.py"
 
 $BIN --script-name ./experiment-scripts/simulated-annealing-almabench              --bin-name almabench              --output-dir ./out/almabench
-$BIN --script-name ./experiment-scripts/simulated-annealing-bdd                    --bin-name bdd_benchmark          --output-dir ./out/bdd
+$BIN --script-name ./experiment-scripts/simulated-annealing-bdd                    --bin-name bdd                    --output-dir ./out/bdd
 $BIN --script-name ./experiment-scripts/simulated-annealing-fft                    --bin-name fft                    --output-dir ./out/fft
 $BIN --script-name ./experiment-scripts/simulated-annealing-floats-in-functor      --bin-name b                      --output-dir ./out/floats-in-functor
 $BIN --script-name ./experiment-scripts/simulated-annealing-hamming                --bin-name hamming                --output-dir ./out/hamming
