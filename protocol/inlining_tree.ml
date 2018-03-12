@@ -26,7 +26,7 @@ module V0 = struct
       children  : t list;
     }
   [@@deriving sexp, compare]
-  
+
   let is_leaf t =
     match t with
     | Apply_inlined_function { children = []; _ }
@@ -34,7 +34,7 @@ module V0 = struct
     | Apply_non_inlined_function _ -> true
     | _ -> false
   ;;
-  
+
   let flip_node t =
     match t with
     | Declaration _ -> assert false
@@ -43,7 +43,7 @@ module V0 = struct
     | Apply_non_inlined_function { applied; offset } ->
       Apply_inlined_function { applied; offset; children = [] }
   ;;
-  
+
   let shallow_sexp_of_t sexp =
     let open Sexp in
     match sexp with
@@ -59,10 +59,10 @@ module V0 = struct
         Atom "Apply_non_inlined_function";
         Closure_id.sexp_of_t non_inlined_function.applied;
       ]
-  
+
   module Top_level = struct
     type root = t list [@@deriving sexp, compare]
-  
+
     let count_leaves root =
       let rec loop t =
         let sum_all l =
@@ -80,7 +80,7 @@ module V0 = struct
       in
       List.sum ~f:(fun t -> loop t) (module Int) root
     ;;
-  
+
     let flip_nth_leaf root n =
       let rec loop ~state ~node =
         if is_leaf node then begin
@@ -122,7 +122,7 @@ module V0 = struct
           i n ()
       | `Replaced new_tree -> new_tree
     ;;
-  
+
     let backtrack_nth_leaf root n =
       let rec loop ~state ~node =
         if is_leaf node then begin
@@ -170,11 +170,11 @@ module V0 = struct
           i n ()
       | `Replaced new_tree -> Some new_tree
     ;;
-  
+
     let flip_several_leaves root indices =
       List.fold indices ~init:root ~f:flip_nth_leaf
     ;;
-  
+
     let to_override_rules root =
       let rec loop_node ~source ~call_stack ~node =
         match node with
@@ -188,7 +188,7 @@ module V0 = struct
             List.map decl.children ~f:(fun node ->
               loop_node ~source ~call_stack ~node)
           )
-  
+
         | Apply_inlined_function inlined ->
           let decision = true in
           let applied = inlined.applied in
@@ -201,7 +201,7 @@ module V0 = struct
             List.map inlined.children ~f:(fun node ->
               loop_node ~source:(Some inlined.applied) ~call_stack ~node)
           )
-  
+
         | Apply_non_inlined_function not_inlined ->
           let decision = false in
           let applied = not_inlined.applied in
@@ -214,7 +214,7 @@ module V0 = struct
       List.concat_map root ~f:(fun node ->
         loop_node ~source:None ~call_stack:[] ~node)
     ;;
-  
+
     let pp ppf (tree : root) =
       let mk_indent indent = String.make indent ' ' in
       let fprintf = Format.fprintf in
@@ -242,7 +242,7 @@ module V0 = struct
 
     type t = root [@@deriving sexp, compare]
   end
-  
+
   let fuzzy_equal a b =
     match a, b with
     | Declaration a, Declaration b ->
@@ -270,7 +270,7 @@ module V0 = struct
       Call_site.Offset.equal a.offset b.offset
     | _ , _ -> false
   ;;
-  
+
   let equal_t_and_call_site (t : t) (call_site : Call_site.t) =
     match (t, call_site) with
     | (Declaration decl, Enter_decl enter_decl) ->
@@ -278,13 +278,13 @@ module V0 = struct
     | (Apply_inlined_function inlined_function, At_call_site at_call_site) ->
       Closure_id.equal inlined_function.applied at_call_site.applied &&
       Call_site.Offset.equal inlined_function.offset at_call_site.offset
-  
+
     | (Apply_non_inlined_function non_inlined_function, At_call_site at_call_site) ->
       Closure_id.equal non_inlined_function.applied at_call_site.applied &&
       Call_site.Offset.equal non_inlined_function.offset at_call_site.offset
-  
+
     | _, _ -> false
-  
+
   (* Only on short lists! *)
   let rec find_and_replace ~f ~default l =
     match l with
@@ -294,9 +294,9 @@ module V0 = struct
       | Some a -> a :: tl
       | None -> hd :: (find_and_replace ~f ~default tl)
   ;;
-  
+
   let add (top_level_tree : Top_level.t) (collected : Data_collector.V0.t) =
-  
+
     let rec add__generic (tree : t) (call_stack : Call_site.t list) =
       match call_stack with
       | [] -> assert false
@@ -306,7 +306,7 @@ module V0 = struct
           add__call_site tree at_call_site tl
         | Enter_decl enter_decl ->
           add__declaration tree enter_decl tl
-  
+
     and add__declaration
         (tree : t)
         (enter_decl : Call_site.enter_decl)
@@ -333,11 +333,11 @@ module V0 = struct
         | Declaration decl ->
           let children = finder decl.children in
           Declaration { decl with children }
-  
+
         | Apply_inlined_function inlined_function ->
           let children = finder inlined_function.children in
           Apply_inlined_function { inlined_function with children }
-  
+
         | Apply_non_inlined_function _ ->
           tree
           (* It is possible, due to the nature of the [inline] function. It
@@ -347,7 +347,7 @@ module V0 = struct
            * In cases as such, the parent takes higher priority (which should
            * contain an equally pessimistic or more pessimistic decision).
            *)
-  
+
     and add__call_site
         (tree : t)
         (call_site : Call_site.at_call_site)
@@ -403,11 +403,11 @@ module V0 = struct
       | Declaration decl ->
         let children = finder decl.children in
         Declaration { decl with children }
-  
+
       | Apply_inlined_function inlined_function ->
         let children = finder inlined_function.children in
         Apply_inlined_function { inlined_function with children }
-  
+
       | Apply_non_inlined_function _ ->
         tree
     in
@@ -431,11 +431,12 @@ module V0 = struct
     | Declaration { closure = _; children } -> children
     | _ -> assert false
   ;;
-  
+
   let build (decisions : Data_collector.V0.t list) : Top_level.t =
     let (init : Top_level.t) = [] in
     List.fold decisions ~init ~f:add
-  
+  ;;
+
   module Diff = struct
     type nonrec t =
       { common_ancestor : t list; (* Arbitary choice between the left and right *)
@@ -444,7 +445,7 @@ module V0 = struct
       }
     [@@deriving sexp]
   end
-  
+
   let diff ~(left : Top_level.t) ~(right : Top_level.t) =
     let shallow_diff ~left ~right =
       let same = ref [] in
@@ -534,10 +535,10 @@ module V1 = struct
       }
     [@@deriving sexp, compare]
   end
-  
+
   include T
   include Comparable.Make(T)
-  
+
   let is_leaf t =
     match t with
     | Apply_inlined_function { children = []; _ }
@@ -545,7 +546,7 @@ module V1 = struct
     | Apply_non_inlined_function _ -> true
     | _ -> false
   ;;
-  
+
   let flip_node t =
     match t with
     | Declaration _ -> assert false
@@ -554,7 +555,7 @@ module V1 = struct
     | Apply_non_inlined_function { applied; apply_id; } ->
       Apply_inlined_function { applied; apply_id; children = [] }
   ;;
-  
+
   let shallow_sexp_of_t sexp =
     let open Sexp in
     match sexp with
@@ -577,7 +578,7 @@ module V1 = struct
     | Apply_inlined_function inlined -> inlined.children
     | Apply_non_inlined_function _ -> []
   ;;
-  
+
   let fuzzy_equal a b =
     match a, b with
     | Declaration a, Declaration b ->
@@ -595,7 +596,7 @@ module V1 = struct
 
   module Top_level = struct
     type root = t list [@@deriving sexp, compare]
-  
+
     let count_leaves root =
       let rec loop t =
         let sum_all l =
@@ -613,7 +614,7 @@ module V1 = struct
       in
       List.sum ~f:(fun t -> loop t) (module Int) root
     ;;
-  
+
     let flip_nth_leaf root n =
       let rec loop ~state ~node =
         if is_leaf node then begin
@@ -655,7 +656,7 @@ module V1 = struct
           i n ()
       | `Replaced new_tree -> new_tree
     ;;
-  
+
     let backtrack_nth_leaf root n =
       let rec loop ~state ~node =
         if is_leaf node then begin
@@ -703,11 +704,11 @@ module V1 = struct
           i n ()
       | `Replaced new_tree -> Some new_tree
     ;;
-  
+
     let flip_several_leaves root indices =
       List.fold indices ~init:root ~f:flip_nth_leaf
     ;;
-  
+
     let to_override_rules root =
       let rec loop_node ~source ~call_stack ~node =
         match node with
@@ -721,7 +722,7 @@ module V1 = struct
             List.map decl.children ~f:(fun node ->
               loop_node ~source ~call_stack ~node)
           )
-  
+
         | Apply_inlined_function inlined ->
           let action = Action.Inline in
           let applied = inlined.applied in
@@ -737,7 +738,7 @@ module V1 = struct
             List.map inlined.children ~f:(fun node ->
               loop_node ~source:(Some inlined.applied) ~call_stack ~node)
           )
-  
+
         | Apply_non_inlined_function not_inlined ->
           let applied = not_inlined.applied in
           let apply_id = not_inlined.apply_id in
@@ -753,7 +754,7 @@ module V1 = struct
         loop_node ~source:None ~call_stack:[] ~node)
       |> Overrides.of_decisions
     ;;
-  
+
     let pp ppf (tree : root) =
       let mk_indent indent = String.make indent ' ' in
       let fprintf = Format.fprintf in
@@ -781,7 +782,7 @@ module V1 = struct
 
     let pprint ?(indent = -1) buffer nodes =
       let rec loop ~indent node =
-        let space = 
+        let space =
          List.init indent ~f:(fun _ -> " ")  |> String.concat ~sep:""
         in
         match node with
@@ -794,7 +795,7 @@ module V1 = struct
             (Format.asprintf "%a" Apply_id.print inlined.apply_id)
             (Format.asprintf "%a" Closure_origin.print inlined.applied.closure_origin);
           iterate_children ~indent inlined.children
-        | Apply_non_inlined_function non_inlined -> 
+        | Apply_non_inlined_function non_inlined ->
           bprintf buffer "%sDONT_INLINE(%s) %s\n" space
             (Format.asprintf "%a" Apply_id.print non_inlined.apply_id)
             (Format.asprintf "%a"
@@ -817,31 +818,175 @@ module V1 = struct
       fuzzy_equal super tree
       && is_super_tree ~super:(children super) (children tree)
     ;;
- 
+
+    let to_simple_overrides root =
+      Data_collector.Simple_overrides.of_v1_overrides (to_override_rules root)
+    ;;
+
+    let get_uninlined_leaves nodes =
+      let rec loop ~acc = function
+        | Declaration _ -> acc
+        | Apply_inlined_function inlined ->
+          List.fold inlined.children ~init:acc ~f:(fun acc child ->
+              loop ~acc child)
+        | Apply_non_inlined_function non_inlined ->
+          non_inlined.applied.closure_origin :: acc
+      in
+      List.fold nodes ~init:[] ~f:(fun acc node ->
+        loop ~acc node)
+      |> List.rev
+    ;;
+
+    let rec replace_leaf_calls original_node
+        ~(leaf_substitution_map: t Closure_origin.Map.t) =
+      match original_node with
+      | Declaration _ -> original_node
+      | Apply_inlined_function inlined ->
+        let children =
+          List.map inlined.children ~f:(fun child ->
+              replace_leaf_calls child ~leaf_substitution_map)
+        in
+        Apply_inlined_function { inlined with children }
+      | Apply_non_inlined_function non_inlined ->
+        let closure_origin = non_inlined.applied.closure_origin in
+        match
+          Closure_origin.Map.find_opt closure_origin leaf_substitution_map
+        with
+        | None -> original_node
+        | Some found -> found
+    ;;
+
+    let get_children_exn = function
+      | Declaration decl -> decl.children
+      | Apply_inlined_function inlined -> inlined.children
+      | Apply_non_inlined_function _ -> assert false
+    ;;
+
+    let rec expand_decisions_in_call_site
+        ~(declaration_map : declaration Closure_origin.Map.t)
+        (all_nodes : t list) =
+      List.fold all_nodes ~init:([], declaration_map)
+        ~f:(fun (acc, declaration_map) node ->
+          match node with
+          | Declaration decl ->
+            let new_children =
+              expand_decisions_in_call_site ~declaration_map decl.children
+            in
+            let rewritten_decl = { decl with children = new_children } in
+            let declaration_map =
+              Closure_origin.Map.add
+                decl.declared.closure_origin
+                rewritten_decl
+                declaration_map
+            in
+            let rewritten_node = Declaration rewritten_decl in
+            (rewritten_node :: acc, declaration_map)
+
+          | Apply_non_inlined_function _ ->
+            (node :: acc, declaration_map)
+
+          | Apply_inlined_function inlined ->
+            let (option_declaration : declaration option) =
+              Closure_origin.Map.find_opt inlined.applied.closure_origin
+                declaration_map
+            in
+            begin match option_declaration with
+            | None ->
+              let children = inlined.children in
+              let children =
+                expand_decisions_in_call_site ~declaration_map children
+              in
+              let new_node =
+                Apply_inlined_function { inlined with children }
+              in
+              (new_node :: acc, declaration_map)
+            | Some declaration ->
+              let calls_from_declaration =
+                get_uninlined_leaves declaration.children
+                |> Closure_origin.Set.of_list
+              in
+
+              (* All non-inlined leaf nodes in the declaration must be present in the
+               * call site's inlining expansion.
+               *)
+              Closure_origin.Set.iter (fun closure_origin ->
+                  assert (
+                    List.exists inlined.children ~f:(fun child ->
+                        match child with
+                        | Declaration _ -> false
+                        | Apply_inlined_function { applied; _ }
+                        | Apply_non_inlined_function {applied; } ->
+                          Closure_origin.equal applied.closure_origin closure_origin)))
+                calls_from_declaration;
+
+              (* Process the children that's obtained after inlining,
+               * recursively *)
+              let processed_inline_node =
+                let children =
+                  expand_decisions_in_call_site ~declaration_map inlined.children
+                in
+                Apply_inlined_function { inlined with children }
+              in
+
+              (* Now, take the original function declaration, and substitute
+               * the leaf nodes obtained after inlining into the function
+               * calls.
+               *)
+              let (leaf_substitution_map : t Closure_origin.Map.t) =
+                let children = get_children_exn processed_inline_node in
+                List.fold children ~init:Closure_origin.Map.empty
+                  ~f:(fun acc child ->
+                      match child with
+                      | Declaration _ -> acc
+                      | Apply_inlined_function { applied; _ }
+                      | Apply_non_inlined_function { applied; _ } ->
+                        Closure_origin.Map.add applied.closure_origin child acc)
+              in
+              let new_node =
+                let children = declaration.children in
+                Apply_inlined_function { inlined with children }
+              in
+              let new_node =
+                replace_leaf_calls new_node ~leaf_substitution_map
+              in
+
+              (* TODO: Nodes that are somehow present in the inlined node,
+               *       but absent in the original declaration is omitted
+               *       here. This may, or may not, be the best course of
+               *       action, but definitely the easiest to reason about
+               *       / implement
+               *)
+              (new_node :: acc, declaration_map)
+            end)
+      |> fst
+      |> List.rev
+    ;;
+
+    let expand_decisions root =
+      let declaration_map = Closure_origin.Map.empty in
+      expand_decisions_in_call_site ~declaration_map root
+    ;;
+
     module T = struct
       type t = root [@@deriving sexp, compare]
     end
 
     include T
     include Comparable.Make(T)
-
-    let to_simple_overrides root =
-      Data_collector.Simple_overrides.of_v1_overrides (to_override_rules root)
-    ;;
   end
-  
+
   let equal_t_and_trace_item (t : t) (trace_item : Trace_item.t) =
     match (t, trace_item) with
     | (Declaration decl, Enter_decl enter_decl) ->
       Function_metadata.equal decl.declared enter_decl.declared
     | (Apply_inlined_function inlined_function, At_call_site at_call_site) ->
       Apply_id.equal inlined_function.apply_id at_call_site.apply_id
-  
+
     | (Apply_non_inlined_function non_inlined_function, At_call_site at_call_site) ->
       Apply_id.equal non_inlined_function.apply_id at_call_site.apply_id
-  
+
     | _, _ -> false
-  
+
   (* Only on short lists! *)
   let rec find_and_replace ~f ~default l =
     match l with
@@ -851,9 +996,9 @@ module V1 = struct
       | Some a -> a :: tl
       | None -> hd :: (find_and_replace ~f ~default tl)
   ;;
-  
+
   let add (top_level_tree : Top_level.t) (collected : Decision.t) =
-  
+
     let rec add__generic (tree : t) (call_stack : Trace_item.t list) =
       match call_stack with
       | [] -> assert false
@@ -863,7 +1008,7 @@ module V1 = struct
           add__call_site tree at_call_site tl
         | Enter_decl enter_decl ->
           add__declaration tree enter_decl tl
-  
+
     and add__declaration
         (tree : t)
         (enter_decl : Trace_item.enter_decl)
@@ -890,11 +1035,11 @@ module V1 = struct
         | Declaration decl ->
           let children = finder decl.children in
           Declaration { decl with children }
-  
+
         | Apply_inlined_function inlined_function ->
           let children = finder inlined_function.children in
           Apply_inlined_function { inlined_function with children }
-  
+
         | Apply_non_inlined_function _ ->
           tree
           (* It is possible, due to the nature of the [inline] function. It
@@ -904,7 +1049,7 @@ module V1 = struct
            * In cases as such, the parent takes higher priority (which should
            * contain an equally pessimistic or more pessimistic decision).
            *)
-  
+
     and add__call_site
         (tree : t)
         (call_site : Trace_item.at_call_site)
@@ -915,7 +1060,7 @@ module V1 = struct
           find_and_replace haystack
             ~default:(fun () ->
               match collected.action with
-              | Action.Inline -> 
+              | Action.Inline ->
                 let record =
                   { children = [];
                     apply_id = call_site.apply_id;
@@ -961,11 +1106,11 @@ module V1 = struct
       | Declaration decl ->
         let children = finder decl.children in
         Declaration { decl with children }
-  
+
       | Apply_inlined_function inlined_function ->
         let children = finder inlined_function.children in
         Apply_inlined_function { inlined_function with children }
-  
+
       | Apply_non_inlined_function _ ->
         tree
     in
@@ -1008,12 +1153,14 @@ module V1 = struct
       | Apply_non_inlined_function _non_inlined -> node
     in
     List.rev_map children ~f:reverse_node
+  ;;
 
   let build (decisions : Data_collector.V1.Decision.t list) : Top_level.t =
     let (init : Top_level.t) = [] in
-    let tree = List.fold decisions ~init ~f:add in
-    recursively_reverse tree
-  
+    List.fold decisions ~init ~f:add
+    |> recursively_reverse
+  ;;
+
   module Diff = struct
     type nonrec t =
       { common_ancestor : t list; (* Arbitary choice between the left and right *)
@@ -1022,7 +1169,7 @@ module V1 = struct
       }
     [@@deriving sexp]
   end
-  
+
   let diff ~(left : Top_level.t) ~(right : Top_level.t) =
     let shallow_diff ~left ~right =
       let same = ref [] in

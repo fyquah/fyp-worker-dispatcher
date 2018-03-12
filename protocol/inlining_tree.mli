@@ -24,23 +24,23 @@ module V0 : sig
       children  : t list;
     }
   [@@deriving sexp, compare]
-  
+
   module Top_level : sig
     type nonrec t = t list [@@deriving sexp, compare]
-  
+
     val count_leaves : t -> int
-  
+
     val backtrack_nth_leaf : t -> int -> t option
-  
+
     val flip_nth_leaf : t -> int -> t
-  
+
     val flip_several_leaves : t -> int list -> t
-  
+
     val to_override_rules : t -> Data_collector.V0.t list
-  
+
     val pp : Format.formatter -> t -> unit
   end
-  
+
   module Diff : sig
     type nonrec t =
       { common_ancestor : t list; (* Arbitary choice between the left and right *)
@@ -48,17 +48,17 @@ module V0 : sig
         right           : [ `Right of t ] list;
       }
   end
-  
+
   val diff : left: Top_level.t -> right: Top_level.t -> Diff.t list
-  
+
   val shallow_sexp_of_t : t -> Sexp.t
-  
+
   val fuzzy_equal : t -> t -> bool
 
   val tag_and_function_almost_equal : t -> t -> bool
-  
+
   val add : Top_level.t -> Data_collector.V0.t -> Top_level.t
-  
+
   val build : Data_collector.V0.t list -> Top_level.t
 end
 
@@ -89,23 +89,23 @@ module V1 : sig
   [@@deriving sexp, compare]
 
   include Comparable.S with type t := t
-  
+
   module Top_level : sig
 
     type nonrec t = t list [@@deriving sexp, compare]
 
     include Comparable.S with type t := t
-  
+
     val count_leaves : t -> int
-  
+
     val backtrack_nth_leaf : t -> int -> t option
-  
+
     val flip_nth_leaf : t -> int -> t
-  
+
     val flip_several_leaves : t -> int list -> t
-  
+
     val to_override_rules : t -> Overrides.t
-  
+
     val pp : Format.formatter -> t -> unit
 
     val pprint : ?indent:int -> Buffer.t -> t -> unit
@@ -114,8 +114,51 @@ module V1 : sig
     val is_super_tree : super: t -> t -> bool
 
     val to_simple_overrides : t -> Data_collector.Simple_overrides.t
+
+    (* If we have an inlining tree with inlining decisions made in the
+     * declarations, namely as follows:
+     *
+     *
+     * let g x =
+     *    magic x x  (* not inlined *)
+     *
+     * let f () =
+     *    g 1 2  (* inlined *)
+     *
+     * let () =
+     *   printf "%d" (f ())
+     *
+     * Should the inlining tree be:
+     *
+     * TOP_LEVEL
+     * | {f}
+     * | -- <g>
+     * | ---- <magic|>
+     * | <f>
+     * | -- <magic|>
+     *
+     * Or:
+     *
+     * TOP_LEVEL
+     * | {f}
+     * | -- <g>
+     * | ---- <magic|>
+     * | <f>
+     * | -- <g>
+     * | ---- <magic|>
+     *
+     * Both trees are needed, the compiler's implementation requireds the
+     * former, but for reward assignment and benefit projection, the latter
+     * is probably going to be much more useful.
+     *
+     * [expand_decisions]   transforms the former to the latter
+     * [compress_deciions] transforms the latter to the former
+     *)
+
+    (** WARNING: THIS FUNCTION IS POTENTIALLY LOSSY *)
+    val expand_decisions : t -> t
   end
-  
+
   module Diff : sig
     type nonrec t =
       { common_ancestor : t list; (* Arbitary choice between the left and right *)
@@ -123,14 +166,14 @@ module V1 : sig
         right           : [ `Right of t ] list;
       }
   end
-  
+
   val diff : left: Top_level.t -> right: Top_level.t -> Diff.t list
-  
+
   val shallow_sexp_of_t : t -> Sexp.t
-  
+
   val fuzzy_equal : t -> t -> bool
-  
+
   val add : Top_level.t -> Decision.t -> Top_level.t
-  
+
   val build : Decision.t list -> Top_level.t
 end
