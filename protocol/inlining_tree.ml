@@ -539,6 +539,19 @@ module V1 = struct
   include T
   include Comparable.Make(T)
 
+  let to_identifier = function
+    | Declaration { declared; _ }  ->
+      Format.asprintf "{%a}" Closure_origin.print declared.closure_origin
+    | Apply_inlined_function { applied; apply_id; _ } ->
+      Format.asprintf "<%a(%a)>"
+        Closure_origin.print applied.closure_origin
+        Apply_id.print apply_id
+    | Apply_non_inlined_function { applied; apply_id; _ } ->
+      Format.asprintf "<%a(%a)|>"
+        Closure_origin.print applied.closure_origin
+        Apply_id.print apply_id
+  ;;
+
   let is_leaf t =
     match t with
     | Apply_inlined_function { children = []; _ }
@@ -863,10 +876,12 @@ module V1 = struct
     ;;
 
     let rec expand_decisions_in_call_site
+        ~stack_trace
         ~(declaration_map : declaration Closure_origin.Map.t)
         (all_nodes : t list) =
       List.fold all_nodes ~init:([], declaration_map)
         ~f:(fun (acc, declaration_map) node ->
+          let stack_trace = node :: stack_trace in
           match node with
           | Declaration decl ->
             let new_children =
@@ -874,7 +889,8 @@ module V1 = struct
                 Closure_origin.Map.add decl.declared.closure_origin decl
                   declaration_map
               in
-              expand_decisions_in_call_site ~declaration_map decl.children
+              expand_decisions_in_call_site ~stack_trace ~declaration_map
+                decl.children
             in
             let rewritten_decl = { decl with children = new_children } in
             let declaration_map =
@@ -898,13 +914,23 @@ module V1 = struct
             | None ->
               let children = inlined.children in
               let children =
-                expand_decisions_in_call_site ~declaration_map children
+                expand_decisions_in_call_site ~stack_trace
+                  ~declaration_map children
               in
               let new_node =
                 Apply_inlined_function { inlined with children }
               in
               (new_node :: acc, declaration_map)
             | Some declaration ->
+              let simplify_closure_origin closure_origin =
+                let linkage_name =
+                  Closure_origin.get_compilation_unit closure_origin
+                  |> Fyp_compiler_lib.Compilation_unit.get_linkage_name
+                  |> Fyp_compiler_lib.Linkage_name.to_string
+                in
+                sprintf "%s__%s" linkage_name
+                  (Closure_origin.get_name closure_origin)
+              in
               let calls_from_declaration =
                 get_uninlined_leaves declaration.children
                 |> Closure_origin.Set.of_list
@@ -914,20 +940,34 @@ module V1 = struct
                * call site's inlining expansion.
                *)
               Closure_origin.Set.iter (fun closure_origin ->
-                  assert (
+                  let exists_somewhere =
                     List.exists inlined.children ~f:(fun child ->
                         match child with
                         | Declaration _ -> false
                         | Apply_inlined_function { applied; _ }
                         | Apply_non_inlined_function {applied; } ->
-                          Closure_origin.equal applied.closure_origin closure_origin)))
+                          String.equal
+                            (simplify_closure_origin applied.closure_origin)
+                            (simplify_closure_origin closure_origin))
+                  in
+                  if not exists_somewhere then begin
+                    let pretty_trace =
+                      List.rev stack_trace
+                      |> List.map ~f:to_identifier
+                      |> String.concat ~sep:"/"
+                    in
+                    Log.Global.info "(trace: %s) Missing %s"
+                      pretty_trace
+                      (Format.asprintf "%a" Closure_origin.print closure_origin)
+                  end)
                 calls_from_declaration;
 
               (* Process the children that's obtained after inlining,
                * recursively *)
               let processed_inline_node =
                 let children =
-                  expand_decisions_in_call_site ~declaration_map inlined.children
+                  expand_decisions_in_call_site ~stack_trace ~declaration_map
+                    inlined.children
                 in
                 Apply_inlined_function { inlined with children }
               in
@@ -968,7 +1008,7 @@ module V1 = struct
 
     let expand_decisions root =
       let declaration_map = Closure_origin.Map.empty in
-      expand_decisions_in_call_site ~declaration_map root
+      expand_decisions_in_call_site ~stack_trace:[] ~declaration_map root
     ;;
 
     module T = struct

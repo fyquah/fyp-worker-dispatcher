@@ -474,7 +474,7 @@ def load_tree_from_rundir(substep_dir, bin_name):
             "../_build/default/tools/tree_tools.exe", "v1",
             "decisions-to-tree",
             data_collector_file,
-            "-expand"
+            "-expand",
             "-output", "/dev/stdout"], stdout=subprocess.PIPE)
 
         tree = build_tree_from_str(proc.stdout.read())
