@@ -18,7 +18,7 @@ module S : sig
 end
 
 module A : sig
-  type t = Data_collector.V1.Action.t = Inline | Apply
+  type t = Data_collector.V1.Action.t = Inline | Specialise | Apply
   [@@deriving compare, sexp]
 
   include Comparable.S with type t := t

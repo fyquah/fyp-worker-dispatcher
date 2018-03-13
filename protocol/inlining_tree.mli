@@ -90,6 +90,8 @@ module V1 : sig
 
   include Comparable.S with type t := t
 
+  exception Flip_error of string
+
   module Top_level : sig
 
     type nonrec t = t list [@@deriving sexp, compare]

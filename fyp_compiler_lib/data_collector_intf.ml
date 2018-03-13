@@ -11,6 +11,8 @@ module type S = sig
         closure_origin: Closure_origin.t;
       }
 
+    val unknown : t
+
     val compare : t -> t -> int
 
     val print : Format.formatter -> t -> unit
@@ -58,6 +60,7 @@ module type S = sig
   module Action : sig
     type t =
       | Inline
+      | Specialise
       | Apply  (* Aka do nothing *)
 
     val sexp_of_t : t -> Sexp.t

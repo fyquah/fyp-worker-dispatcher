@@ -18,6 +18,8 @@ include Identifiable.S
 
 val create : Closure_id.t -> t
 
+val unknown : t
+
 val get_name : t -> string
 val get_compilation_unit : t -> Compilation_unit.t
 val rename : (Closure_id.t -> Closure_id.t) -> t -> t

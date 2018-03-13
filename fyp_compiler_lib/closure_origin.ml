@@ -18,5 +18,14 @@
 
 include Closure_element
 
+let unknown =
+  let current_compilation_unit =
+    let ident = Ident.create_persistent "unknown" in
+    let linkage_name = Linkage_name.create "unknown" in
+    Compilation_unit.create ident linkage_name
+  in
+  wrap (Variable.create ~current_compilation_unit "unknown")
+;;
+
 let create t = t
 let rename f t = f t

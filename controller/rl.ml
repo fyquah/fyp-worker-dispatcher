@@ -33,7 +33,7 @@ end
 
 module A = struct
   module T = struct
-    type t = Data_collector.V1.Action.t = Inline | Apply
+    type t = Data_collector.V1.Action.t = Inline | Specialise | Apply
     [@@deriving compare, sexp]
   end
 

@@ -171,6 +171,7 @@ module V1 = struct
               begin match decision.action with
               | Action.Inline -> printf "--inlines--> "
               | Action.Apply -> printf "--calls--> "
+              | Action.Specialise -> printf "--specialises--> "
               end;
               printf "%s\n" (
                 Format.asprintf "[%a](%a)"

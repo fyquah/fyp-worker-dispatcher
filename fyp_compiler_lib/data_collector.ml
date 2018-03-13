@@ -23,16 +23,16 @@ module V0 = struct
       applied : Closure_id.t;
       decision : bool;
     }
-  
+
   let (inlining_decisions : t list ref) = ref []
-  
+
   let sexp_of_t t =
     Sexp.List [
       Sexp.sexp_of_list Call_site.sexp_of_t t.call_stack;
       Closure_id.sexp_of_t t.applied;
       Sexp.t_of_bool t.decision;
     ]
-  
+
   let t_of_sexp sexp =
     match sexp with
     | Sexp.List (call_stack :: applied :: decision :: []) ->
@@ -44,28 +44,28 @@ module V0 = struct
       raise (Sexp.Parse_error (
         Format.asprintf "Cannot parse %a as a Data_collector.t"
           Sexp.print_mach otherwise))
-  
-  
+
+
   let save ~output_prefix =
     let sexp = Sexp.sexp_of_list sexp_of_t !inlining_decisions in
     save_sexp_to_file ~version:"v0" ~output_prefix sexp
   ;;
-  
+
   let load_from_channel ic =
     Sexp.list_of_t t_of_sexp (Sexp_file.load_from_channel ic)
   ;;
-  
+
   let pprint_list ppf ts =
     List.iter
       (fun t -> Format.fprintf ppf "=> %a\n" Sexp.print_mach (sexp_of_t t))
       ts
   ;;
-  
+
   let equal a b =
     a.decision = b.decision &&
     Closure_id.partial_equal a.applied b.applied &&
     Helper.list_equal Call_site.equal a.call_stack b.call_stack
-  
+
   let find_decision overrides ~call_stack ~applied =
     match
       List.find_opt (fun a ->
@@ -113,6 +113,13 @@ module V1 = struct
         set_of_closures_id: Set_of_closures_id.t option;
         closure_origin: Closure_origin.t;
       }
+
+    let unknown =
+      let closure_id = None in
+      let set_of_closures_id = None in
+      let closure_origin = Closure_origin.unknown in
+      { closure_id; set_of_closures_id; closure_origin; }
+    ;;
 
     let compare a b = Closure_origin.compare a.closure_origin b.closure_origin
 
@@ -203,7 +210,7 @@ module V1 = struct
           sexp_of_at_call_site x;
         ]
 
-    let t_of_sexp sexp = 
+    let t_of_sexp sexp =
       let open Sexp in
       match sexp with
       | List [ Atom "Enter_decl"; x ] ->
@@ -246,13 +253,16 @@ module V1 = struct
   module Action = struct
     type t =
       | Inline
+      | Specialise
       | Apply  (* Aka do nothing *)
 
     let sexp_of_t = function
+      | Specialise -> Sexp.Atom "Specialise"
       | Inline -> Sexp.Atom "Inline"
       | Apply -> Sexp.Atom "Apply"
 
     let t_of_sexp = function
+      | Sexp.Atom "Specialise" -> Specialise
       | Sexp.Atom "Inline" -> Inline
       | Sexp.Atom "Apply" -> Apply
       | _ -> raise (Sexp.Parse_error "oops")
@@ -357,7 +367,7 @@ module Simple_overrides = struct
       let acs_stamp = Apply_id.get_stamp acs.apply_id.stamp in
       Option.equal (=) a.stamp  acs_stamp
       && Linkage_name.equal a.linkage_name acs_linkage_name
-    | Decl d, V1.Trace_item.Enter_decl enter_decl -> 
+    | Decl d, V1.Trace_item.Enter_decl enter_decl ->
       let enter_decl_linkage_name =
         Compilation_unit.get_linkage_name (
           Closure_origin.get_compilation_unit (
@@ -419,7 +429,7 @@ module Simple_overrides = struct
   ;;
 
   let sexp_of_trace_item ti =
-    let open Sexp in 
+    let open Sexp in
     match ti with
     | Apply a -> List [ Atom "Apply"; sexp_of_apply a; ]
     | Decl d  -> List [ Atom "Decl"; sexp_of_decl d; ]
@@ -516,14 +526,14 @@ module Simple_overrides = struct
                   Closure_origin.get_name enter_decl.declared.closure_origin
                 in
                 Decl { linkage_name; name; })
-            v1_override.trace 
+            v1_override.trace
         in
         { round = v1_override.round;
           apply_id_stamp;
           action = v1_override.action;
           trace;
         })
-      v1_overrides 
+      v1_overrides
   ;;
 end
 
@@ -550,7 +560,7 @@ module Multiversion_overrides = struct
 
     | V1 overrides ->
       let (_, query) = query in
-      V1.Overrides.find_decision overrides query 
+      V1.Overrides.find_decision overrides query
 
     | V_simple overrides ->
       let _, query = query in
@@ -580,7 +590,7 @@ module Multiversion_overrides = struct
           V1 chosen
         with
         | Sexp.Parse_error _  ->
-          let res = 
+          let res =
             V0 (Sexp.list_of_sexp V0.t_of_sexp sexp)
           in
           Format.printf "Loadded (DEPREACATED) V0 overrides from %s\n"

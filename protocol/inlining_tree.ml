@@ -539,6 +539,8 @@ module V1 = struct
   include T
   include Comparable.Make(T)
 
+  exception Flip_error of string
+
   let to_identifier = function
     | Declaration { declared; _ }  ->
       Format.asprintf "{%a}" Closure_origin.print declared.closure_origin
@@ -566,6 +568,9 @@ module V1 = struct
     | Apply_inlined_function { applied; apply_id; children = _ } ->
       Apply_non_inlined_function { applied; apply_id; }
     | Apply_non_inlined_function { applied; apply_id; } ->
+      if Closure_origin.equal applied.closure_origin Closure_origin.unknown then begin
+        raise (Flip_error "Cannot flip an unknown node")
+      end;
       Apply_inlined_function { applied; apply_id; children = [] }
   ;;
 
@@ -765,6 +770,9 @@ module V1 = struct
       in
       List.concat_map root ~f:(fun node ->
         loop_node ~source:None ~call_stack:[] ~node)
+      |> List.filter ~f:(fun decision ->
+          not (Closure_origin.equal decision.metadata.closure_origin
+                 Closure_origin.unknown))
       |> Overrides.of_decisions
     ;;
 
@@ -1104,6 +1112,7 @@ module V1 = struct
           find_and_replace haystack
             ~default:(fun () ->
               match collected.action with
+              | Action.Specialise -> assert false
               | Action.Inline ->
                 let record =
                   { children = [];
@@ -1201,7 +1210,12 @@ module V1 = struct
 
   let build (decisions : Data_collector.V1.Decision.t list) : Top_level.t =
     let (init : Top_level.t) = [] in
-    List.fold decisions ~init ~f:add
+    List.filter decisions ~f:(fun d ->
+        match d.action with
+        | Data_collector.Action.Specialise -> false
+        | Data_collector.Action.Inline 
+        | Data_collector.Action.Apply -> true)
+    |> List.fold ~init ~f:add
     |> recursively_reverse
   ;;
 

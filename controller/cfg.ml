@@ -21,7 +21,7 @@ let zip_with_delay l =
  *)
 module Function_call = struct
   module T = struct
-    type t = 
+    type t =
       { inlining_trace: (Apply_id.t * Function_metadata.t) list;
         apply_id      : Apply_id.t;
         applied       : Function_metadata.t;
@@ -95,6 +95,7 @@ let transition t clos action =
   let node = RL.S.Map.find_exn t.transitions clos in
   match action with
   | RL.A.Inline  -> node.inline
+  | RL.A.Specialise  -> node.inline
   | RL.A.Apply   -> node.no_inline
 ;;
 

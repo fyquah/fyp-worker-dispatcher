@@ -59,6 +59,12 @@ module Test_v1 = struct
       Reader.load_sexp_exn (datadir ^/ "main.0.data_collector.v1.sexp")
         [%of_sexp: Data_collector.Decision.t list]
     in
+    let decisions =
+      List.filter decisions ~f:(fun d ->
+          match d.apply_id.stamp with
+          | Apply_id.Plain_apply _ -> true
+          | _ -> false)
+    in
     let decision_tree = Inlining_tree.build decisions in
     return decision_tree
   ;;
@@ -68,7 +74,11 @@ module Test_v1 = struct
       let rec make () =
         if Random.bool () then
           let leaves = Inlining_tree.Top_level.count_leaves tree in
-          Inlining_tree.Top_level.flip_nth_leaf tree (Random.int leaves)
+          try
+            Inlining_tree.Top_level.flip_nth_leaf tree (Random.int leaves)
+          with
+          | Inlining_tree.Flip_error _ ->
+            make ()
         else
           let leaves = Inlining_tree.Top_level.count_leaves tree in
           match
@@ -83,31 +93,38 @@ module Test_v1 = struct
     let%map compiled_tree = load_decision_tree () in
 
     assert (not (Inlining_tree.Top_level.compare tree modified_tree = 0));
-    let buffer = Buffer.create 1000 in
-    Inlining_tree.Top_level.pprint buffer compiled_tree;
-    (* printf "COMPILED:\n%s\n" (Buffer.contents buffer); *)
 
-    let buffer = Buffer.create 1000 in
-    Inlining_tree.Top_level.pprint buffer modified_tree;
-    (* printf "TARGET:\n%s\n" (Buffer.contents buffer); *)
+    if not (Inlining_tree.Top_level.is_super_tree
+              ~super:compiled_tree modified_tree)
+    then begin
+      let buffer = Buffer.create 1000 in
+      Inlining_tree.Top_level.pprint buffer compiled_tree;
+      printf "COMPILED:\n%s\n" (Buffer.contents buffer);
 
-    assert (Inlining_tree.Top_level.is_super_tree
-      ~super:compiled_tree modified_tree);
+      let buffer = Buffer.create 1000 in
+      Inlining_tree.Top_level.pprint buffer modified_tree;
+      printf "TARGET:\n%s\n" (Buffer.contents buffer);
+
+      assert false;
+    end;
+
 
     compiled_tree
   ;;
 
   let compile_with_decisions ~overrides_sexp_of_tree root =
+    let echo = true in
+    let verbose = true in
     let working_dir = datadir in
     let%bind () =
-      Async_shell.run ~echo:false ~verbose:false ~expect:[ 0 ] ~working_dir
+      Async_shell.run ~echo ~verbose ~expect:[ 0 ] ~working_dir
         "bash" [ "-c"; "make clean" ]
     in
     let%bind () =
       let overrides = overrides_sexp_of_tree root in
       Writer.save_sexp (datadir ^/ "overrides.sexp") overrides
     in
-    Async_shell.run ~echo:false ~verbose:false ~expect:[ 0 ] ~working_dir
+    Async_shell.run ~echo ~verbose ~expect:[ 0 ] ~working_dir
       "bash" [ "-c"; "make all" ]
   ;;
 
@@ -129,7 +146,7 @@ module Test_v1 = struct
       let%bind () = compile_with_decisions [] in
       let%bind tree = load_decision_tree () in
       Deferred.ignore (
-        List.init 10 ~f:Fn.id
+        List.init 30 ~f:Fn.id
         |> Deferred.List.fold ~init:tree ~f:(fun tree iter  ->
             run_single_iter ~iter ~tree ~compile_with_decisions)
       )
@@ -153,7 +170,7 @@ module Test_v1 = struct
       let%bind () = compile_with_decisions [] in
       let%bind tree = load_decision_tree () in
       Deferred.ignore (
-        List.init 10 ~f:Fn.id
+        List.init 30 ~f:Fn.id
         |> Deferred.List.fold ~init:tree ~f:(fun tree iter  ->
             run_single_iter ~iter ~tree ~compile_with_decisions)
       )
