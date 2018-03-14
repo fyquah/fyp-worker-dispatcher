@@ -102,49 +102,11 @@ end) = struct
       a /. Time.Span.to_sec M.initial_execution_time
     ;;
 
-    let unique_random_from_list ~count choices =
-      let rec loop ~choices ~(left : int) =
-        if Int.O.(left <= 0) then []
-        else begin
-          let size = Int.Set.length choices in
-          let selected =
-            Option.value_exn (Int.Set.nth choices (Random.int size))
-          in
-          selected :: loop ~left:(left - 1) ~choices:(Int.Set.remove choices selected)
-        end
-      in
-      loop ~choices:(Int.Set.of_list choices) ~left:count
-    ;;
-
     let move ~(step : int) ~(sub_id: int) ~(config: SA.Common.config) state =
       ignore step;
       ignore config;
       let current_tree = state.tree in
-      let num_leaves = Inlining_tree.V1.Top_level.count_leaves current_tree in
-      (* flip between 1 to 3 leaves *)
-      let new_tree =
-        let rec make () =
-          if Random.bool () then
-            let modified_leaves = 1 in
-            let choices =
-              unique_random_from_list ~count:modified_leaves
-                (List.init num_leaves ~f:Fn.id)
-            in
-            Inlining_tree.V1.Top_level.flip_several_leaves current_tree choices
-          else
-            let leaf = Random.int num_leaves in
-            match
-              Inlining_tree.V1.Top_level.backtrack_nth_leaf current_tree leaf
-            with
-            | None ->
-              Log.Global.sexp ~level:`Info [%message "Failed to backtrack!"];
-              make ()
-            | Some transformed ->
-              Log.Global.sexp ~level:`Info [%message "Back track possible!!"];
-              transformed
-        in
-        make ()
-      in
+      let new_tree = Inlining_tree.V1.Top_level.uniform_random_mutation current_tree in
       shell ~dir:M.exp_dir "make" [ "clean" ]
       >>=? fun () ->
       let overrides =

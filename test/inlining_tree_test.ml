@@ -65,23 +65,7 @@ module Test_v1 = struct
 
   let run_single_iter ~iter ~tree ~compile_with_decisions =
     let modified_tree =
-      let rec make () =
-        if Random.bool () then
-          let leaves = Inlining_tree.Top_level.count_leaves tree in
-          try
-            Inlining_tree.Top_level.flip_nth_leaf tree (Random.int leaves)
-          with
-          | Inlining_tree.Flip_error _ ->
-            make ()
-        else
-          let leaves = Inlining_tree.Top_level.count_leaves tree in
-          match
-            Inlining_tree.Top_level.backtrack_nth_leaf tree (Random.int leaves)
-          with
-          | None -> make ()
-          | Some x -> x
-      in
-      make ()
+      Inlining_tree.Top_level.uniform_random_mutation tree
     in
     let%bind () = compile_with_decisions modified_tree in
     let%map compiled_tree = load_decision_tree () in

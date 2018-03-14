@@ -102,9 +102,11 @@ module V1 : sig
 
     val backtrack_nth_leaf : t -> int -> t option
 
-    val flip_nth_leaf : t -> int -> t
+    val flip_nth_leaf : t -> int -> t option
 
-    val flip_several_leaves : t -> int list -> t
+    val flip_several_leaves : t -> int list -> t option
+
+    val uniform_random_mutation : t -> t
 
     val to_override_rules : t -> Overrides.t
 

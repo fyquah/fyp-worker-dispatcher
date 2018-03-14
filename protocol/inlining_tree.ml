@@ -637,7 +637,7 @@ module V1 = struct
     ;;
 
     let flip_nth_leaf root n =
-      let rec loop ~state ~node =
+      let rec loop ~state ~(node : t) =
         if is_leaf node then begin
           match state with
           | 0 -> `Replaced (flip_node node)
@@ -671,11 +671,15 @@ module V1 = struct
             | `Replaced tl -> `Replaced (hd :: tl)
             | `Leaf_visited i -> `Leaf_visited i
       in
-      match loop_nodes ~state:n ~nodes:root with
-      | `Leaf_visited i ->
-        failwithf "Cannot visit leaf %d from in a tree with %d leaves"
-          i n ()
-      | `Replaced new_tree -> new_tree
+      try
+        begin match loop_nodes ~state:n ~nodes:root with
+        | `Leaf_visited i ->
+          failwithf "Cannot visit leaf %d from in a tree with %d leaves"
+            i n ()
+        | `Replaced new_tree -> Some new_tree
+        end
+      with
+      | Flip_error _ -> None
     ;;
 
     let backtrack_nth_leaf root n =
@@ -727,7 +731,47 @@ module V1 = struct
     ;;
 
     let flip_several_leaves root indices =
-      List.fold indices ~init:root ~f:flip_nth_leaf
+      List.fold indices ~init:(Some root) ~f:(fun b idx ->
+          Option.bind b ~f:(fun a -> flip_nth_leaf a idx))
+    ;;
+
+    let unique_random_from_list ~count choices =
+      let rec loop ~choices ~(left : int) =
+        if Int.O.(left <= 0) then []
+        else begin
+          let size = Int.Set.length choices in
+          let selected =
+            Option.value_exn (Int.Set.nth choices (Random.int size))
+          in
+          selected :: loop ~left:(left - 1) ~choices:(Int.Set.remove choices selected)
+        end
+      in
+      loop ~choices:(Int.Set.of_list choices) ~left:count
+    ;;
+
+    let rec uniform_random_mutation tree =
+      let num_leaves = count_leaves tree in
+      if Random.bool () then
+        let modified_leaves = 1 in
+        let choices =
+          unique_random_from_list ~count:modified_leaves
+            (List.init num_leaves ~f:Fn.id)
+        in
+        Log.Global.sexp ~level:`Info [%message "Flipping leaf node!"];
+        match flip_several_leaves tree choices with
+        | None -> uniform_random_mutation tree
+        | Some t ->
+          Log.Global.sexp ~level:`Info [%message
+            "Flipping node" (choices : int list)"succeeded"];
+        t
+      else
+        let leaf = Random.int num_leaves in
+        Log.Global.sexp ~level:`Info [%message "Attempting backtrack!"];
+        match backtrack_nth_leaf tree leaf with
+        | None -> uniform_random_mutation tree
+        | Some transformed ->
+          Log.Global.sexp ~level:`Info [%message "Back track possible!!"];
+          transformed
     ;;
 
     let to_override_rules root =

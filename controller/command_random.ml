@@ -9,45 +9,10 @@ module Inlining_tree = Protocol.Inlining_tree.V1
 
 let total_steps = 200
 
-let unique_random_from_list ~count choices =
-  let rec loop ~choices ~(left : int) =
-    if Int.O.(left <= 0) then []
-    else begin
-      let size = Int.Set.length choices in
-      let selected =
-        Option.value_exn (Int.Set.nth choices (Random.int size))
-      in
-      selected :: loop ~left:(left - 1) ~choices:(Int.Set.remove choices selected)
-    end
-  in
-  loop ~choices:(Int.Set.of_list choices) ~left:count
-;;
-
 
 (* TODO(fyq14): How to be really really unbiased here? *)
 let pertubate_tree (tree : Inlining_tree.Top_level.t) =
-  let rec make () =
-    let num_leaves = Inlining_tree.Top_level.count_leaves tree in
-    if Random.bool () then
-      let modified_leaves = 1 in
-      let choices =
-        unique_random_from_list ~count:modified_leaves
-          (List.init num_leaves ~f:Fn.id)
-      in
-      Log.Global.sexp ~level:`Info [%message "Flipping leaf node!"];
-      Inlining_tree.Top_level.flip_several_leaves tree choices
-    else
-      let leaf = Random.int num_leaves in
-      match
-        Inlining_tree.Top_level.backtrack_nth_leaf tree leaf
-      with
-      | None ->
-        make ()
-      | Some transformed ->
-        Log.Global.sexp ~level:`Info [%message "Back track possible! Using BT path"];
-        transformed
-  in
-  make ()
+  Inlining_tree.Top_level.uniform_random_mutation tree
 ;;
 
 
