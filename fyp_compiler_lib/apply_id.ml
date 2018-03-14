@@ -114,7 +114,7 @@ include Identifiable.Make (struct
     stamp_hash lxor (Compilation_unit.hash t.compilation_unit)
 
   let print ppf t =
-    Format.fprintf ppf "Apply_id[%a/%s]"
+    Format.fprintf ppf "[%a/%s]"
       Compilation_unit.print t.compilation_unit
       (string_of_stamp t.stamp)
 end)
