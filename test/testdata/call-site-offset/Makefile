@@ -8,4 +8,5 @@ main.native: main.ml overrides.sexp
 	  -O3 -S -o $@ $<
 
 clean:
-	rm -f main.native overrides.sexp
+	rm -f main.native
+	echo '()' >overrides.sexp
