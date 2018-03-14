@@ -59,12 +59,6 @@ module Test_v1 = struct
       Reader.load_sexp_exn (datadir ^/ "main.0.data_collector.v1.sexp")
         [%of_sexp: Data_collector.Decision.t list]
     in
-    let decisions =
-      List.filter decisions ~f:(fun d ->
-          match d.apply_id.stamp with
-          | Apply_id.Plain_apply _ -> true
-          | _ -> false)
-    in
     let decision_tree = Inlining_tree.build decisions in
     return decision_tree
   ;;
@@ -94,9 +88,14 @@ module Test_v1 = struct
 
     assert (not (Inlining_tree.Top_level.compare tree modified_tree = 0));
 
-    if not (Inlining_tree.Top_level.is_super_tree
-              ~super:compiled_tree modified_tree)
+    if not (Inlining_tree.Top_level.check_soundness
+              ~compiled:compiled_tree
+              ~reference:modified_tree)
     then begin
+      let buffer = Buffer.create 1000 in
+      Inlining_tree.Top_level.pprint buffer tree;
+      printf "ORIGINAL TREE:\n%s\n" (Buffer.contents buffer);
+
       let buffer = Buffer.create 1000 in
       Inlining_tree.Top_level.pprint buffer compiled_tree;
       printf "COMPILED:\n%s\n" (Buffer.contents buffer);

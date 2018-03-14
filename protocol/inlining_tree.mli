@@ -112,8 +112,13 @@ module V1 : sig
 
     val pprint : ?indent:int -> Buffer.t -> t -> unit
 
-    (* [super] is larger or equal to [tree] *)
-    val is_super_tree : super: t -> t -> bool
+    (** A compiled inlining tree is said to be sound w.r.t. reference iff
+     *  all decisions taken by the compiled either matches those in the
+     *  reference tree or does not exist in reference tree.
+     * **)
+    val check_soundness : reference: t -> compiled: t -> bool
+
+    (* TODO: Implement [check_completeness] *)
 
     val to_simple_overrides : t -> Data_collector.Simple_overrides.t
 

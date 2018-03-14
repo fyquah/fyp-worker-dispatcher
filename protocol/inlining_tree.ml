@@ -611,6 +611,9 @@ module V1 = struct
       Apply_id.equal a.apply_id b.apply_id
 
     | _ , _ -> false
+  ;;
+
+  let refers_to_same_node = fuzzy_equal
 
   module Top_level = struct
     type root = t list [@@deriving sexp, compare]
@@ -829,15 +832,34 @@ module V1 = struct
       iterate_children ~indent:indent nodes
     ;;
 
-    let rec is_super_tree ~super (tree : root) =
-      List.for_all tree ~f:(fun tree_node ->
-        match List.find super ~f:(fuzzy_equal tree_node) with
-        | Some super_node -> is_super_node ~super:super_node tree_node
-        | None -> false)
+    let node_children = function
+      | Declaration { children; _ }
+      | Apply_inlined_function { children; _ } -> children
+      | Apply_non_inlined_function _ -> []
+    ;;
 
-    and is_super_node ~(super : t)  (tree : t) =
-      fuzzy_equal super tree
-      && is_super_tree ~super:(children super) (children tree)
+    let rec check_soundness ~(reference : root) ~(compiled : root) =
+      List.for_all compiled ~f:(fun compiled_node ->
+          let matching_node_in_reference =
+            List.find_map reference ~f:(fun reference_node ->
+                if refers_to_same_node compiled_node reference_node then begin
+                  match compiled_node, reference_node with
+                  | Declaration _, Declaration _
+                  | Apply_inlined_function _, Apply_inlined_function _
+                  | Apply_non_inlined_function _, Apply_non_inlined_function _ ->
+                    Some (`Matched reference_node)
+                  | _ -> Some (`Failed)
+                end else begin
+                  None
+                end)
+          in
+          match matching_node_in_reference with
+          | None -> true
+          | Some `Failed -> false
+          | Some (`Matched reference_node) ->
+            check_soundness
+              ~reference:(node_children reference_node)
+              ~compiled:(node_children compiled_node))
     ;;
 
     let to_simple_overrides root =
