@@ -24,9 +24,63 @@ end) = struct
   let t_of_sexp sexp = M.t_of_sexp (comp_sexp_of_core_sexp sexp)
 end
 
+module Compilation_unit = struct
+  include Fyp_compiler_lib.Compilation_unit
+  include Make_core_sexp(Fyp_compiler_lib.Compilation_unit)
+end
+
 module Apply_id = struct
   include Fyp_compiler_lib.Apply_id
   include Make_core_sexp(Fyp_compiler_lib.Apply_id)
+
+  let to_path t =
+    match t.parents with
+    | None -> [(t.compilation_unit, t.stamp)]
+    | Some _ -> get_inlining_path t
+  ;;
+
+  module Stamp = struct
+    module T = struct
+      type t = stamp
+
+      let sexp_of_t = sexp_of_stamp
+      let t_of_sexp = stamp_of_sexp
+
+      let compare a b = compare_stamp a b
+    end
+
+    include T
+    include Make_core_sexp(T)
+  end
+
+  module Path = struct
+    module T = struct
+      type t = (Compilation_unit.t * Stamp.t) list
+      [@@deriving sexp, compare]
+
+      let to_string path =
+        List.map path ~f:(fun (a, b) ->
+            let compilation_unit =
+              Fyp_compiler_lib.Linkage_name.to_string (
+                Compilation_unit.get_linkage_name a)
+            in
+            let stamp =
+              match b with
+              | Fyp_compiler_lib.Apply_id.Plain_apply x ->
+                sprintf "Apply[%d]" x
+              | Fyp_compiler_lib.Apply_id.Over_application x ->
+                sprintf "Over[%d]" x
+              | Fyp_compiler_lib.Apply_id.Stub -> "Stub"
+            in
+            sprintf "%s__%s" compilation_unit stamp)
+        |> String.concat ~sep:"/"
+        |> (fun s -> "/" ^ s)
+      ;;
+    end
+
+    include T
+    include Comparable.Make(T)
+  end
 end
 
 module Closure_id = struct

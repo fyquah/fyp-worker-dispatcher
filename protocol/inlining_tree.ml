@@ -851,7 +851,7 @@ module V1 = struct
           List.fold inlined.children ~init:acc ~f:(fun acc child ->
               loop ~acc child)
         | Apply_non_inlined_function non_inlined ->
-          non_inlined.applied.closure_origin :: acc
+          non_inlined :: acc
       in
       List.fold nodes ~init:[] ~f:(fun acc node ->
         loop ~acc node)
@@ -859,28 +859,54 @@ module V1 = struct
     ;;
 
     let rec replace_leaf_calls original_node
-        ~(leaf_substitution_map: t Closure_origin.Map.t) =
+        ~(leaf_substitution: Apply_id.t -> t option) =
       match original_node with
       | Declaration _ -> original_node
       | Apply_inlined_function inlined ->
         let children =
           List.map inlined.children ~f:(fun child ->
-              replace_leaf_calls child ~leaf_substitution_map)
+              replace_leaf_calls child ~leaf_substitution)
         in
         Apply_inlined_function { inlined with children }
       | Apply_non_inlined_function non_inlined ->
-        let closure_origin = non_inlined.applied.closure_origin in
-        match
-          Closure_origin.Map.find_opt closure_origin leaf_substitution_map
-        with
+        let apply_id = non_inlined.apply_id in
+        match leaf_substitution apply_id with
         | None -> original_node
         | Some found -> found
     ;;
 
-    let get_children_exn = function
-      | Declaration decl -> decl.children
-      | Apply_inlined_function inlined -> inlined.children
-      | Apply_non_inlined_function _ -> assert false
+    let rewrite_leaf_nodes ~stack_trace
+        ~processed_inline_node ~declaration_children =
+      let (leaf_substitution_map : t Apply_id.Path.Map.t) =
+        List.fold processed_inline_node.children ~init:Apply_id.Path.Map.empty
+          ~f:(fun acc child ->
+              match child with
+              | Declaration _ -> acc
+              | Apply_inlined_function { applied; apply_id; _ }
+              | Apply_non_inlined_function { applied; apply_id; _ } ->
+                let path = Apply_id.to_path apply_id in
+                let closure_origin = applied.closure_origin in
+                let pretty_trace =
+                  List.rev stack_trace
+                  |> List.map ~f:to_identifier
+                  |> String.concat ~sep:"/"
+                in
+                if Apply_id.Path.Map.mem acc path then begin
+                  Log.Global.info "WARNING (trace: %s) %s(%s) duplicated"
+                    pretty_trace
+                    (Format.asprintf "%a" Closure_origin.print closure_origin)
+                    (Apply_id.Path.to_string path)
+                end;
+                Apply_id.Path.Map.add acc ~key:path ~data:child)
+      in
+      let leaf_substitution apply_id =
+        Apply_id.Path.Map.find leaf_substitution_map (Apply_id.to_path apply_id)
+      in
+      let new_node_with_declaration_children =
+        let children = declaration_children in
+        Apply_inlined_function { processed_inline_node with children }
+      in
+      replace_leaf_calls new_node_with_declaration_children ~leaf_substitution
     ;;
 
     let rec expand_decisions_in_call_site
@@ -930,45 +956,38 @@ module V1 = struct
               in
               (new_node :: acc, declaration_map)
             | Some declaration ->
-              let simplify_closure_origin closure_origin =
-                let linkage_name =
-                  Closure_origin.get_compilation_unit closure_origin
-                  |> Fyp_compiler_lib.Compilation_unit.get_linkage_name
-                  |> Fyp_compiler_lib.Linkage_name.to_string
-                in
-                sprintf "%s__%s" linkage_name
-                  (Closure_origin.get_name closure_origin)
-              in
               let calls_from_declaration =
                 get_uninlined_leaves declaration.children
-                |> Closure_origin.Set.of_list
               in
 
-              (* All non-inlined leaf nodes in the declaration must be present in the
-               * call site's inlining expansion.
+              (* Children of inlining node must should be a subset of
+               * non-inlined leaf nodes.
+               *
+               * I say 'should', rather than 'must', due to the inherent
+               * complexity in getting this correct ...
                *)
-              Closure_origin.Set.iter (fun closure_origin ->
-                  let exists_somewhere =
-                    List.exists inlined.children ~f:(fun child ->
-                        match child with
-                        | Declaration _ -> false
-                        | Apply_inlined_function { applied; _ }
-                        | Apply_non_inlined_function {applied; } ->
-                          String.equal
-                            (simplify_closure_origin applied.closure_origin)
-                            (simplify_closure_origin closure_origin))
-                  in
-                  if not exists_somewhere then begin
-                    let pretty_trace =
-                      List.rev stack_trace
-                      |> List.map ~f:to_identifier
-                      |> String.concat ~sep:"/"
+              List.iter inlined.children ~f:(fun node ->
+                  match node with
+                  | Declaration _ -> ()
+                  | Apply_inlined_function { applied; apply_id; _ }
+                  | Apply_non_inlined_function { applied; apply_id; } ->
+                    let exists_somewhere =
+                      List.exists calls_from_declaration ~f:(fun non_inlined ->
+                          Apply_id.Path.equal 
+                            (Apply_id.to_path apply_id )
+                            (Apply_id.to_path non_inlined.apply_id))
                     in
-                    Log.Global.info "(trace: %s) Missing %s"
-                      pretty_trace
-                      (Format.asprintf "%a" Closure_origin.print closure_origin)
-                  end)
-                calls_from_declaration;
+                    let closure_origin = applied.closure_origin in
+                    if not exists_somewhere then begin
+                      let pretty_trace =
+                        List.rev stack_trace
+                        |> List.map ~f:to_identifier
+                        |> String.concat ~sep:"/"
+                      in
+                      Log.Global.info "(trace: %s) Missing %s in leaf nodes"
+                        pretty_trace
+                        (Format.asprintf "%a" Closure_origin.print closure_origin)
+                    end);
 
               (* Process the children that's obtained after inlining,
                * recursively *)
@@ -977,29 +996,17 @@ module V1 = struct
                   expand_decisions_in_call_site ~stack_trace ~declaration_map
                     inlined.children
                 in
-                Apply_inlined_function { inlined with children }
+                { inlined with children }
               in
 
               (* Now, take the original function declaration, and substitute
                * the leaf nodes obtained after inlining into the function
                * calls.
                *)
-              let (leaf_substitution_map : t Closure_origin.Map.t) =
-                let children = get_children_exn processed_inline_node in
-                List.fold children ~init:Closure_origin.Map.empty
-                  ~f:(fun acc child ->
-                      match child with
-                      | Declaration _ -> acc
-                      | Apply_inlined_function { applied; _ }
-                      | Apply_non_inlined_function { applied; _ } ->
-                        Closure_origin.Map.add applied.closure_origin child acc)
-              in
               let new_node =
-                let children = declaration.children in
-                Apply_inlined_function { inlined with children }
-              in
-              let new_node =
-                replace_leaf_calls new_node ~leaf_substitution_map
+                let declaration_children = declaration.children in
+                rewrite_leaf_nodes ~stack_trace
+                  ~processed_inline_node ~declaration_children
               in
 
               (* TODO: Nodes that are somehow present in the inlined node,
@@ -1015,6 +1022,11 @@ module V1 = struct
     ;;
 
     let expand_decisions root =
+      let declaration_map = Closure_origin.Map.empty in
+      expand_decisions_in_call_site ~stack_trace:[] ~declaration_map root
+    ;;
+
+    let compress_decisions root =
       let declaration_map = Closure_origin.Map.empty in
       expand_decisions_in_call_site ~stack_trace:[] ~declaration_map root
     ;;

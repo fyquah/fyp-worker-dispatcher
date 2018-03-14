@@ -158,7 +158,10 @@ module V1 : sig
      *)
 
     (** WARNING: THIS FUNCTION IS POTENTIALLY LOSSY *)
+
+    (** This is the expansion and compression as defined in the thesis **)
     val expand_decisions : t -> t
+    val compress_decisions : t -> t
   end
 
   module Diff : sig
