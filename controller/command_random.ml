@@ -34,6 +34,7 @@ let pertubate_tree (tree : Inlining_tree.Top_level.t) =
         unique_random_from_list ~count:modified_leaves
           (List.init num_leaves ~f:Fn.id)
       in
+      Log.Global.sexp ~level:`Info [%message "Flipping leaf node!"];
       Inlining_tree.Top_level.flip_several_leaves tree choices
     else
       let leaf = Random.int num_leaves in
@@ -41,10 +42,9 @@ let pertubate_tree (tree : Inlining_tree.Top_level.t) =
         Inlining_tree.Top_level.backtrack_nth_leaf tree leaf
       with
       | None ->
-        Log.Global.sexp ~level:`Info [%message "Failed to backtrack!"];
         make ()
       | Some transformed ->
-        Log.Global.sexp ~level:`Info [%message "Back track possible!!"];
+        Log.Global.sexp ~level:`Info [%message "Back track possible! Using BT path"];
         transformed
   in
   make ()
