@@ -29,7 +29,7 @@ type t = private {
 val sexp_of_t : t -> Sexp.t
 val t_of_sexp : Sexp.t -> t
 
-include Identifiable.S with type t := t
+val equal : t -> t -> bool
 
 val create : ?current_compilation_unit:Compilation_unit.t -> label -> t
 

@@ -74,50 +74,56 @@ let get_stamp = function
 
 let compare_stamp t1 t2 = 
   match t1, t2 with
+  | Plain_apply a, Plain_apply b -> a - b
+  | Plain_apply _, _ -> 1
+  | Over_application _, Plain_apply _ -> -1
+  | Over_application a, Over_application b -> a - b
+  | Over_application _, Stub -> 1
   | Stub, Stub -> 0
-  | Stub, _ -> 1
-  | _ , Stub -> 0
-  | _, _ -> get_stamp_exn t1 - get_stamp_exn t2
+  | Stub, _ -> -1
+;;
+
+let stamp_equal t1 t2 =
+  (compare_stamp t1 t2 = 0)
+;;
 
 let string_of_stamp = function
-  | Plain_apply a -> "(Plain_apply " ^ string_of_int a ^ ")"
-  | Over_application a -> "(Over_application " ^ string_of_int a ^ ")"
-  | Stub -> "(Stub)"
+  | Plain_apply a -> "Plain[" ^ string_of_int a ^ "]"
+  | Over_application a -> "Over[" ^ string_of_int a ^ "]"
+  | Stub -> "Stub"
+;;
 
-include Identifiable.Make (struct
-  type nonrec t = t
-
-  let compare t1 t2 =
-    if t1 == t2 then 0
-    else
-      let c = compare_stamp t1.stamp t2.stamp in
-      if c <> 0 then c
-      else Compilation_unit.compare t1.compilation_unit t2.compilation_unit
-
-  let equal t1 t2 =
-    if t1 == t2 then true
-    else
-      t1.stamp = t2.stamp
-        && Compilation_unit.equal t1.compilation_unit t2.compilation_unit
-
-  let output chan t =
-    output_string chan (Compilation_unit.string_for_printing t.compilation_unit);
-    output_string chan "_";
-    output_string chan (string_of_stamp t.stamp)
-
-  let hash t =
-    let stamp_hash =
-      match t.stamp with
-      | Stub -> 0
-      | otherwise -> get_stamp_exn otherwise 
+let get_inlining_path t =
+  let rec loop ~(acc : (Compilation_unit.t * stamp) list) (apply_id : t) =
+    let parents =
+      match apply_id.parents with
+      | None -> Misc.fatal_error "This apply_id does not support parents"
+      | Some x ->  x
     in
-    stamp_hash lxor (Compilation_unit.hash t.compilation_unit)
+    List.fold_right (fun parent acc -> loop ~acc parent)
+       parents ((apply_id.compilation_unit, apply_id.stamp) :: acc)
+  in
+  loop ~acc:[] t
+;;
 
-  let print ppf t =
-    Format.fprintf ppf "[%a/%s]"
-      Compilation_unit.print t.compilation_unit
-      (string_of_stamp t.stamp)
-end)
+let print ppf t =
+  let s =
+    List.map (fun (cu, stamp) ->
+        Linkage_name.to_string (Compilation_unit.get_linkage_name cu)
+        ^ "__"
+        ^ string_of_stamp stamp)
+      (get_inlining_path t)
+  in
+  let s = "/" ^ (String.concat "/" s) in
+  Format.fprintf ppf "%s" s
+;;
+
+let equal t1 t2 =
+  Helper.list_equal (fun a b ->
+      Compilation_unit.equal (fst a) (fst b)
+      && stamp_equal (snd a) (snd b))
+    (get_inlining_path t1) (get_inlining_path t2)
+;;
 
 let change_label t label =
   match t.stamp, label with
@@ -157,19 +163,6 @@ let create ?current_compilation_unit label =
 let in_compilation_unit t c = Compilation_unit.equal c t.compilation_unit
 
 let get_compilation_unit t = t.compilation_unit
-
-let get_inlining_path t =
-  let rec loop ~(acc : (Compilation_unit.t * stamp) list) (apply_id : t) =
-    let parents =
-      match apply_id.parents with
-      | None -> Misc.fatal_error "This apply_id does not support parents"
-      | Some x ->  x
-    in
-    List.fold_right (fun parent acc -> loop ~acc parent)
-       parents ((apply_id.compilation_unit, apply_id.stamp) :: acc)
-  in
-  loop ~acc:[] t
-;;
 
 let inline ~caller ~inlined =
   match inlined.parents with
