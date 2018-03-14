@@ -34,3 +34,6 @@ val string_for_printing : t -> string
 
 val to_sexp : t -> Sexp.t
 val of_sexp : Sexp.t -> t
+
+val t_of_sexp : Sexp.t -> t
+val sexp_of_t : t -> Sexp.t

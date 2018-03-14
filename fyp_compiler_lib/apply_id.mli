@@ -23,6 +23,7 @@ val stamp_of_sexp : Sexp.t -> stamp
 type t = private {
     compilation_unit : Compilation_unit.t;
     stamp            : stamp;
+    parents          : t list option;
   }
 
 val sexp_of_t : t -> Sexp.t
@@ -31,6 +32,8 @@ val t_of_sexp : Sexp.t -> t
 include Identifiable.S with type t := t
 
 val create : ?current_compilation_unit:Compilation_unit.t -> label -> t
+
+val create_old : ?current_compilation_unit:Compilation_unit.t -> label -> t
 
 val change_label : t -> label -> t
 
@@ -41,3 +44,13 @@ val get_compilation_unit : t -> Compilation_unit.t
 val print : Format.formatter -> t -> unit
 
 val get_stamp : stamp -> int option
+
+val compare_stamp : stamp -> stamp -> int
+
+
+(* This is the identifier denoted in the unique path-labelling section of
+ * the thesis
+ *)
+val get_inlining_path : t -> (Compilation_unit.t * stamp) list
+
+val inline : caller: t -> inlined: t -> t

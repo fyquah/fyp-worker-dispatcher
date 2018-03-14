@@ -28,20 +28,38 @@ let stamp_of_sexp stamp =
 type t = {
     compilation_unit : Compilation_unit.t;
     stamp            : stamp;
+    parents          : t list option;
   }
 
-let sexp_of_t t =
-  Sexp.List [
-    Compilation_unit.to_sexp t.compilation_unit;
-    sexp_of_stamp t.stamp;
-  ]
+let rec sexp_of_t t =
+  match t.parents with
+  | None -> 
+    Sexp.List [
+      Compilation_unit.to_sexp t.compilation_unit;
+      sexp_of_stamp t.stamp;
+    ]
+  | Some x ->
+    let path_sexp = Sexp.t_of_list sexp_of_t x in
+    Sexp.List [
+      Compilation_unit.to_sexp t.compilation_unit;
+      sexp_of_stamp t.stamp;
+      path_sexp;
+    ]
+;;
 
-let t_of_sexp = function
+let rec t_of_sexp = function
   | Sexp.List [ a; b] ->
     let compilation_unit = Compilation_unit.of_sexp a in
     let stamp = stamp_of_sexp b in
-    { compilation_unit; stamp }
+    let parents = None in
+    { compilation_unit; stamp; parents; }
+  | Sexp.List [ a; b; c; ] ->
+    let compilation_unit = Compilation_unit.of_sexp a in
+    let stamp = stamp_of_sexp b in
+    let parents = Some (Sexp.list_of_t t_of_sexp c) in
+    { compilation_unit; stamp; parents; }
   | _ -> raise (Sexp.Parse_error "oops")
+;;
 
 
 let get_stamp_exn = function
@@ -109,7 +127,7 @@ let change_label t label =
 
 let previous_stamp = ref 0
 
-let create ?current_compilation_unit label =
+let create ?current_compilation_unit ~parents label =
   let compilation_unit =
     match current_compilation_unit with
     | Some compilation_unit -> compilation_unit
@@ -125,8 +143,38 @@ let create ?current_compilation_unit label =
       incr previous_stamp;
       Over_application !previous_stamp
   in
-  { compilation_unit; stamp; } 
+  { compilation_unit; stamp; parents; }
+;;
+
+let create_old ?current_compilation_unit label =
+  create ?current_compilation_unit ~parents:None label
+;;
+
+let create ?current_compilation_unit label =
+  create ?current_compilation_unit ~parents:(Some []) label
+;;
 
 let in_compilation_unit t c = Compilation_unit.equal c t.compilation_unit
 
 let get_compilation_unit t = t.compilation_unit
+
+let get_inlining_path t =
+  let rec loop ~(acc : (Compilation_unit.t * stamp) list) (apply_id : t) =
+    let parents =
+      match apply_id.parents with
+      | None -> Misc.fatal_error "This apply_id does not support parents"
+      | Some x ->  x
+    in
+    List.fold_right (fun parent acc -> loop ~acc parent)
+       parents ((apply_id.compilation_unit, apply_id.stamp) :: acc)
+  in
+  loop ~acc:[] t
+;;
+
+let inline ~caller ~inlined =
+  match inlined.parents with
+  | None -> inlined
+  | Some parents_of_inlined ->
+    let parents = Some (caller :: parents_of_inlined) in
+    { inlined with parents }
+;;

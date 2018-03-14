@@ -95,4 +95,7 @@ let of_sexp s =
   | _ ->
     Misc.fatal_errorf "Cannot parse %a as a Compilation unit"
       Sexp.print_mach s
+;;
 
+let t_of_sexp = of_sexp
+let sexp_of_t = to_sexp
