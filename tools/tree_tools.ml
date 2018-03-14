@@ -179,6 +179,20 @@ module V1 = struct
                   Closure_origin.print decision.metadata.closure_origin))]
   ;;
 
+  let node_to_string = function
+    | Inlining_tree.Declaration declaration ->
+      Format.asprintf "DECL(%a)"
+        Closure_origin.print declaration.declared.closure_origin
+    | Apply_inlined_function inlined_function ->
+      Format.asprintf "INLINE<%s>(%a)"
+        (Apply_id.Path.to_string (Apply_id.to_path inlined_function.apply_id))
+        Closure_origin.print inlined_function.applied.closure_origin
+    | Apply_non_inlined_function non_inlined_function ->
+      Format.asprintf "DONT_INLINE<%s>(%a)"
+        (Apply_id.Path.to_string (Apply_id.to_path non_inlined_function.apply_id))
+        Closure_origin.print non_inlined_function.applied.closure_origin
+  ;;
+
   let command_pp_tree =
     let open Command.Let_syntax in
     Command.async' ~summary:"pp"
@@ -193,20 +207,13 @@ module V1 = struct
            let space =
             List.init indent ~f:(fun _ -> " ")  |> String.concat ~sep:""
            in
+           printf "%s%s\n" space (node_to_string node);
            match node with
            | Inlining_tree.Declaration decl ->
-             Format.printf "%sDECL(%a)\n" space Closure_origin.print
-               decl.declared.closure_origin;
              iterate_children ~indent decl.children
            | Apply_inlined_function inlined ->
-             Format.printf "%sINLINE[%a](%a)\n" space
-               Apply_id.print inlined.apply_id
-               Closure_origin.print inlined.applied.closure_origin;
              iterate_children ~indent inlined.children
-           | Apply_non_inlined_function non_inlined ->
-             Format.printf "%sDONT_INLINE(%a) %a\n" space
-               Apply_id.print non_inlined.apply_id
-               Closure_origin.print non_inlined.applied.closure_origin;
+           | Apply_non_inlined_function _ -> ()
 
          and iterate_children ~indent children =
            List.iter children ~f:(fun child ->
@@ -218,19 +225,6 @@ module V1 = struct
   ;;
 
   let command_diff_tree =
-    let node_to_string = function
-      | Inlining_tree.Declaration declaration ->
-        Format.asprintf "DECL(%a)"
-          Function_metadata.print declaration.declared
-      | Apply_inlined_function inlined_function ->
-        Format.asprintf "INLINED[%a](%a)"
-          Apply_id.print inlined_function.apply_id
-          Function_metadata.print inlined_function.applied
-      | Apply_non_inlined_function non_inlined_function ->
-        Format.asprintf "CALL[%a](%a)"
-          Apply_id.print non_inlined_function.apply_id
-          Function_metadata.print non_inlined_function.applied
-    in
     let open Command.Let_syntax in
     Command.async' ~summary:"diff_tree"
       [%map_open
