@@ -241,7 +241,7 @@ def main():
     np.random.shuffle(rundirs)
     tasks = list(iterate_rundirs(rundirs))
 
-    pool = concurrent.futures.ThreadPoolExecutor(1)
+    pool = concurrent.futures.ThreadPoolExecutor(8)
     futures = [
             pool.submit(inlining_tree.load_tree_from_rundir, task, args.bin_name)
             for task in tasks
