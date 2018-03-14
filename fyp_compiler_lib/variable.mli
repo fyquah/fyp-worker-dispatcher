@@ -47,6 +47,8 @@ val in_compilation_unit : t -> Compilation_unit.t -> bool
 
 val unique_name : t -> string
 
+val get_name : t -> string
+
 val get_compilation_unit : t -> Compilation_unit.t
 
 val print_list : Format.formatter -> t list -> unit
