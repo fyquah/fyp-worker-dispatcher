@@ -81,6 +81,8 @@ module Apply_id = struct
     include T
     include Comparable.Make(T)
   end
+
+  let compare a b = Path.compare (to_path a) (to_path b)
 end
 
 module Closure_id = struct
