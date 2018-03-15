@@ -243,7 +243,8 @@ def main():
 
     pool = concurrent.futures.ThreadPoolExecutor(8)
     futures = [
-            pool.submit(inlining_tree.load_tree_from_rundir, task, args.bin_name)
+            pool.submit(inlining_tree.load_tree_from_rundir, task, args.bin_name,
+                preprocessing="patch_patching")
             for task in tasks
     ]
     results = [r.result() for r in concurrent.futures.as_completed(futures)]

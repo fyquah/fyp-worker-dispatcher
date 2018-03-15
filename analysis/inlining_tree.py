@@ -445,7 +445,7 @@ def edge_list_to_adjacency_list():
     pass
 
 
-def load_tree_from_rundir(substep_dir, bin_name):
+def load_tree_from_rundir(substep_dir, bin_name, preprocessing):
     logging.info("Loading tree from %s" % substep_dir)
     substep_tmp_dir = os.path.join(substep_dir, "tmp")
 
