@@ -47,7 +47,7 @@ while true; do
       echo "$script,$RUNDIR" >>$BATCH_EXECUTOR_LOG
     done
 
-    echo "Going to wait for $(cat tmp-0/controller.pid) , $(cat tmp-1/controller.pid) and $(cat tmp-2/controller.pid)"
+    echo "Going to wait for $(cat tmp-0/controller.pid) $(cat tmp-1/controller.pid) $(cat tmp-2/controller.pid)"
     wait_for_completion $(cat tmp-0/controller.pid)
     wait_for_completion $(cat tmp-1/controller.pid)
     wait_for_completion $(cat tmp-2/controller.pid)
