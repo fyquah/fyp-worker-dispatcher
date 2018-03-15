@@ -114,14 +114,6 @@ module V1 : sig
 
     val pprint : ?indent:int -> Buffer.t -> t -> unit
 
-    (** A compiled inlining tree is said to be sound w.r.t. reference iff
-     *  all decisions taken by the compiled either matches those in the
-     *  reference tree or does not exist in reference tree.
-     * **)
-    val check_soundness : reference: t -> compiled: t -> bool
-
-    (* TODO: Implement [check_completeness] *)
-
     val to_simple_overrides : t -> Data_collector.Simple_overrides.t
 
     (* If we have an inlining tree with inlining decisions made in the
@@ -166,9 +158,30 @@ module V1 : sig
 
     (** WARNING: THIS FUNCTION IS POTENTIALLY LOSSY *)
 
+    (* Cleaning passes *)
+    val remove_unknowns : t -> t
+    val remove_empty_declarations : t -> t
+
     (** This is the expansion and compression as defined in the thesis **)
     val expand_decisions : t -> t
     val compress_decisions : t -> t
+
+    (** Checking routines **)
+    module Soundness : sig
+      type t = {
+        is_sound:                 bool;
+        matched_reference_nodes:  int;
+        total_nodes_in_reference: int;
+      }
+    end
+
+    (** A compiled inlining tree is said to be sound w.r.t. reference iff
+     *  all decisions taken by the compiled either matches those in the
+     *  reference tree or does not exist in reference tree.
+     * **)
+    val check_soundness : ?loose: unit -> reference: t -> compiled: t -> unit -> Soundness.t
+
+    (* TODO: Implement [check_completeness] *)
   end
 
   module Diff : sig
@@ -178,12 +191,14 @@ module V1 : sig
         right           : [ `Right of t ] list;
       }
   end
-
-  val diff : left: Top_level.t -> right: Top_level.t -> Diff.t list
+  
+  val diff
+     : ?loose:unit
+    -> left: Top_level.t
+    -> right: Top_level.t
+    -> Diff.t list
 
   val shallow_sexp_of_t : t -> Sexp.t
-
-  val fuzzy_equal : t -> t -> bool
 
   val add : Top_level.t -> Decision.t -> Top_level.t
 

@@ -39,6 +39,10 @@ module Apply_id = struct
     | Some _ -> get_inlining_path t
   ;;
 
+  let node_id t =
+    (t.compilation_unit, t.stamp)
+  ;;
+
   module Stamp = struct
     module T = struct
       type t = stamp
@@ -51,6 +55,15 @@ module Apply_id = struct
 
     include T
     include Make_core_sexp(T)
+  end
+
+  module Node_id = struct
+    type t = (Compilation_unit.t * stamp)
+
+    let equal a b =
+      Compilation_unit.equal (fst a) (fst b) &&
+      Stamp.compare (snd a) (snd b) = 0
+    ;;
   end
 
   module Path = struct

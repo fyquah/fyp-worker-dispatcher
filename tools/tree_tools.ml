@@ -193,6 +193,24 @@ module V1 = struct
         Closure_origin.print non_inlined_function.applied.closure_origin
   ;;
 
+  let command_pp_tree_from_decisions =
+    let open Command.Let_syntax in
+    Command.async' ~summary:"pp"
+      [%map_open
+       let file = anon ("filename" %: string) in
+       fun () ->
+         let open Deferred.Let_syntax in
+         let%bind decisions =
+           Reader.load_sexp_exn file [%of_sexp: Decision.t list]
+         in
+         let tree = Inlining_tree.build decisions in
+         let buffer = Buffer.create 10 in
+         Pretty_print.iterate_children ~buffer ~indent:(-1) tree;
+         printf "%s" (Buffer.contents buffer);
+         Deferred.unit
+      ]
+  ;;
+
   let command_pp_tree =
     let open Command.Let_syntax in
     Command.async' ~summary:"pp"
@@ -229,7 +247,11 @@ module V1 = struct
     Command.async' ~summary:"diff_tree"
       [%map_open
        let file_a = anon ("filename" %: string)
-       and file_b = anon ("filename" %: string) in
+       and file_b = anon ("filename" %: string)
+       and loose = flag "-loose" no_arg ~doc:"loose"
+       and remove_unknowns = flag "-remove-unknowns" no_arg ~doc:"hello"
+       and remove_empty_decl = flag "-remove-empty-decl" no_arg ~doc:"hello"
+       in
        fun () ->
          let open Deferred.Let_syntax in
          let%bind tree_a =
@@ -238,7 +260,23 @@ module V1 = struct
          let%bind tree_b =
            Reader.load_sexp_exn file_b [%of_sexp: Inlining_tree.Top_level.t]
          in
-         let diffs = Inlining_tree.diff ~left:tree_a ~right:tree_b in
+         let dynamic_dispatch a b =
+           if a then b else Fn.id
+         in
+         let preprocess tree =
+           tree
+           |> dynamic_dispatch remove_unknowns
+              Inlining_tree.Top_level.remove_unknowns
+           |> dynamic_dispatch remove_empty_decl
+              Inlining_tree.Top_level.remove_empty_declarations
+         in
+         let loose =
+           if loose then Some ()
+           else None
+         in
+         let tree_a = preprocess tree_a in
+         let tree_b = preprocess tree_b in
+         let diffs = Inlining_tree.diff ?loose ~left:tree_a ~right:tree_b in
          List.iteri diffs ~f:(fun i diff ->
              printf "Diff %d\n" i;
              let common_ancestor = diff.common_ancestor in
@@ -283,12 +321,59 @@ module V1 = struct
       ]
   ;;
 
+  let command_check_soundness =
+    let open Command.Let_syntax in
+    Command.async_or_error' ~summary:"convert compiler decisions to tree"
+      [%map_open
+        let compiled = anon ("candidate" %: string)
+        and reference =  flag "-reference" (required string) ~doc:"STRING"
+        and loose = flag "-loose" no_arg ~doc:"loose"
+        and remove_unknowns = flag "-remove-unknowns" no_arg ~doc:"hello"
+        and remove_empty_decl = flag "-remove-empty-decl" no_arg ~doc:"hello"
+        in
+        fun () ->
+          let open Deferred.Or_error.Let_syntax in
+          let%bind compiled =
+            Reader.load_sexp compiled [%of_sexp: Inlining_tree.Top_level.t]
+          in
+          let%bind reference =
+            Reader.load_sexp reference [%of_sexp: Inlining_tree.Top_level.t]
+          in
+          let dynamic_dispatch a b =
+            if a then b else Fn.id
+          in
+          let preprocess tree =
+            tree
+            |> dynamic_dispatch remove_unknowns
+               Inlining_tree.Top_level.remove_unknowns
+            |> dynamic_dispatch remove_empty_decl
+               Inlining_tree.Top_level.remove_empty_declarations
+          in
+          let compiled = preprocess compiled in
+          let reference = preprocess reference in
+          let loose = if loose then Some () else None in
+          let soundness =
+            Inlining_tree.Top_level.check_soundness ?loose ~reference ~compiled ()
+          in
+          if soundness.is_sound then begin
+            printf "Num nodes in reference = %d\n"
+              soundness.total_nodes_in_reference;
+            printf "Num matched nodes in reference = %d\n"
+            soundness.matched_reference_nodes;
+            Deferred.Or_error.return ()
+          end else begin
+            Deferred.Or_error.error_string "Not sound"
+          end]
+  ;;
+
   let command =
     Command.group ~summary:"Tree tools (for v1)"
       [("print-tree", command_pp_tree);
+       ("print-tree-from-decisions", command_pp_tree_from_decisions);
        ("print-decisions", command_pp_decisions);
        ("diff-tree", command_diff_tree);
        ("decisions-to-tree", command_decisions_to_tree);
+       ("check-soundness", command_check_soundness);
       ]
 end
 

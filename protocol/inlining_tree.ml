@@ -597,23 +597,66 @@ module V1 = struct
     | Apply_non_inlined_function _ -> []
   ;;
 
-  let fuzzy_equal a b =
+  let locally_unique_identifier = function
+    | Declaration a -> `Declaration a.declared
+    | Apply_inlined_function a -> `Application a.apply_id
+    | Apply_non_inlined_function a -> `Application a.apply_id
+  ;;
+
+  let closure_origin_weak_equal a b =
+    let closure_origin_get_weak_repr a =
+      (Closure_origin.get_compilation_unit a, Closure_origin.get_name a)
+    in
+    let a = closure_origin_get_weak_repr a in
+    let b = closure_origin_get_weak_repr b in
+    Compilation_unit.equal (fst a) (fst b)
+      && String.equal (snd a) (snd b)
+  ;;
+
+  let weak_equal_disregarding_children a b =
     match a, b with
     | Declaration a, Declaration b ->
-      Function_metadata.equal a.declared b.declared
+       closure_origin_weak_equal
+         a.declared.closure_origin b.declared.closure_origin
     | Apply_inlined_function a, Apply_inlined_function b ->
-      Apply_id.equal a.apply_id b.apply_id
+      Apply_id.equal_accounting_deprecation a.apply_id b.apply_id
 
     | Apply_non_inlined_function a, Apply_non_inlined_function b ->
-      Apply_id.equal a.apply_id b.apply_id
-
-    | Apply_inlined_function a, Apply_non_inlined_function b ->
-      Apply_id.equal a.apply_id b.apply_id
+      Apply_id.equal_accounting_deprecation a.apply_id b.apply_id
 
     | _ , _ -> false
   ;;
 
-  let refers_to_same_node = fuzzy_equal
+  let equal_disregarding_children a b =
+    match a, b with
+    | Declaration a, Declaration b ->
+      Function_metadata.equal a.declared b.declared
+    | Apply_inlined_function a, Apply_inlined_function b ->
+      Apply_id.equal_accounting_deprecation a.apply_id b.apply_id
+
+    | Apply_non_inlined_function a, Apply_non_inlined_function b ->
+      Apply_id.equal_accounting_deprecation a.apply_id b.apply_id
+
+    | _ , _ -> false
+  ;;
+
+  let refers_to_same_node a b =
+    match (locally_unique_identifier a), (locally_unique_identifier b) with
+    | `Declaration a, `Declaration b ->
+      Closure_origin.equal a.closure_origin b.closure_origin
+    | `Application a, `Application b ->
+      Apply_id.equal_accounting_deprecation a b
+    | _, _ -> false
+  ;;
+
+  let weak_refers_to_same_node a b =
+    match (locally_unique_identifier a), (locally_unique_identifier b) with
+    | `Declaration a, `Declaration b ->
+      closure_origin_weak_equal a.closure_origin b.closure_origin
+    | `Application a, `Application b ->
+      Apply_id.equal_accounting_deprecation a b
+    | _, _ -> false
+  ;;
 
   module Top_level = struct
     type root = t list [@@deriving sexp, compare]
@@ -882,28 +925,97 @@ module V1 = struct
       | Apply_non_inlined_function _ -> []
     ;;
 
-    let rec check_soundness ~(reference : root) ~(compiled : root) =
-      List.for_all compiled ~f:(fun compiled_node ->
-          let matching_node_in_reference =
-            List.find_map reference ~f:(fun reference_node ->
-                if refers_to_same_node compiled_node reference_node then begin
-                  match compiled_node, reference_node with
-                  | Declaration _, Declaration _
-                  | Apply_inlined_function _, Apply_inlined_function _
-                  | Apply_non_inlined_function _, Apply_non_inlined_function _ ->
-                    Some (`Matched reference_node)
-                  | _ -> Some (`Failed)
-                end else begin
-                  None
-                end)
-          in
-          match matching_node_in_reference with
-          | None -> true
-          | Some `Failed -> false
-          | Some (`Matched reference_node) ->
-            check_soundness
-              ~reference:(node_children reference_node)
-              ~compiled:(node_children compiled_node))
+    let rec
+      size_top_level l = List.fold l ~init:0 ~f:(fun b a -> b + size a)
+    and size = function
+      | Declaration { children; _ }
+      | Apply_inlined_function { children; _ } -> 1 + size_top_level children
+      | Apply_non_inlined_function _ -> 1
+    ;;
+
+    module Soundness = struct
+      type t = {
+        is_sound:                 bool;
+        matched_reference_nodes:  int;
+        total_nodes_in_reference: int;
+      }
+    end
+
+    let rec remove_empty_declarations root =
+      List.filter_map root ~f:(fun node ->
+          match node with
+          | Declaration decl ->
+            let children = remove_empty_declarations decl.children in
+            if Int.equal (List.length children) 0 then
+              None
+            else
+              Some (Declaration { decl with children })
+
+          | Apply_inlined_function inlined ->
+            let children = remove_empty_declarations inlined.children in
+            Some (Apply_inlined_function { inlined with children })
+
+          | Apply_non_inlined_function _ -> Some node)
+    ;;
+
+    let rec remove_unknowns root =
+      List.filter_map root ~f:(fun node ->
+          match node with
+          | Declaration decl ->
+            let children = remove_unknowns decl.children in
+            Some (Declaration { decl with children })
+
+          | Apply_inlined_function inlined ->
+            let children = remove_unknowns inlined.children in
+            Some (Apply_inlined_function { inlined with children })
+
+          | Apply_non_inlined_function { applied; _ } ->
+            if Closure_origin.equal Closure_origin.unknown
+               applied.closure_origin
+            then None
+            else Some node)
+    ;;
+
+    let check_soundness ?loose ~reference:reference_tree ~compiled:compiled_tree () =
+      let matched_reference_nodes = ref 0 in
+      let refers_to_same_node =
+        match loose with
+        | Some () ->  weak_refers_to_same_node
+        | None -> refers_to_same_node
+      in
+      let rec loop ~reference ~compiled =
+        List.for_all compiled ~f:(fun compiled_node ->
+            let matching_node_in_reference =
+              List.find_map reference ~f:(fun reference_node ->
+                  if refers_to_same_node compiled_node reference_node then begin
+                    match compiled_node, reference_node with
+                    | Declaration _, Declaration _
+                    | Apply_inlined_function _, Apply_inlined_function _
+                    | Apply_non_inlined_function _, Apply_non_inlined_function _ ->
+                      Some (`Matched reference_node)
+                    | _ -> Some (`Failed)
+                  end else begin
+                    None
+                  end)
+            in
+            match matching_node_in_reference with
+            | None -> true
+            | Some `Failed -> false
+            | Some (`Matched reference_node) ->
+              matched_reference_nodes := !matched_reference_nodes + 1;
+              loop ~reference:(node_children reference_node)
+                ~compiled:(node_children compiled_node))
+      in
+      let is_sound =
+        loop ~reference:reference_tree ~compiled:compiled_tree
+      in
+      let matched_reference_nodes = !matched_reference_nodes in
+      let total_nodes_in_reference = size_top_level reference_tree in
+      { Soundness.
+        is_sound;
+        matched_reference_nodes;
+        total_nodes_in_reference;
+      }
     ;;
 
     let to_simple_overrides root =
@@ -1306,18 +1418,23 @@ module V1 = struct
     [@@deriving sexp]
   end
 
-  let diff ~(left : Top_level.t) ~(right : Top_level.t) =
+  let diff ?loose ~(left : Top_level.t) ~(right : Top_level.t) =
+    let equal_disregarding_children =
+      match loose with
+      | None -> equal_disregarding_children
+      | Some () -> weak_equal_disregarding_children
+    in
     let shallow_diff ~left ~right =
       let same = ref [] in
       let left_only = ref [] in
       let right_only = ref [] in
       List.iter left ~f:(fun t ->
-        if List.exists right ~f:(fuzzy_equal t) then
-          same := t :: !same
+        if List.exists right ~f:(equal_disregarding_children t) then
+          same := (t, List.find_exn right ~f:(equal_disregarding_children t)) :: !same
         else
           left_only := t :: !left_only);
       List.iter right ~f:(fun t ->
-        if not (List.exists left ~f:(fuzzy_equal t)) then
+        if not (List.exists left ~f:(equal_disregarding_children t)) then
           right_only := t :: !right_only;
       );
       (`Same !same, `Left_only !left_only, `Right_only !right_only)
@@ -1327,15 +1444,9 @@ module V1 = struct
         shallow_diff ~left ~right
       in
       let descent =
-        let left =
-          List.filter left ~f:(fun l -> List.exists same ~f:(fuzzy_equal l))
-        in
-        let right =
-          List.filter right ~f:(fun r -> List.exists same ~f:(fuzzy_equal r))
-        in
-        List.map2_exn left right ~f:(fun l r ->
+        List.map same ~f:(fun (left, right) ->
           let diffs =
-            match l, r with
+            match left, right with
             | Declaration l_decl, Declaration r_decl ->
               loop ~left:l_decl.children ~right:r_decl.children
             | Apply_inlined_function l_inlined, Apply_inlined_function r_inlined ->
@@ -1346,8 +1457,12 @@ module V1 = struct
           in
           List.map diffs ~f:(fun (diff : Diff.t) ->
             let common_ancestor = diff.common_ancestor in
-            { diff with common_ancestor = l :: common_ancestor }))
+            { diff with common_ancestor = left :: common_ancestor }))
         |> List.concat_no_order
+        |> List.filter ~f:(fun diff ->
+            match diff.left, diff.right with
+            | [], [] -> false
+            | _, _ -> true)
       in
       let current =
         match left, right with
