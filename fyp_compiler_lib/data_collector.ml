@@ -230,15 +230,17 @@ module V1 = struct
           Closure_origin.print at_call_site.applied.closure_origin
     ;;
 
-    let equal_ignoring_source a b =
+    let minimally_equal a b =
       match a, b with
       | Enter_decl a, Enter_decl b ->
-        Closure_origin.equal a.declared.closure_origin b.declared.closure_origin
+        let a = a.declared.closure_origin in
+        let b = b.declared.closure_origin in
+        Compilation_unit.equal (Closure_origin.get_compilation_unit a)
+          (Closure_origin.get_compilation_unit b)
+        && String.equal (Closure_origin.get_name a) (Closure_origin.get_name b)
 
       | At_call_site a, At_call_site b ->
-        Apply_id.equal a.apply_id b.apply_id &&
-          (Closure_origin.equal
-            a.applied.closure_origin b.applied.closure_origin)
+        Apply_id.equal a.apply_id b.apply_id
 
       | _ -> false
   end
@@ -314,15 +316,38 @@ module V1 = struct
       apply_id: Apply_id.t;
     }
 
+    let trace_to_string trace =
+      List.map (function
+          | Trace_item.Enter_decl decl ->
+            Format.asprintf "{%a}" Closure_origin.print decl.declared.closure_origin
+          | Trace_item.At_call_site acs ->
+            Format.asprintf "<%a(%a)>" Apply_id.print acs.apply_id
+              Closure_origin.print acs.applied.closure_origin
+        )
+        trace
+      |> String.concat "/"
+    ;;
+
+    let action_to_string action =
+      match action with
+      | Action.Inline -> "INLINE"
+      | Action.Apply -> "DONT_INLINE"
+      | Action.Specialise -> "SPECIALISE"
+    ;;
+
     let find_decision overrides ({ trace; apply_id; }) =
       match
         List.find_opt (fun (decision : Decision.t) ->
-            Apply_id.equal decision.apply_id apply_id
-            && Helper.list_equal Trace_item.equal_ignoring_source decision.trace trace)
+            Apply_id.equal_accounting_deprecation decision.apply_id apply_id
+            && Helper.list_equal Trace_item.minimally_equal decision.trace trace)
           overrides
       with
-      | None -> None
-      | Some a -> Some a.Decision.action
+      | None ->
+        Format.printf "NONE  -- %s\n" (trace_to_string trace);
+        None
+      | Some (a : Decision.t) ->
+        Format.printf "%s  -- %s\n" (action_to_string a.action) (trace_to_string trace);
+        Some a.action
     ;;
 
     let sexp_of_t t =

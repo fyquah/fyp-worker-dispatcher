@@ -106,13 +106,19 @@ let get_inlining_path t =
   loop ~acc:[] t
 ;;
 
+let safe_get_inlining_path t =
+  match t.parents with
+  | None -> [(t.compilation_unit, t.stamp)]
+  | Some _ -> get_inlining_path t
+;;
+
 let print ppf t =
   let s =
     List.map (fun (cu, stamp) ->
         Linkage_name.to_string (Compilation_unit.get_linkage_name cu)
         ^ "__"
         ^ string_of_stamp stamp)
-      (get_inlining_path t)
+      (safe_get_inlining_path t)
   in
   let s = "/" ^ (String.concat "/" s) in
   Format.fprintf ppf "%s" s
@@ -122,7 +128,18 @@ let equal t1 t2 =
   Helper.list_equal (fun a b ->
       Compilation_unit.equal (fst a) (fst b)
       && stamp_equal (snd a) (snd b))
-    (get_inlining_path t1) (get_inlining_path t2)
+    (safe_get_inlining_path t1)
+    (safe_get_inlining_path t2)
+;;
+
+let equal_accounting_deprecation t1 t2 =
+  match t1. parents , t2 . parents with
+  | None, None
+  | None, Some _
+  | Some _, None ->
+    Compilation_unit.equal t1.compilation_unit t2.compilation_unit
+    && stamp_equal t1.stamp t2.stamp
+  | Some _, Some _ -> equal t1 t2
 ;;
 
 let change_label t label =

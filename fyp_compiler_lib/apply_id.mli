@@ -47,6 +47,7 @@ val get_stamp : stamp -> int option
 
 val compare_stamp : stamp -> stamp -> int
 
+val equal_accounting_deprecation : t -> t -> bool
 
 (* This is the identifier denoted in the unique path-labelling section of
  * the thesis
