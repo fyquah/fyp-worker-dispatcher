@@ -7,14 +7,14 @@ set -euo pipefail
 declare -A experiments_mapping
 declare -A bin_name_mapping
 
-experiments_mapping=(["kb-1"]="kb_benchmark")
-bin_name_mapping=(["kb-1"]="kb")
+experiments_mapping["kb-1"]="kb_benchmark"
+bin_name_mapping["kb-1"]="kb"
 
 experiments_mapping["lens-1"]="lens_benchmark"
-bin_name_mapping=["lens-1"]="lens_benchmark"
+bin_name_mapping["lens-1"]="lens_benchmark"
 
-experiments_mapping=["lexifi-1"]="lexifi-g2pp_benchmark"
-bin_name_mapping=["lexifi-1"]="main"
+experiments_mapping["lexifi-1"]="lexifi-g2pp_benchmark"
+bin_name_mapping["lexifi-1"]="main"
 
 
 PATH_TO_SEXP_FILE=$(readlink -f "$1.sexp")
@@ -34,7 +34,7 @@ sed -i'' -e 's#ocamlopt#~/fyp/ocaml-unstable-closure-origins/ocamlopt.opt -inlin
 make clean
 cp $PATH_TO_SEXP_FILE ./overrides.sexp
 
-make >/dev/null
+make all >out.log
 
 cd $SCRATCH_DIR
 fyp-tree-tools v1 decisions-to-tree -output reference-tree.sexp \
