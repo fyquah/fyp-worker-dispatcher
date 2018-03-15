@@ -470,6 +470,21 @@ def load_tree_from_rundir(substep_dir, bin_name, preprocessing):
             logging.info("Dropping %s due to missing execution stats" % substep_dir)
             return None
 
+        if preprocessing:
+            assert isinstance(preprocessing, tuple)
+
+            if preprocessing[0] == "path_patching":
+                experiment_subdir = preprocessing[1]
+                cleaner_script = os.path.join(
+                        os.path.dirname(os.path.realpath(__file__)),
+                        "scripts", "clean-with-path-patching")
+                proc = subprocess.Popen([
+                        cleaner_script,
+                        data_collector_file, bin_name, experiment_subdir])
+                proc.wait()
+            else:
+                assert False
+
         proc = subprocess.Popen([
             "../_build/default/tools/tree_tools.exe", "v1",
             "decisions-to-tree",

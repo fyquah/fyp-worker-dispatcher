@@ -220,6 +220,8 @@ parser = argparse.ArgumentParser(description="formulate the problem")
 parser.add_argument("--script-name", type=str, help="Name of script", required=True)
 parser.add_argument("--output-dir", type=str, help="output dir", required=True)
 parser.add_argument("--bin-name", type=str, help="output dir", required=True)
+parser.add_argument("--exp-subdir", type=str,
+        help="experiment subdirectory name", required=True)
 
 
 def main():
@@ -244,7 +246,7 @@ def main():
     pool = concurrent.futures.ThreadPoolExecutor(8)
     futures = [
             pool.submit(inlining_tree.load_tree_from_rundir, task, args.bin_name,
-                preprocessing="patch_patching")
+                ("patch_patching", parser.experiment_subdir))
             for task in tasks
     ]
     results = [r.result() for r in concurrent.futures.as_completed(futures)]

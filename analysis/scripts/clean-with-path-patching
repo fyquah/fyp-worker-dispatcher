@@ -1,0 +1,43 @@
+#!/bin/bash
+#
+###################################
+#
+#  Usage:
+#     ./clean-with-path-patching sexp bin_name subdir
+#  Arguments:
+#     - sexp: Absolute path to sexp file (Replaces in place)
+#     - bin_name: Name of binary
+#     - subdir: name of experiment subdirectory
+#
+###################################
+#
+
+
+set -euo pipefail
+
+PATH_TO_SEXP_FILE=$1
+EXPERIMENT_BIN_NAME=$2
+EXPERIMENT_SUB_DIR=$3
+
+EXPERIMENT_DIR="$HOME/fyp/experiments/normal/$EXPERIMENT_SUB_DIR"
+SCRATCH_DIR=$(mktemp -d)
+
+if [ ! -d  "$EXPERIMENT_DIR/" ]; then
+  echo "$EXPERIMENT_DIR (experiment directory) is not a directory!" >/dev/stderr
+  exit 1
+fi
+
+echo "Running path patching in $SCRATCH_DIR for for $PATH_TO_SEXP_FILE">/dev/stderr
+
+cd $SCRATCH_DIR
+cp $EXPERIMENT_DIR/* $SCRATCH_DIR/
+sed -i'' -e 's#ocamlopt#~/fyp/ocaml-unstable-closure-origins/ocamlopt.opt -inlining-overrides overrides.sexp#g' Makefile
+
+echo "Running make in $(pwd)">/dev/stderr
+make clean
+cp $PATH_TO_SEXP_FILE ./overrides.sexp
+make all >out.log
+
+echo "Backed up  $PATH_TO_SEXP_FILE to $PATH_TO_SEXP_FILE.bak">/dev/stderr
+cp $PATH_TO_SEXP_FILE $PATH_TO_SEXP_FILE.bak
+cp $EXPERIMENT_BIN_NAME.0.data_collector.v1.sexp $PATH_TO_SEXP_FILE
