@@ -1373,6 +1373,7 @@ module V1 = struct
         closure_id = Some closure_id;
         set_of_closures_id = None;
         closure_origin;
+        opt_closure_origin = None;
       }
     in
     let children = top_level_tree in
@@ -1407,6 +1408,29 @@ module V1 = struct
         | Data_collector.Action.Apply -> true)
     |> List.fold ~init ~f:add
     |> recursively_reverse
+  ;;
+
+  let rec map ~f root =
+    let add_children node children =
+      match node with
+      | Declaration d -> Declaration { d with children }
+      | Apply_inlined_function inlined ->
+        Apply_inlined_function { inlined with children }
+      | Apply_non_inlined_function _ -> node
+    in
+    List.map root ~f:(fun node ->
+      match node with
+      | Declaration d ->
+        let new_node = (f node) in
+        let children = map ~f d.children in
+        add_children new_node children
+
+      | Apply_inlined_function inlined ->
+        let new_node = (f node) in
+        let children = map ~f inlined.children in
+        add_children new_node children
+
+      | Apply_non_inlined_function _ -> f node)
   ;;
 
   module Diff = struct

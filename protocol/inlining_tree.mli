@@ -184,6 +184,8 @@ module V1 : sig
     (* TODO: Implement [check_completeness] *)
   end
 
+  val map : f: (t -> t) -> t list -> t list
+
   module Diff : sig
     type nonrec t =
       { common_ancestor : t list; (* Arbitary choice between the left and right *)
