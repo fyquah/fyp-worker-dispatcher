@@ -1091,13 +1091,13 @@ module V1 = struct
     let transient_function_metadata =
       let closure_origin =
         let current_compilation_unit =
-          let ident = Fyp_compiler_lib.Ident.create_persistent "unknown" in
-          let linkage_name = Fyp_compiler_lib.Linkage_name.create "unknown" in
+          let ident = Fyp_compiler_lib.Ident.create_persistent "expanded" in
+          let linkage_name = Fyp_compiler_lib.Linkage_name.create "expanded" in
           Compilation_unit.create ident linkage_name
         in
         Fyp_compiler_lib.Closure_origin.create (
           Fyp_compiler_lib.Closure_id.wrap (
-            Fyp_compiler_lib.Variable.create ~current_compilation_unit "unknown"))
+            Fyp_compiler_lib.Variable.create ~current_compilation_unit "expanded"))
       in
       { Function_metadata.
         closure_id = None; set_of_closures_id = None;
@@ -1217,13 +1217,11 @@ module V1 = struct
       |> List.filter_opt
     ;;
 
-    let relabel_transient_functions x = x
-
+    (* We are not relabelling -- okay? **)
     let expand root =
       root
       |> expand_decisions_in_call_site_based_on_inlining_path
       |> merge_decisions_in_call_site
-      |> relabel_transient_functions
     ;;
 
     module T = struct
