@@ -309,13 +309,13 @@ module V1 = struct
             Reader.load_sexp_exn input_file [%of_sexp: Decision.t list]
           in
           let tree = Inlining_tree.build decisions in
-          let tree =
+          let sexp =
             if expand then
-              Inlining_tree.Top_level.expand_decisions tree
+              Inlining_tree.Top_level.expand tree
+              |> Inlining_tree.Top_level.Expanded.sexp_of_t
             else
-              tree
+              Inlining_tree.Top_level.sexp_of_t tree
           in
-          let sexp = Inlining_tree.Top_level.sexp_of_t tree in
           let%map wrt = Writer.open_file output_file in
           Writer.write wrt (Sexp.to_string sexp)
       ]

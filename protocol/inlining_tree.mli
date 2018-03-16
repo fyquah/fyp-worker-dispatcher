@@ -163,8 +163,14 @@ module V1 : sig
     val remove_empty_declarations : t -> t
 
     (** This is the expansion and compression as defined in the thesis **)
-    val expand_decisions : t -> t
-    val compress_decisions : t -> t
+    module Expanded : sig
+      type t
+
+      [@@deriving sexp]
+    end
+
+    val expand : t -> Expanded.t
+    (* val compress : Expanded.t -> t *)
 
     (** Checking routines **)
     module Soundness : sig

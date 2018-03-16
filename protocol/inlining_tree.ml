@@ -1087,6 +1087,22 @@ module V1 = struct
       replace_leaf_calls new_node_with_declaration_children ~leaf_substitution
     ;;
 
+    module Phantom = struct
+      type nonrec 'a t = root
+    end
+
+    module Expanded = struct
+      type t = [ `Expanded ] Phantom.t
+
+      let t_of_sexp sexp =
+        ((root_of_sexp sexp) :> ([`Expanded] Phantom.t))
+      ;;
+
+      let sexp_of_t (expanded : [`Expanded] Phantom.t) =
+        sexp_of_root (expanded :> root)
+      ;;
+    end
+
     let rec expand_decisions_in_call_site
         ~stack_trace
         ~(declaration_map : declaration Closure_origin.Map.t)
@@ -1199,14 +1215,12 @@ module V1 = struct
       |> List.rev
     ;;
 
-    let expand_decisions root =
+    let expand root =
       let declaration_map = Closure_origin.Map.empty in
-      expand_decisions_in_call_site ~stack_trace:[] ~declaration_map root
-    ;;
-
-    let compress_decisions root =
-      let declaration_map = Closure_origin.Map.empty in
-      expand_decisions_in_call_site ~stack_trace:[] ~declaration_map root
+      let output =
+        expand_decisions_in_call_site ~stack_trace:[] ~declaration_map root
+      in
+      (output :> Expanded.t)
     ;;
 
     module T = struct
