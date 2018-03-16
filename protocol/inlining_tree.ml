@@ -659,6 +659,8 @@ module V1 = struct
   ;;
 
   module Top_level = struct
+    type node = t
+
     type root = t list [@@deriving sexp, compare]
 
     let count_leaves root =
@@ -1103,6 +1105,29 @@ module V1 = struct
       ;;
     end
 
+    let rec map ~f root =
+      let add_children node children =
+        match node with
+        | Declaration d -> Declaration { d with children }
+        | Apply_inlined_function inlined ->
+          Apply_inlined_function { inlined with children }
+        | Apply_non_inlined_function _ -> node
+      in
+      List.map root ~f:(fun node ->
+        match node with
+        | Declaration d ->
+          let new_node = (f node) in
+          let children = map ~f d.children in
+          add_children new_node children
+
+        | Apply_inlined_function inlined ->
+          let new_node = (f node) in
+          let children = map ~f inlined.children in
+          add_children new_node children
+
+        | Apply_non_inlined_function _ -> f node)
+    ;;
+
     let rec expand_decisions_in_call_site
         ~stack_trace
         ~(declaration_map : declaration Closure_origin.Map.t)
@@ -1422,29 +1447,6 @@ module V1 = struct
         | Data_collector.Action.Apply -> true)
     |> List.fold ~init ~f:add
     |> recursively_reverse
-  ;;
-
-  let rec map ~f root =
-    let add_children node children =
-      match node with
-      | Declaration d -> Declaration { d with children }
-      | Apply_inlined_function inlined ->
-        Apply_inlined_function { inlined with children }
-      | Apply_non_inlined_function _ -> node
-    in
-    List.map root ~f:(fun node ->
-      match node with
-      | Declaration d ->
-        let new_node = (f node) in
-        let children = map ~f d.children in
-        add_children new_node children
-
-      | Apply_inlined_function inlined ->
-        let new_node = (f node) in
-        let children = map ~f inlined.children in
-        add_children new_node children
-
-      | Apply_non_inlined_function _ -> f node)
   ;;
 
   module Diff = struct

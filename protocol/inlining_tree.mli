@@ -93,6 +93,7 @@ module V1 : sig
   exception Flip_error of string
 
   module Top_level : sig
+    type node = t
 
     type nonrec t = t list [@@deriving sexp, compare]
 
@@ -156,6 +157,8 @@ module V1 : sig
      * [compress_deciions] transforms the latter to the former
      *)
 
+    val map : f: (node -> node) -> t -> t
+
     (** WARNING: THIS FUNCTION IS POTENTIALLY LOSSY *)
 
     (* Cleaning passes *)
@@ -189,8 +192,6 @@ module V1 : sig
 
     (* TODO: Implement [check_completeness] *)
   end
-
-  val map : f: (t -> t) -> t list -> t list
 
   module Diff : sig
     type nonrec t =

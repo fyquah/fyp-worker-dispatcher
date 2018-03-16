@@ -27,7 +27,7 @@ let command_path_patching =
           { function_metadata with opt_closure_origin; closure_origin; }
         in
         let patched_tree =
-          Inlining_tree.map reference_tree ~f:(function
+          Inlining_tree.Top_level.map reference_tree ~f:(function
             | Inlining_tree.Declaration decl ->
               let declared = replace_closure_origin (decl.declared) in
               Inlining_tree.Declaration { decl with declared }
