@@ -228,7 +228,7 @@ def main():
     logging.getLogger().setLevel(logging.INFO)
     args = parser.parse_args()
     rundirs = []
-    with open("../important-logs/batch_executor.log") as batch_f:
+    with open("../important-logs/batch_executor_before_proof.log") as batch_f:
         for line in csv.reader(batch_f):
             (script_name, sub_rundir) = line
             if script_name == args.script_name:
