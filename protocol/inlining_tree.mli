@@ -92,6 +92,8 @@ module V1 : sig
 
   exception Flip_error of string
 
+  val to_identifier : t -> string
+
   module Top_level : sig
     type node = t
 
@@ -168,7 +170,6 @@ module V1 : sig
     (** This is the expansion and compression as defined in the thesis **)
     module Expanded : sig
       type t
-
       [@@deriving sexp]
     end
 
