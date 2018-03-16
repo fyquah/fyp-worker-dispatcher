@@ -1037,6 +1037,29 @@ module V1 = struct
         | Apply   of apply
       [@@deriving sexp]
 
+      let node_equal_without_descend a b =
+        match a, b with
+        | Decl a, Decl b ->
+          Closure_origin.equal a.func.closure_origin b.func.closure_origin
+        | Inlined a, Inlined b -> Apply_id.Path.equal a.path b.path
+        | Apply   a, Apply   b -> Apply_id.Path.equal a.path b.path
+        | _ -> false
+      ;;
+
+      let get_children_exn node =
+        match node with
+        | Decl decl -> decl.children
+        | Inlined inlined -> inlined.children
+        | Apply _ -> assert false
+      ;;
+
+      let update_children_exn node children =
+        match node with
+        | Decl decl -> Decl { decl with children }
+        | Inlined inlined -> Inlined { inlined with children }
+        | Apply _ -> assert false
+      ;;
+
       type t = node list [@@deriving sexp]
     end
 
@@ -1095,9 +1118,10 @@ module V1 = struct
       let remove_last_node_exn l =
         List.rev (List.tl_exn (List.rev l))
       in
-      let expand_something
+      let expand_inlining_path_parents
           ~children:this_children
-          ~applied:this_applied ~history
+          ~applied:this_applied
+          ~history
           ~inlining_path:this_inlining_path =
         assert (Int.(>) (List.length this_inlining_path) 0);
         (* Recall that the path is from top to bottom, that is if
@@ -1147,18 +1171,51 @@ module V1 = struct
               let inlining_path = Apply_id.to_path inlined.apply_id in
               let children = loop ~history:inlining_path inlined.children in
               let applied = inlined.applied in
-              expand_something ~children ~applied ~history ~inlining_path
+              expand_inlining_path_parents ~children ~applied ~history ~inlining_path
 
             | Apply_non_inlined_function non_inlined ->
               let children = [] in
               let applied = non_inlined.applied in
               let inlining_path = Apply_id.to_path non_inlined.apply_id in
-              expand_something ~children ~applied ~history ~inlining_path)
+              expand_inlining_path_parents ~children ~applied ~history ~inlining_path)
       in
       loop ~history:[] input_tree
     ;;
 
-    let merge_decisions_in_call_site x = x
+    let merge_decisions_in_call_site (tree : Expanded.t) =
+      let used = Array.create ~len:(List.length tree) false in
+      let tree = Array.of_list tree in
+
+      Array.mapi tree ~f:(fun i this_node ->
+          if used.(i) then
+            None
+          else begin
+            let additional_children =
+              let ret = ref [] in
+              for j = i to Array.length tree - 1 do
+                if not used.(j) then begin
+                  let another_node = tree.(j) in
+                  if
+                    Expanded.node_equal_without_descend another_node this_node
+                  then begin
+                    used.(j) <- true;
+                    ret := another_node :: !ret
+                  end
+                end
+              done;
+              List.rev !ret
+            in
+            used.(i) <- true;
+            match additional_children with
+            | [] -> Some this_node
+            | additional_children ->
+              Some (
+                E.update_children_exn this_node (
+                  E.get_children_exn this_node @ additional_children))
+          end)
+      |> Array.to_list
+      |> List.filter_opt
+    ;;
 
     let relabel_transient_functions x = x
 
