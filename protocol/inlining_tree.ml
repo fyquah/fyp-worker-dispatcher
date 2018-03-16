@@ -1103,6 +1103,7 @@ module V1 = struct
         closure_id = None; set_of_closures_id = None;
         opt_closure_origin = None;
         closure_origin;
+        specialised_for = None;
       }
     ;;
 
@@ -1389,6 +1390,7 @@ module V1 = struct
         set_of_closures_id = None;
         closure_origin;
         opt_closure_origin = None;
+        specialised_for = None;
       }
     in
     let children = top_level_tree in
