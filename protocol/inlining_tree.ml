@@ -1172,6 +1172,8 @@ module V1 = struct
               let inlining_path = Apply_id.to_path inlined.apply_id in
               let children = loop ~history:inlining_path inlined.children in
               let applied = inlined.applied in
+              Log.Global.sexp ~level:`Info
+                [%message (inlining_path : Apply_id.Path.t) (history: Apply_id.Path.t)];
               expand_inlining_path_parents ~children ~applied ~history ~inlining_path
 
             | Apply_non_inlined_function non_inlined ->
@@ -1183,7 +1185,7 @@ module V1 = struct
       loop ~history:[] input_tree
     ;;
 
-    let merge_decisions_in_call_site (tree : Expanded.t) =
+    let rec merge_decisions_in_call_site (tree : Expanded.t) =
       let used = Array.create ~len:(List.length tree) false in
       let tree = Array.of_list tree in
 
@@ -1193,7 +1195,7 @@ module V1 = struct
           else begin
             let additional_children =
               let ret = ref [] in
-              for j = i to Array.length tree - 1 do
+              for j = i + 1 to Array.length tree - 1 do
                 if not used.(j) then begin
                   let another_node = tree.(j) in
                   if
@@ -1205,6 +1207,10 @@ module V1 = struct
                 end
               done;
               List.rev !ret
+              |> List.concat_map ~f:(function
+                  | E.Inlined { children; _ } -> children
+                  | E.Decl { children; _ } -> children
+                  | E.Apply _ -> [])
             in
             used.(i) <- true;
             match additional_children with
@@ -1216,6 +1222,14 @@ module V1 = struct
           end)
       |> Array.to_list
       |> List.filter_opt
+      |> List.map ~f:(function
+          | E.Inlined inlined ->
+            let children = merge_decisions_in_call_site inlined.children in
+            E.Inlined { inlined with children }
+          | E.Decl decl ->
+            let children = merge_decisions_in_call_site decl.children in
+            E.Decl { decl with children }
+          | E.Apply a -> E.Apply a)
     ;;
 
     (* We are not relabelling -- okay? **)
