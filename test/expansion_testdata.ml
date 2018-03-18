@@ -347,6 +347,19 @@ let output_3 = E.of_list [
 
 let apply_c1 = mk_apply_id ()
 let apply_c2 = mk_apply_id ()
+let apply_c1_in_b = 
+  Apply_id.inline ~caller:apply_b ~inlined:apply_c1
+;;
+let apply_c2_in_b = 
+  Apply_id.inline ~caller:apply_b ~inlined:apply_c2
+;;
+let apply_c2_in_d = 
+  Apply_id.inline ~caller:apply_d ~inlined:apply_c2
+;;
+let apply_b_in_a = Apply_id.inline ~caller:apply_a ~inlined:apply_b
+let apply_c1_in_b_in_a = Apply_id.inline ~caller:apply_b_in_a ~inlined:apply_c1
+let apply_d_in_a = Apply_id.inline ~caller:apply_a ~inlined:apply_d
+let apply_c2_in_d_in_a = Apply_id.inline ~caller:apply_d_in_a ~inlined:apply_c2
 
 let input_fully_inlined = [
   Declaration  {
@@ -358,7 +371,7 @@ let input_fully_inlined = [
         children = [
           Apply_inlined_function {
             applied = f_c;
-            apply_id = apply_c1;
+            apply_id = apply_c1_in_b;
             children = [];
           }
         ]
@@ -370,7 +383,7 @@ let input_fully_inlined = [
         children = [
           Apply_inlined_function {
             applied = f_c;
-            apply_id = apply_c2;
+            apply_id = apply_c2_in_d;
             children = [];
           }
         ]
@@ -386,29 +399,29 @@ let input_fully_inlined = [
 ]
 ;;
 
-let output_fully_inlined = [
-  Declaration  {
-    declared = f_a;
+let output_fully_inlined = E.of_list [
+  E.Decl  {
+    func = f_a;
     children = [
-      Apply_inlined_function  {
-        applied = f_b;
-        apply_id = apply_b;
+      E.Inlined  {
+        func = f_b;
+        path = Apply_id.to_path apply_b;
         children = [
-          Apply_inlined_function {
-            applied = f_c;
-            apply_id = apply_c1;
+          E.Inlined {
+            func = f_c;
+            path = Apply_id.to_path apply_c1_in_b;
             children = [];
           }
         ]
       };
 
-      Apply_inlined_function  {
-        applied = f_d;
-        apply_id = apply_d;
+      E.Inlined  {
+        func = f_d;
+        path = Apply_id.to_path apply_d;
         children = [
-          Apply_inlined_function {
-            applied = f_c;
-            apply_id = apply_c2;
+          E.Inlined {
+            func = f_c;
+            path = Apply_id.to_path apply_c2_in_d;
             children = [];
           }
         ]
@@ -416,29 +429,29 @@ let output_fully_inlined = [
     ]
   };
 
-  Apply_inlined_function {
-    apply_id = apply_a;
-    applied  = f_a;
+  E.Inlined {
+    path = Apply_id.to_path apply_a;
+    func  = f_a;
     children = [
-      Apply_inlined_function  {
-        applied = f_b;
-        apply_id = apply_b;
+      E.Inlined  {
+        func = f_d;
+        path = Apply_id.to_path apply_d_in_a;
         children = [
-          Apply_inlined_function {
-            applied = f_c;
-            apply_id = apply_c1;
+          E.Inlined {
+            func = f_c;
+            path = Apply_id.to_path apply_c2_in_d_in_a;
             children = [];
           }
         ]
       };
 
-      Apply_inlined_function  {
-        applied = f_d;
-        apply_id = apply_d;
+      E.Inlined  {
+        func = f_b;
+        path = Apply_id.to_path apply_b_in_a;
         children = [
-          Apply_inlined_function {
-            applied = f_c;
-            apply_id = apply_c2;
+          E.Inlined {
+            func = f_c;
+            path = Apply_id.to_path apply_c1_in_b_in_a;
             children = [];
           }
         ]
@@ -727,7 +740,6 @@ let output_unroll_function_double = [
 ;;
 
 let _examples = [
-  (input_fully_inlined, output_fully_inlined);
   (input_shadowing, output_shadowing);
   (input_unroll_function_simple, output_unroll_function_simple);
   (input_unroll_function_double, output_unroll_function_double);
@@ -863,5 +875,6 @@ let (examples : (Top_level.t * Top_level.Expanded.t) list) =
   [(input_1, output_1);
    (input_2, output_2);
    (input_3, output_3);
+   (input_fully_inlined, output_fully_inlined);
   ]
 ;;
