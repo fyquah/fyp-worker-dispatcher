@@ -1,4 +1,4 @@
-((num_runs 1)
+((num_runs 3)
  (worker_configs
    ((Ssh_worker
      ((user fyquah)
