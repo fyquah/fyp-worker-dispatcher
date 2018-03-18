@@ -14,7 +14,7 @@
      async_shell
 
      re2
-     patdiff
+     patdiff.lib
 
      protocol
      ))))

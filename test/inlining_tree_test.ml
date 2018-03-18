@@ -1,6 +1,7 @@
 open Core
 open Async
 open Protocol.Shadow_fyp_compiler_lib
+open Patdiff_lib
 
 module Inlining_tree = Protocol.Inlining_tree
 module Data_collector = Protocol.Shadow_fyp_compiler_lib.Data_collector
@@ -175,14 +176,18 @@ module Test_v1 = struct
             let buffer = Buffer.create 1000 in
             Inlining_tree.Top_level.pprint buffer input;
             printf "Input tree:\n%s\n" (Buffer.contents buffer);
+            let pprint_expanded name expanded =
+              let buffer = Buffer.create 1000 in
+              E.pprint buffer expanded;
+              { Patdiff_core. name; text = Buffer.contents buffer }
+            in
 
-            let buffer = Buffer.create 1000 in
-            E.pprint buffer obtained;
-            printf "Obtained TREE:\n%s\n" (Buffer.contents buffer);
-
-            let buffer = Buffer.create 1000 in
-            E.pprint buffer expected_output;
-            printf "Expected tree:\n%s\n" (Buffer.contents buffer);
+            let obtained = pprint_expanded "obtained" obtained in
+            let expected = pprint_expanded "expected" expected_output in
+            let diff =
+              Patdiff_core.patdiff ~keep_ws:true ~from_:expected ~to_:obtained ()
+            in
+            printf "DIFF:\n%s\n\n\n" diff;
 
             assert eq
           end
