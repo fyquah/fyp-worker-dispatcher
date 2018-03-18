@@ -434,24 +434,24 @@ let output_fully_inlined = E.of_list [
     func  = f_a;
     children = [
       E.Inlined  {
-        func = f_d;
-        path = Apply_id.to_path apply_d_in_a;
-        children = [
-          E.Inlined {
-            func = f_c;
-            path = Apply_id.to_path apply_c2_in_d_in_a;
-            children = [];
-          }
-        ]
-      };
-
-      E.Inlined  {
         func = f_b;
         path = Apply_id.to_path apply_b_in_a;
         children = [
           E.Inlined {
             func = f_c;
             path = Apply_id.to_path apply_c1_in_b_in_a;
+            children = [];
+          }
+        ]
+      };
+
+      E.Inlined  {
+        func = f_d;
+        path = Apply_id.to_path apply_d_in_a;
+        children = [
+          E.Inlined {
+            func = f_c;
+            path = Apply_id.to_path apply_c2_in_d_in_a;
             children = [];
           }
         ]
@@ -465,7 +465,15 @@ let apply_a1 = mk_apply_id ()
 let apply_a2 = mk_apply_id ()
 let apply_a3 = mk_apply_id ()
 let f_x      = mk_fn "x"
+let f_a'     =
+  let closure_id = Closure_id.wrap (Variable.create "a") in
+  { f_a with closure_id = Some closure_id; }
+;;
 
+
+(* This test case checks that we are not doing this look-up via
+ * closure_origin
+ *)
 let input_shadowing = [
   Declaration {
     declared = f_a;
@@ -488,7 +496,7 @@ let input_shadowing = [
       };
 
       Declaration {
-        declared = f_a;
+        declared = f_a';
         children = [
           Apply_inlined_function {
             applied = f_c;
@@ -513,70 +521,69 @@ let input_shadowing = [
   };
 
   Apply_inlined_function {
-    applied = f_a;
+    applied = f_a';
     apply_id = apply_a3;
     children = []
   }
 ]
 ;;
 
-let output_shadowing = [
-  Declaration {
-    declared = f_a;
+let apply_b_in_a1 = Apply_id.inline ~caller:apply_a1 ~inlined:apply_b
+let apply_b_in_a2 = Apply_id.inline ~caller:apply_a2 ~inlined:apply_b
+let apply_c_in_a3 = Apply_id.inline ~caller:apply_a3 ~inlined:apply_c
+let apply_d_in_a3 = Apply_id.inline ~caller:apply_a3 ~inlined:apply_d
+
+let output_shadowing = E.of_list [
+  E.Decl {
+    func = f_a;
     children = [
-      Apply_inlined_function {
-        applied = f_b;
-        apply_id = apply_b;
+      E.Inlined {
+        func = f_b;
+        path = Apply_id.to_path apply_b;
         children = [];
       }
     ]
   };
 
-  Declaration {
-    declared = f_x;
+  E.Decl {
+    func = f_x;
     children = [
-      Apply_inlined_function {
-        applied = f_a;
-        apply_id = apply_a1;
+      E.Inlined {
+        func = f_a;
+        path = Apply_id.to_path apply_a1;
         children = [
-          Apply_inlined_function {
-            applied = f_b;
-            apply_id = apply_b;
+          E.Inlined {
+            func = f_b;
+            path = Apply_id.to_path apply_b_in_a1;
             children = [];
           }
         ]
       };
 
-      Declaration {
-        declared = f_a;
+      E.Decl {
+        func = f_a';
         children = [
-          Apply_inlined_function {
-            applied = f_c;
-            apply_id = apply_c;
+          E.Inlined {
+            func = f_c;
+            path = Apply_id.to_path apply_c;
             children = [];
           };
 
-          Apply_inlined_function {
-            applied = f_d;
-            apply_id = apply_d;
+          E.Inlined {
+            func = f_d;
+            path = Apply_id.to_path apply_d;
             children = [];
           };
         ]
       };
 
-      Apply_inlined_function {
-        applied = f_a;
-        apply_id = apply_a2;
+      E.Inlined {
+        func = f_a;
+        path = Apply_id.to_path apply_a2;
         children = [
-          Apply_inlined_function {
-            applied = f_c;
-            apply_id = apply_c;
-            children = [];
-          };
-
-          Apply_inlined_function {
-            applied = f_d;
-            apply_id = apply_d;
+          E.Inlined {
+            func = f_b;
+            path = Apply_id.to_path apply_b_in_a2;
             children = [];
           };
         ]
@@ -584,15 +591,21 @@ let output_shadowing = [
     ];
   };
 
-  Apply_inlined_function {
-    applied = f_a;
-    apply_id = apply_a3;
+  E.Inlined {
+    func = f_a';
+    path = Apply_id.to_path apply_a3;
     children = [
-      Apply_inlined_function {
-        applied = f_b;
-        apply_id = apply_b;
+      E.Inlined {
+        func = f_c;
+        path = Apply_id.to_path apply_c_in_a3;
         children = [];
-      }
+      };
+
+      E.Inlined {
+        func = f_d;
+        path = Apply_id.to_path apply_d_in_a3;
+        children = [];
+      };
     ]
   }
 ]
@@ -740,7 +753,6 @@ let output_unroll_function_double = [
 ;;
 
 let _examples = [
-  (input_shadowing, output_shadowing);
   (input_unroll_function_simple, output_unroll_function_simple);
   (input_unroll_function_double, output_unroll_function_double);
 ]
@@ -871,10 +883,11 @@ let output_1 = E.of_list [
 ]
 ;;
 
-let (examples : (Top_level.t * Top_level.Expanded.t) list) =
-  [(input_1, output_1);
-   (input_2, output_2);
-   (input_3, output_3);
-   (input_fully_inlined, output_fully_inlined);
+let (examples : (string * Top_level.t * Top_level.Expanded.t) list) =
+  [("input_1", input_1, output_1);
+   ("input_2", input_2, output_2);
+   ("input_3", input_3, output_3);
+   ("input_fully_inlined", input_fully_inlined, output_fully_inlined);
+   ("input_shadowing", input_shadowing, output_shadowing);
   ]
 ;;

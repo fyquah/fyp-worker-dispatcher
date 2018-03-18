@@ -1123,7 +1123,7 @@ module V1 = struct
 
       let of_list (t : t) = t
 
-      let rec add_node (root : t) (arg_node : node) =
+      let rec add_node_to_parent_head (root : t) (arg_node : node) =
         let matches_arg = node_equal_without_descend arg_node in
         match List.find root ~f:matches_arg with
         | None -> arg_node :: root
@@ -1134,7 +1134,7 @@ module V1 = struct
           let children_of_matched_node_in_root =
             List.fold (get_children_with_empty_default arg_node)
               ~init:children_of_matched_node_in_root
-              ~f:add_node
+              ~f:add_node_to_parent_head
           in
           let new_arg_node =
             update_children_exn matched_node_in_root
@@ -1360,9 +1360,10 @@ module V1 = struct
                 let path = inlining_path @ inlined.path in
                 Some (E.Inlined { inlined with path })
               | E.Apply _ ->  None)
+          |> List.rev
         in
         List.fold nodes_to_replay ~init:inlined_root ~f:(fun root node ->
-            E.add_node root node)
+            E.add_node_to_parent_head root node)
       in
       let rec loop root =
         List.map root ~f:(function

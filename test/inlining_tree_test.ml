@@ -167,7 +167,7 @@ module Test_v1 = struct
     module E = Inlining_tree.Top_level.Expanded
 
     let run () =
-      List.iteri Expansion_testdata.examples ~f:(fun i (input, expected_output) ->
+      List.iteri Expansion_testdata.examples ~f:(fun i (name, input, expected_output) ->
           let obtained = Inlining_tree.Top_level.expand input in
           let eq =
             Inlining_tree.Top_level.Expanded.weak_equal obtained expected_output
@@ -175,6 +175,7 @@ module Test_v1 = struct
           if not eq then begin
             let buffer = Buffer.create 1000 in
             Inlining_tree.Top_level.pprint buffer input;
+            printf ">>>>> FAILED at input %s <<<<<" name;
             printf "Input tree:\n%s\n" (Buffer.contents buffer);
             let pprint_expanded name expanded =
               let buffer = Buffer.create 1000 in
