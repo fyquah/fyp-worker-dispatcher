@@ -23,21 +23,23 @@ EXPERIMENT_DIR="$HOME/fyp/experiments/normal/$EXPERIMENT_SUB_DIR"
 SCRATCH_DIR=$(mktemp -d)
 
 if [ ! -d  "$EXPERIMENT_DIR/" ]; then
-  echo "$EXPERIMENT_DIR (experiment directory) is not a directory!" >/dev/stderr
+  echo "$EXPERIMENT_DIR (experiment directory) is not a directory!"
   exit 1
 fi
 
-echo "Running path patching in $SCRATCH_DIR for for $PATH_TO_SEXP_FILE">/dev/stderr
+echo "Running path patching in $SCRATCH_DIR for for $PATH_TO_SEXP_FILE"
 
 cd $SCRATCH_DIR
 cp $EXPERIMENT_DIR/* $SCRATCH_DIR/
 sed -i'' -e 's#ocamlopt#~/fyp/ocaml-unstable-closure-origins/ocamlopt.opt -inlining-overrides overrides.sexp#g' Makefile
 
-echo "Running make in $(pwd)">/dev/stderr
+echo "Running make in $(pwd)"
 make clean
 cp $PATH_TO_SEXP_FILE ./overrides.sexp
 make all >out.log
 
-echo "Backed up  $PATH_TO_SEXP_FILE to $PATH_TO_SEXP_FILE.bak">/dev/stderr
+echo "Backed up  $PATH_TO_SEXP_FILE to $PATH_TO_SEXP_FILE.bak"
 cp $PATH_TO_SEXP_FILE $PATH_TO_SEXP_FILE.bak
 cp $EXPERIMENT_BIN_NAME.0.data_collector.v1.sexp $PATH_TO_SEXP_FILE
+
+rm -rf $SCRATCH_DIR

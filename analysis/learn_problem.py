@@ -59,10 +59,10 @@ def construct_linear_benefit_relation(root, num_nodes, edge_list, hyperparams):
             continue
         visited[node] = True
 
-        if kind == "Inlined" or kind == "Top_level" or kind == "Declaration":
+        if kind == "Inlined" or kind == "Top_level" or kind == "Decl":
             benefit_relation[2 * node] = factor
             participation[2 * node] = 1
-        elif kind == "Non_inlined": 
+        elif kind == "Apply": 
             benefit_relation[2 * node + 1] = factor
             participation[2 * node + 1] = 1
         else:

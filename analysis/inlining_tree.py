@@ -20,8 +20,8 @@ Variable_base = collections.namedtuple("Variable",
 Function_metadata_base = collections.namedtuple("Function_metadata",
         ["closure_id", "set_of_closure_id", "closure_origin"])
 Function_call_base = collections.namedtuple("Function_call",
-        ["function", "apply_id"])
-Apply_id_base = collections.namedtuple("Apply_id",
+        ["function", "path"])
+Node_id_base = collections.namedtuple("Node_id",
         ["compilation_unit", "stamp"])
 Apply_stamp_base = collections.namedtuple("Apply_stamp_base",
         ["kind", "stamp"])
@@ -46,7 +46,7 @@ class Apply_stamp(Apply_stamp_base):
         return "%s[%s]" % (str(self.kind), str(self.stamp))
 
 
-class Apply_id(Apply_id_base):
+class Node_id(Node_id_base):
 
     def pprint(self, fp, prefix):
         fp.write("%s | compilation_unit = %s\n" % (prefix, str(self.compilation_unit)))
@@ -95,8 +95,8 @@ class Function_call(Function_call_base):
     def pprint(self, fp, prefix):
         fp.write("%s | function:\n" % prefix)
         self.function.pprint(fp, prefix + "  ")
-        fp.write("%s | apply_id:\n" % prefix)
-        self.apply_id.pprint(fp, prefix + "  ")
+        fp.write("%s | path:\n" % prefix)
+        self.path.pprint(fp, prefix + "  ")
 
 
 def unpack_atom(atom):
@@ -163,7 +163,7 @@ def option_of_sexp(sexp, f):
         return f(sexp[0])
 
 
-def apply_id_stamp_of_sexp(sexp):
+def stamp_of_sexp(sexp):
     kind = unpack_atom(sexp[0])
     if kind == "Plain_apply" or kind == "Over_application":
         stamp = unpack_atom(sexp[1])
@@ -172,19 +172,22 @@ def apply_id_stamp_of_sexp(sexp):
         assert len(sexp) == 1
         return Apply_stamp(kind=kind, stamp=None)
 
-
-def apply_id_of_sexp(sexp):
+def node_id_of_sexp(sexp):
     compilation_unit = compilation_unit_of_sexp(sexp[0])
-    stamp = apply_id_stamp_of_sexp(sexp[1])
-    return Apply_id(
+    stamp = stamp_of_sexp(sexp[1])
+    return Node_id(
             compilation_unit=compilation_unit,
             stamp=stamp
     )
 
 
+def path_of_sexp(sexp):
+    return [node_id_of_sexp(a) for a in sexp]
+
+
 def function_metadata_of_sexp(sexp):
     assert isinstance(sexp, list)
-    assert len(sexp) == 3
+    assert len(sexp) == 5
 
     # TODO: fix this
     # option_closure_id = option_of_sexp(sexp[0], f=closure_id_of_sexp)
@@ -192,6 +195,8 @@ def function_metadata_of_sexp(sexp):
     option_closure_id = None
     option_set_of_closure_id = None
     closure_origin = closure_origin_of_sexp(sexp[2])
+    opt_closure_origin = None
+    specialised_for = None
 
     return Function_metadata(
             closure_id=option_closure_id,
@@ -202,8 +207,8 @@ def function_metadata_of_sexp(sexp):
 
 def declaration_of_sexp(sexp):
     m = sexp_to_map(sexp)
-    name = "Declaration"
-    value = function_metadata_of_sexp(m["declared"])
+    name = "Decl"
+    value = function_metadata_of_sexp(m["func"])
     children = [inlining_tree_of_sexp(child) for child in m["children"]]
     return Node(name=name, value=value, children=children)
 
@@ -212,27 +217,27 @@ def inlined_of_sexp(sexp):
     m = sexp_to_map(sexp)
     name = "Inlined"
     value = Function_call(
-            function=function_metadata_of_sexp(m["applied"]),
-            apply_id=apply_id_of_sexp(m["apply_id"]))
+            function=function_metadata_of_sexp(m["func"]),
+            path=path_of_sexp(m["path"]))
     children = [inlining_tree_of_sexp(child) for child in m["children"]]
     return Node(name=name, value=value, children=children)
 
 
 def non_inlined_of_sexp(sexp):
     m = sexp_to_map(sexp)
-    name = "Non_inlined"
+    name = "Apply"
     value = Function_call(
-            function=function_metadata_of_sexp(m["applied"]),
-            apply_id=apply_id_of_sexp(m["apply_id"]))
+            function=function_metadata_of_sexp(m["func"]),
+            path=path_of_sexp(m["path"]))
     return Node(name=name, value=value, children=[])
     
 
 # Subject to the function prototype
 def inlining_tree_of_sexp(sexp):
     dispatch_table = {
-            "Declaration": declaration_of_sexp,
-            "Apply_inlined_function": inlined_of_sexp,
-            "Apply_non_inlined_function": non_inlined_of_sexp,
+            "Decl": declaration_of_sexp,
+            "Inlined": inlined_of_sexp,
+            "Apply": non_inlined_of_sexp,
     }
     return dispatch_table[unpack_atom(sexp[0])](sexp[1])
 
