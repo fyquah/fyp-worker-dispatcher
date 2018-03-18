@@ -886,7 +886,7 @@ let apply_b_in_a =
 ;;
 
 let apply_c_in_a =
-  Apply_id.inline ~caller:apply_b ~inlined:apply_a
+  Apply_id.inline ~caller:apply_a ~inlined:apply_c
 ;;
 
 let to_path = Apply_id.to_path
@@ -922,7 +922,7 @@ let output_1 = E.of_list [
         children = [];
       };
       E.Inlined {
-        func  = f_c;
+        func  = E.expanded_function_metadata;
         path = to_path apply_c_in_a;
         children = [
           E.Inlined {

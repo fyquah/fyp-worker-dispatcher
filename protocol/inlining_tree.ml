@@ -1146,6 +1146,25 @@ module V1 = struct
               else
                 child_node)
       ;;
+
+      let expanded_function_metadata =
+        let closure_origin =
+          let current_compilation_unit =
+            let ident = Fyp_compiler_lib.Ident.create_persistent "expanded" in
+            let linkage_name = Fyp_compiler_lib.Linkage_name.create "expanded" in
+            Compilation_unit.create ident linkage_name
+          in
+          Fyp_compiler_lib.Closure_origin.create (
+            Fyp_compiler_lib.Closure_id.wrap (
+              Fyp_compiler_lib.Variable.create ~current_compilation_unit "expanded"))
+        in
+        { Function_metadata.
+          closure_id = None; set_of_closures_id = None;
+          opt_closure_origin = None;
+          closure_origin;
+          specialised_for = None;
+        }
+      ;;
     end
 
     module E = Expanded
@@ -1171,25 +1190,6 @@ module V1 = struct
           add_children new_node children
 
         | Apply_non_inlined_function _ -> f node)
-    ;;
-
-    let transient_function_metadata =
-      let closure_origin =
-        let current_compilation_unit =
-          let ident = Fyp_compiler_lib.Ident.create_persistent "expanded" in
-          let linkage_name = Fyp_compiler_lib.Linkage_name.create "expanded" in
-          Compilation_unit.create ident linkage_name
-        in
-        Fyp_compiler_lib.Closure_origin.create (
-          Fyp_compiler_lib.Closure_id.wrap (
-            Fyp_compiler_lib.Variable.create ~current_compilation_unit "expanded"))
-      in
-      { Function_metadata.
-        closure_id = None; set_of_closures_id = None;
-        opt_closure_origin = None;
-        closure_origin;
-        specialised_for = None;
-      }
     ;;
 
     let expand_decisions_in_call_site_based_on_inlining_path input_tree =
@@ -1226,7 +1226,7 @@ module V1 = struct
           | _ :: tl ->
             let inlined = 
               { E.
-                func     = transient_function_metadata;
+                func     = E.expanded_function_metadata;
                 path     = history @ List.rev rev_path;
                 children = [ child ];
               }

@@ -201,6 +201,8 @@ module V1 : sig
       val weak_equal : t -> t -> bool
 
       val pprint : ?indent: int -> Buffer.t -> t -> unit
+
+      val expanded_function_metadata : Function_metadata.t
     end
 
     val expand : t -> Expanded.t
