@@ -17,9 +17,11 @@ let mk_fn s =
   let closure_id = Closure_id.wrap (Variable.create s) in
   let closure_origin = Closure_origin.create closure_id in
   { Function_metadata.
-    closure_id = None;
+    closure_id = Some closure_id;
     set_of_closures_id = None;
     closure_origin;
+    opt_closure_origin = None;
+    specialised_for = None;
   }
 ;;
 
@@ -802,7 +804,7 @@ let output_unroll_function_double = [
 ]
 ;;
 
-let examples = [
+let _examples = [
   (input_1, output_1);
   (input_2, output_2);
   (input_3, output_3);
@@ -811,3 +813,133 @@ let examples = [
   (input_unroll_function_simple, output_unroll_function_simple);
   (input_unroll_function_double, output_unroll_function_double);
 ]
+
+
+let apply_b = Apply_id.create `Plain_apply
+
+let mk_apply_id =
+  let ctr = ref (-1) in
+  let compilation_unit = apply_b.compilation_unit in
+  fun parents ->
+    ctr := !ctr + 1;
+    Apply_id.build_directly compilation_unit (Apply_id.Plain_apply !ctr)
+      parents
+
+let apply_c = mk_apply_id []
+let apply_d = mk_apply_id [ apply_c ]
+let apply_a = mk_apply_id []
+let apply_e = mk_apply_id []
+
+let apply_d_in_a =
+  Apply_id.inline ~caller:apply_a  ~inlined:apply_d
+;;
+
+let apply_e_in_d_in_a =
+  Apply_id.inline ~caller:apply_d_in_a ~inlined:apply_e
+;;
+
+
+let input_1 = [
+  Declaration {
+    declared = f_a;
+    children = [
+      Apply_inlined_function {
+        applied  = f_b;
+        apply_id = apply_b;
+        children = [];
+      };
+      Apply_inlined_function {
+        applied  = f_c;
+        apply_id = apply_c;
+        children = [
+          Apply_non_inlined_function {
+            applied  = f_d;
+            apply_id = apply_d;
+          }
+        ]
+      };
+    ]
+  };
+  Apply_inlined_function {
+    applied = f_a;
+    apply_id = apply_a;
+    children = [
+      Apply_inlined_function {
+        apply_id = apply_d_in_a;
+        applied = f_d;
+        children = [
+          Apply_non_inlined_function {
+            applied = f_e;
+            apply_id = apply_e_in_d_in_a;
+          }
+        ]
+      }
+    ]
+  }
+]
+;;
+
+module E = Top_level.Expanded
+
+let apply_b_in_a =
+  Apply_id.inline ~caller:apply_a ~inlined:apply_b
+;;
+
+let apply_c_in_a =
+  Apply_id.inline ~caller:apply_b ~inlined:apply_a
+;;
+
+let to_path = Apply_id.to_path
+
+let output_1 = E.of_list [
+  E.Decl {
+    func = f_a;
+    children = [
+      E.Inlined {
+        func  = f_b;
+        path  = Apply_id.to_path apply_b;
+        children = [];
+      };
+      E.Inlined {
+        func  = f_c;
+        path = to_path apply_c;
+        children = [
+          E.Apply {
+            func  = f_d;
+            path = Apply_id.to_path apply_d;
+          }
+        ]
+      };
+    ]
+  };
+  E.Inlined {
+    func = f_a;
+    path = to_path apply_a;
+    children = [
+      E.Inlined {
+        func     = f_b;
+        path = to_path apply_b_in_a;
+        children = [];
+      };
+      E.Inlined {
+        func  = f_c;
+        path = to_path apply_c_in_a;
+        children = [
+          E.Inlined {
+            path = to_path apply_d_in_a;
+            func = f_d;
+            children = [
+              E.Apply {
+                func = f_e;
+                path = to_path apply_e_in_d_in_a;
+              }
+            ]
+          }
+        ]
+      };
+    ]
+  }
+]
+;;
+
+let examples = [(input_1, output_1)]

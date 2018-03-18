@@ -171,6 +171,36 @@ module V1 : sig
     module Expanded : sig
       type t
       [@@deriving sexp]
+
+      type decl = {
+        func : Function_metadata.t;
+        children : node list;
+      }
+      and inlined = {
+        func     : Function_metadata.t;
+        path     : Apply_id.Path.t;
+        children : node list;
+      }
+      and apply = {
+        func : Function_metadata.t;
+        path : Apply_id.Path.t;
+      }
+      and node =
+        | Decl    of decl
+        | Inlined of inlined
+        | Apply   of apply
+
+      val of_list : node list -> t
+
+      (* The structures must match (hence, the number of nodes must be the
+       * same, amongst all things).
+       *
+       * In declaration, checks if the function metadata matches.
+       * In application / inlined, only checks if the apply path matches.
+       *)
+      val weak_equal : t -> t -> bool
+
+      val pprint : ?indent: int -> Buffer.t -> t -> unit
     end
 
     val expand : t -> Expanded.t
