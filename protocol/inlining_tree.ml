@@ -1197,7 +1197,12 @@ module V1 = struct
         match prefix, path with
         | [], path -> path
         | prefix_hd :: prefix_tl, hd :: tl ->
-          assert (Apply_id.Node_id.equal prefix_hd hd);
+          if not (Apply_id.Node_id.equal prefix_hd hd) then begin
+            failwithf "prefix don't match! prefix=(%s) and (%s)"
+              (Apply_id.Path.to_string prefix)
+              (Apply_id.Path.to_string path)
+              ();
+          end;
           trim_prefix ~prefix:prefix_tl tl
         | _, [] -> assert false
       in
