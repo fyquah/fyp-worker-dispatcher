@@ -169,6 +169,11 @@ let create ?current_compilation_unit ~parents label =
   { compilation_unit; stamp; parents; }
 ;;
 
+let build_directly compilation_unit stamp parents =
+  { compilation_unit; stamp; parents = Some parents; }
+;;
+
+
 let create_old ?current_compilation_unit label =
   create ?current_compilation_unit ~parents:None label
 ;;
