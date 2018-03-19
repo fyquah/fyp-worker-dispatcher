@@ -175,7 +175,7 @@ module Test_v1 = struct
           if not eq then begin
             let buffer = Buffer.create 1000 in
             Inlining_tree.Top_level.pprint buffer input;
-            printf ">>>>> FAILED at input %s <<<<<" name;
+            printf ">>>>> FAILED at input %s <<<<<\n" name;
             printf "Input tree:\n%s\n" (Buffer.contents buffer);
             let pprint_expanded name expanded =
               let buffer = Buffer.create 1000 in
