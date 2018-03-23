@@ -42,24 +42,19 @@ def collect_unique_nodes(acc, trace, tree):
 
     if tree.name == "Top_level":
         assert trace == []
-        acc.add(inlining_tree.Path([]))
+        acc.add(inlining_tree.Absolute_path([]))
         for child in tree.children:
             collect_unique_nodes(acc, trace, child)
     elif tree.name == "Inlined" or tree.name == "Apply":
-        new_trace = trace + [(
-            "function",
-            tree.value.apply_id.id(),
-            tree.value.function.closure_origin.id(),
-        )]
-        acc.add(inlining_tree.Path(new_trace))
+        new_trace = trace + [
+                ("function", tree.value.path, tree.value.function)
+        ]
+        acc.add(inlining_tree.Absolute_path(new_trace))
         for child in tree.children:
             collect_unique_nodes(acc, new_trace, child)
     elif tree.name == "Decl":
-        new_trace = trace + [(
-            "declaration",
-            tree.value.closure_origin.id()
-        )]
-        acc.add(inlining_tree.Path(new_trace))
+        new_trace = trace + [("declaration", tree.value)]
+        acc.add(inlining_tree.Absolute_path(new_trace))
         for child in tree.children:
             collect_unique_nodes(acc, new_trace, child)
     else:
@@ -76,14 +71,14 @@ def relabel_to_paths(tree, trace):
         return inlining_tree.Node(
                 name=tree.name,
                 children=children,
-                value=inlining_tree.Path([])
+                value=inlining_tree.Absolute_path([])
         )
             
     elif tree.name == "Inlined" or tree.name == "Apply":
         new_trace = trace + [(
             "function",
-            tree.value.apply_id.id(),
-            tree.value.function.closure_origin.id(),
+            tree.value.path,
+            tree.value.function.closure_origin,
         )]
         children = [
                 relabel_to_paths(child, new_trace)
@@ -91,21 +86,18 @@ def relabel_to_paths(tree, trace):
         ]
         return inlining_tree.Node(
                 name=tree.name, children=children,
-                value=inlining_tree.Path(new_trace)
+                value=inlining_tree.Absolute_path(new_trace)
         )
 
     elif tree.name == "Decl":
-        new_trace = trace + [(
-            "declaration",
-            tree.value.closure_origin.id()
-        )]
+        new_trace = trace + [("declaration", tree.value.closure_origin)]
         children = [
                 relabel_to_paths(child, new_trace)
                 for child in tree.children
         ]
         return inlining_tree.Node(
                 name=tree.name, children=children,
-                value=inlining_tree.Path(new_trace)
+                value=inlining_tree.Absolute_path(new_trace)
         )
     else:
         print(tree.name)
@@ -222,6 +214,7 @@ parser.add_argument("--output-dir", type=str, help="output dir", required=True)
 parser.add_argument("--bin-name", type=str, help="output dir", required=True)
 parser.add_argument("--exp-subdir", type=str,
         help="experiment subdirectory name", required=True)
+parser.add_argument("--debug", action="store_true", help="debugging mode")
 
 
 def main():
@@ -243,7 +236,10 @@ def main():
     np.random.shuffle(rundirs)
     tasks = list(iterate_rundirs(rundirs))
 
-    pool = concurrent.futures.ThreadPoolExecutor(4)
+    if args.debug:
+        tasks = tasks[:10]
+
+    pool = concurrent.futures.ThreadPoolExecutor(8)
     futures = [
             pool.submit(inlining_tree.load_tree_from_rundir, task, args.bin_name,
                 ("path_patching", args.exp_subdir))

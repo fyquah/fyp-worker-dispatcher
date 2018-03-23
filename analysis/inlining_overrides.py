@@ -9,19 +9,19 @@ import inlining_tree
 
 
 def trace_item_from_path(component):
+    print(component)
     if component[0] == "function":
-        linkage_name, apply_id = (str(x) for x in component[1].split("__"))
-        return [ "Apply", [ linkage_name, [ apply_id ] ] ]
+        return [ "Apply", sexp_of_apply(component[1], component[1]) ]
     elif component[0] == "declaration":
-        linkage_name, function_name = (str(x) for x in component[1].split("__"))
-        return [ "Decl", [ linkage_name, function_name ] ]
+        linkage_name, function_name, stamp = (str(x) for x in component[1].split("__"))
+        return [ "Decl", sexp_of_decl() ]
     else:
         assert False
 
 
 def build_from_path_and_decision(path, decision):
     assert path.trace[-1][0] == "function"
-    assert isinstance(path, inlining_tree.Path)
+    assert isinstance(path, inlining_tree.Absolute_path)
 
     round = "0"
     apply_id_stamp = str(path.trace[-1][1].split("__")[1])

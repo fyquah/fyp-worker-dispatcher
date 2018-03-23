@@ -50,20 +50,29 @@ def neg_inf_if_none(a):
         return a
 
 
-def get_optimal_decisions(tree, hyperparams, optimal_decisions):
+def build_optimal_tree(tree, hyperparams):
+    """
+    args:
+        tree<name: path, value: (float * float)>
+        hyperparams
+    returns:
+        (tree<name: [ Inlined | Apply | Decl ], value: [ Function_call |  Closure_origin ]>, float)
+    """
     assert isinstance(tree, inlining_tree.Node)
-    assert isinstance(optimal_decisions, list)
 
-    children_optimal_decisions = []
+    optimal_children = []
 
     if len(tree.children) > 0:
-        children_value_acc = 0.0
+        acc = []
+        value_acc = 0.0
+
         for child in tree.children:
-            children_value_acc += get_optimal_decisions(
-                    child, hyperparams, children_optimal_decisions)
+            acc.append(build_optimal_tree(child, hyperparams))
+            value_acc += acc[-1][1]
+            optimal_children.append(acc[-1][0])
 
         children_value = \
-                hyperparams.decay_factor * children_value_acc \
+                hyperparams.decay_factor * value_acc \
                 / float(len(tree.children))
     else:
         children_value = 0.0
@@ -76,17 +85,34 @@ def get_optimal_decisions(tree, hyperparams, optimal_decisions):
     lhs_value = neg_inf_if_none(tree.value[0]) + children_value
     rhs_value = neg_inf_if_none(tree.value[1])
 
-    if len(tree.name.trace) == 0 or not tree.name.is_apply_node():
-        optimal_decisions.extend(children_optimal_decisions)
-        return lhs_value
 
+    if len(tree.name.trace) == 0:
+        tree = inlining_tree.Node(
+                name="Top_level", value=None, children=optimal_children)
+        return (tree, lhs_value)
+
+    if not tree.name.is_apply_node():
+        func = tree.name.trace[-1][1]
+        assert isinstance(func, inlining_tree.Function_metadata)
+        value = func
+        tree = inlining_tree.Node(
+                name="Decl", value=value, children=optimal_children)
+        return (tree, lhs_value)
+
+    local_path = tree.name.trace[-1][1]
+    func = tree.name.trace[-1][2]
+    print("func", func)
+    print("local path", local_path)
+    assert isinstance(func, inlining_tree.Function_metadata)
+    assert isinstance(local_path, inlining_tree.Local_path)
+    value = inlining_tree.Function_call(function=func, path=local_path)
     if lhs_value > rhs_value:
-        optimal_decisions.append((tree.name, constants.INLINE))
-        optimal_decisions.extend(children_optimal_decisions)
-        return lhs_value
+        tree = inlining_tree.Node(
+                name="Inlined", value=value, children=optimal_children)
+        return (tree, lhs_value)
     else:
-        optimal_decisions.append((tree.name, constants.DONT_INLINE))
-        return rhs_value
+        tree = inlining_tree.Node(name="Apply", value=value, children=[])
+        return (tree, rhs_value)
 
 
 def project_benefit_tree(
@@ -177,23 +203,20 @@ def main():
         adjacency_list = inlining_tree.adjacency_list_from_edge_lists(
                 num_nodes=num_nodes,
                 edge_lists=problem.edges_lists)
-        root = tree_path_to_ids[inlining_tree.Path([])]
+        root = tree_path_to_ids[inlining_tree.Absolute_path([])]
         tree = inlining_tree.build_from_adjacency_list(
                 [None] * num_nodes, root, adjacency_list)
         tree = tree.map(f=fill_node_values)
         tree = tree.map(f=rename_id_to_path)
-        optimal_decisions = []
-        value = get_optimal_decisions(tree, hyperparams, optimal_decisions)
-        decisions_sexp = [
-                inlining_overrides.build_from_path_and_decision(path, decision)
-                for path, decision in optimal_decisions
-        ]
+        (optimal_tree, value) = build_optimal_tree(tree, hyperparams)
+        sexp_optimal_tree = inlining_tree.sexp_of_top_level(
+                optimal_tree)
         logging.info("Optimal decision has a value of %f" % value)
         sexp_buffer = StringIO.StringIO()
-        sexp_utils.dump_without_quotes(sexp_buffer, decisions_sexp)
+        sexp_utils.dump_without_quotes(sexp_buffer, sexp_inlining_tree)
         print(sexp_buffer.getvalue())
 
-    elif args.inspect_run:
+    elif args.inspect_run is not None:
         index = args.inspect_run
 
         adjacency_list = inlining_tree.adjacency_list_from_edge_lists(
@@ -208,7 +231,7 @@ def main():
         participation_mask = problem_matrices.participation_mask[index, :]
         assert participation_mask.shape == (num_nodes * 2,)
         projected_benefit_with_dfs = project_benefit_tree(
-                root=tree_path_to_ids[inlining_tree.Path([])],
+                root=tree_path_to_ids[inlining_tree.Absolute_path([])],
                 hyperparams=hyperparams,
                 adjacency_list=adjacency_list,
                 id_to_tree_path=id_to_tree_path,

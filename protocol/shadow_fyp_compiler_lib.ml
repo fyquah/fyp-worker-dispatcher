@@ -129,6 +129,19 @@ module Data_collector = struct
       include Fyp_compiler_lib.Data_collector.V1.Function_metadata
       include Make_core_sexp(Fyp_compiler_lib.Data_collector.V1.Function_metadata)
 
+      let pprint (t : t) =
+        let closure_origin =
+          Format.asprintf "%a" Closure_origin.print t.closure_origin
+        in
+        let closure_id =
+          match t.closure_id with
+          | None -> "NONE"
+          | Some closure_id -> Format.asprintf "%a" Closure_id.print closure_id
+        in
+        sprintf "closure_origin = %s | closure_id = %s"
+          closure_origin closure_id
+      ;;
+
       let equal a b = (compare a b = 0)
     end
 

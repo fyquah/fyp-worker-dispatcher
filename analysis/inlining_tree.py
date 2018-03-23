@@ -56,6 +56,22 @@ class Node_id(Node_id_base):
         return "%s__%s"% (self.compilation_unit.linkage_name, str(self.stamp.stamp))
 
 
+
+class Local_path(object):
+    """
+    This is the path used in the fields of expanded nodes.
+    """
+    def __init__(self, path):
+        self._path = path
+
+    @property
+    def path(self):
+        return self._path
+
+    def id(self):
+        return "/".join(p.id() for p in self._path)
+
+
 class Compilation_unit(Compilation_unit_base):
 
     def pprint(self, fp, prefix):
@@ -76,9 +92,10 @@ class Variable(Variable_base):
         )
 
     def id(self):
-        return "%s__%s" % (
+        return "%s__%s__%d" % (
                 self.compilation_unit.linkage_name,
-                str(self.name),  # once again, bug with closure origin
+                str(self.name), 
+                self.stamp
         )
 
 
@@ -125,19 +142,30 @@ def is_atom(sexp):
             or isinstance(sexp, sexpdata.Symbol) \
             or isinstance(sexp, int)
 
+def sexp_of_compilation_unit(cu):
+    return [ cu.ident, cu.linkage_name, ]
+
 
 def compilation_unit_of_sexp(sexp):
     assert len(sexp) == 2
     return Compilation_unit(ident=unpack_atom(sexp[0]), linkage_name=unpack_atom(sexp[1]))
     
 
+def sexp_of_variable(var):
+    return [
+            sexp_of_compilation_unit(var.compilation_unit),
+            var.name,
+            var.stamp,  # TODO: This shouldn't be a string
+    ]
+
+
 def variable_of_sexp(kind, sexp):
     assert len(sexp) == 3
     return Variable(
             kind= kind,
             compilation_unit= compilation_unit_of_sexp(sexp[0]),
-            name= unpack_atom(sexp[1]),
-            stamp= unpack_atom(sexp[2]),
+            name=unpack_atom(sexp[1]),
+            stamp=unpack_atom(sexp[2]),  # TODO: This shouldn't be a string
     )
 
 
@@ -145,13 +173,30 @@ def closure_id_of_sexp(sexp):
     return variable_of_sexp("closure_id", sexp)
 
 
+def sexp_of_closure_id(var):
+    assert var.kind == "closure_id"
+    return sexp_of_variable(var)
+
+
 def closure_origin_of_sexp(sexp):
     return variable_of_sexp("closure_origin", sexp)
+
+
+def sexp_of_closure_origin(var):
+    assert var.kind == "closure_origin"
+    return sexp_of_variable(var)
 
 
 def set_of_closure_id_of_sexp(sexp):
     raise NotImplementedError(
             "[set_of_closure_id_of_sexp] has not been implemented")
+
+
+def sexp_of_option(thing, f):
+    if thing is None:
+        return []
+    else:
+        return [f(thing)]
 
 
 def option_of_sexp(sexp, f):
@@ -163,6 +208,10 @@ def option_of_sexp(sexp, f):
         return f(sexp[0])
 
 
+def sexp_of_stamp(stamp):
+    return [ stamp.kind, stamp.stamp ]
+
+
 def stamp_of_sexp(sexp):
     kind = unpack_atom(sexp[0])
     if kind == "Plain_apply" or kind == "Over_application":
@@ -171,6 +220,13 @@ def stamp_of_sexp(sexp):
     else:
         assert len(sexp) == 1
         return Apply_stamp(kind=kind, stamp=None)
+
+
+def sexp_of_node_id(node_id):
+    return [
+            sexp_of_compilation_unit(node_id.compilation_unit),
+            sexp_of_stamp(node_id.stamp),
+    ]
 
 def node_id_of_sexp(sexp):
     compilation_unit = compilation_unit_of_sexp(sexp[0])
@@ -181,8 +237,28 @@ def node_id_of_sexp(sexp):
     )
 
 
+def sexp_of_path(path):
+    return [sexp_of_node_id(p) for p in self.path]
+
+
 def path_of_sexp(sexp):
-    return [node_id_of_sexp(a) for a in sexp]
+    return Local_path([node_id_of_sexp(a) for a in sexp])
+
+
+def sexp_of_function_metadata(function_metadata):
+    return [
+            # closure_id
+            sexp_of_option(function_metadata.closure_id, f=sexp_of_variable),
+
+            # set_of_closures_id
+            sexp_of_option(function_metadata.set_of_closure_id, f=sexp_of_variable),
+
+            # closure_origin
+            sexp_of_variable(function_metadata.closure_origin),
+
+            [],  # opt_closure_origin
+            [],  # specialised_for
+    ]
 
 
 def function_metadata_of_sexp(sexp):
@@ -204,6 +280,13 @@ def function_metadata_of_sexp(sexp):
             closure_origin=closure_origin
     )
 
+def sexp_of_decl(node):
+    assert isinstance(node.value, Function_metadata)
+    return [
+        ["func", sexp_of_function_metadata(node.value)],
+        ["children", [sexp_of_inlining_tree(c) for c in node.children]],
+    ]
+
 
 def declaration_of_sexp(sexp):
     m = sexp_to_map(sexp)
@@ -211,6 +294,15 @@ def declaration_of_sexp(sexp):
     value = function_metadata_of_sexp(m["func"])
     children = [inlining_tree_of_sexp(child) for child in m["children"]]
     return Node(name=name, value=value, children=children)
+
+
+def sexp_of_inlined(node):
+    assert isinstance(node.value, Function_call)
+    return [
+        ["func", sexp_of_function_metadata(node.value.function)],
+        ["path", sexp_of_path(node.value.path)],
+        ["children", [sexp_of_inlining_tree(c) for c in node.children]],
+    ]
 
 
 def inlined_of_sexp(sexp):
@@ -223,6 +315,14 @@ def inlined_of_sexp(sexp):
     return Node(name=name, value=value, children=children)
 
 
+def sexp_of_apply(node):
+    assert isinstance(node.value, Function_call)
+    return [
+        ["func", sexp_of_function_metadata(node.value.function)],
+        ["path", sexp_of_path(node.value.path)],
+    ]
+
+
 def non_inlined_of_sexp(sexp):
     m = sexp_to_map(sexp)
     name = "Apply"
@@ -230,6 +330,15 @@ def non_inlined_of_sexp(sexp):
             function=function_metadata_of_sexp(m["func"]),
             path=path_of_sexp(m["path"]))
     return Node(name=name, value=value, children=[])
+
+
+def sexp_of_inlining_tree(node):
+    dispatch_table = {
+            "Decl":    sexp_of_decl,
+            "Inlined": sexp_of_inlined,
+            "Apply":   sexp_of_apply,
+    }
+    return [ node.name, dispatch_table[node.name](node) ]
     
 
 # Subject to the function prototype
@@ -248,6 +357,11 @@ def top_level_of_sexp(sexp):
     value = None
     name = "Top_level"
     return Node(name=name, value=value, children=children)
+
+
+def sexp_of_top_level(node):
+    assert node.name == "Top_level"
+    return [sexp_of_inlining_tree(c) for c in node.children]
 
 
 def pprint_tree(fp, tree, indent=0):
@@ -269,7 +383,7 @@ def max_depth(tree):
         return 1 + max(max_depth(node) for node in tree.children)
 
 
-class Path(object):
+class Absolute_path(object):
 
     def __init__(self, trace):
         self._trace = tuple(trace)
@@ -282,9 +396,11 @@ class Path(object):
         ret = []
         for item in self._trace:
             if item[0] == "function":
-                ret.append("<%s__%s>" % (item[1], item[2]))
+                # (Local_path.t * Closure_origin.t)
+                ret.append("<%s__%s>" % (item[1].id(), item[2].id()))
             elif item[0] == "declaration":
-                ret.append("{%s}" % item[1])
+                # (Local_path.t * Closure_origin.t)
+                ret.append("{%s}" % item[1].id())
             else:
                 raise RuntimeError("Unknown item[0] %s" % item[0])
         return "/".join(ret)

@@ -119,17 +119,17 @@ module V1 = struct
       match node with
       | Inlining_tree.Declaration decl ->
         bprintf buffer "%sDECL(%s)\n" space
-          (Format.asprintf "%a" Function_metadata.print decl.declared);
+          (Function_metadata.pprint decl.declared);
         iterate_children ~buffer ~indent decl.children
       | Apply_inlined_function inlined ->
         bprintf buffer "%sINLINE[%s](%s)\n" space
           (Format.asprintf "%a" Apply_id.print inlined.apply_id)
-          (Format.asprintf "%a" Function_metadata.print inlined.applied);
+          (Function_metadata.pprint inlined.applied);
         iterate_children ~buffer ~indent inlined.children
       | Apply_non_inlined_function non_inlined ->
         bprintf buffer "%sDONT_INLINE[%s](%s)\n" space
           (Format.asprintf "%a" Apply_id.print non_inlined.apply_id)
-          (Format.asprintf "%a" Function_metadata.print non_inlined.applied);
+          (Function_metadata.pprint non_inlined.applied);
 
     and iterate_children ~buffer ~indent children =
       List.iter children ~f:(fun child ->
@@ -238,6 +238,23 @@ module V1 = struct
                loop ~indent:(indent + 1) child)
          in
          iterate_children ~indent:(-1) tree;
+         Deferred.unit
+      ]
+  ;;
+
+  let command_pp_expanded =
+    let open Command.Let_syntax in
+    Command.async' ~summary:"pp"
+      [%map_open
+       let file = anon ("filename" %: string) in
+       fun () ->
+         let open Deferred.Let_syntax in
+         let%bind tree =
+           Reader.load_sexp_exn file [%of_sexp: Inlining_tree.Top_level.Expanded.t]
+         in
+         let buffer = Buffer.create 1000 in
+         Inlining_tree.Top_level.Expanded.pprint buffer tree;
+         printf "%s" (Buffer.contents buffer);
          Deferred.unit
       ]
   ;;
@@ -369,6 +386,7 @@ module V1 = struct
   let command =
     Command.group ~summary:"Tree tools (for v1)"
       [("print-tree", command_pp_tree);
+       ("print-expanded", command_pp_expanded);
        ("print-tree-from-decisions", command_pp_tree_from_decisions);
        ("print-decisions", command_pp_decisions);
        ("diff-tree", command_diff_tree);

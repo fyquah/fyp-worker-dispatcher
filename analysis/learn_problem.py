@@ -106,7 +106,7 @@ def construct_problem_matrices(problem, hyperparams):
     participation_mask = np.zeros((num_runs, num_vertices * 2))
     benefit_relations = np.zeros((num_runs, num_vertices * 2))
     for i, edge_list in enumerate(problem.edges_lists):
-        root = problem.properties.tree_path_to_ids[inlining_tree.Path([])]
+        root = problem.properties.tree_path_to_ids[inlining_tree.Absolute_path([])]
         benefit_relation, participation = construct_linear_benefit_relation(
                 root, num_vertices, edge_list, hyperparams=hyperparams)
         benefit_relations[i, :] = benefit_relation

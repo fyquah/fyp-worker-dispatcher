@@ -1119,6 +1119,15 @@ module V1 = struct
           )
       ;;
 
+      let rec iter root ~f =
+        List.iter root ~f:(fun (node : node) ->
+            f node;
+            match node with
+            | Decl decl -> iter ~f decl.children
+            | Inlined inlined -> iter ~f inlined.children
+            | Apply _ -> ())
+      ;;
+
       type t = node list [@@deriving sexp]
 
       let of_list (t : t) = t
@@ -1192,6 +1201,19 @@ module V1 = struct
         | Apply_non_inlined_function _ -> f node)
     ;;
 
+    let get_children_with_empty_default node =
+      match node with
+      | Declaration { children; _ }
+      | Apply_inlined_function { children; _ } -> children
+      | Apply_non_inlined_function _ -> []
+    ;;
+
+    let rec iter ~f root =
+      List.iter root  ~f:(fun node ->
+          f node;
+          iter ~f (get_children_with_empty_default node))
+    ;;
+
     let expand_decisions_in_call_site_based_on_inlining_path input_tree =
       let rec trim_prefix ~prefix path =
         match prefix, path with
@@ -1253,7 +1275,7 @@ module V1 = struct
             | Apply_inlined_function inlined ->
               let inlining_path = Apply_id.to_path inlined.apply_id in
               let children = loop ~history:inlining_path inlined.children in
-              Log.Global.sexp ~level:`Info
+              Log.Global.sexp ~level:`Debug
                 [%message (inlining_path : Apply_id.Path.t) (history: Apply_id.Path.t)];
               let child_node =
                 E.Inlined {
@@ -1362,13 +1384,20 @@ module V1 = struct
               | E.Apply _ ->  None)
           |> List.rev
         in
-        List.fold nodes_to_replay ~init:inlined_root ~f:(fun root node ->
+        let replayed_paths =
+          let ret = ref Apply_id.Path.Set.empty in
+          E.iter nodes_to_replay ~f:(function
+              | E.Inlined { path; _ } -> ret := Apply_id.Path.Set.add !ret path
+              | _ -> ());
+          !ret
+        in
+        replayed_paths, List.fold nodes_to_replay ~init:inlined_root ~f:(fun root node ->
             E.add_node_to_parent_head root node)
       in
-      let rec loop root =
+      let rec loop ~replayed root =
         List.map root ~f:(function
             | E.Decl decl ->
-              let children = loop decl.children in
+              let children = loop ~replayed:Apply_id.Path.Set.empty decl.children in
               let decl = { E. children = children; func = decl.func } in
               let closure_id =
                 let message =
@@ -1377,38 +1406,51 @@ module V1 = struct
                 in
                 Option.value_exn ~message decl.func.closure_id
               in
+              Log.Global.sexp ~level:`Debug [%message (closure_id : Shadow_fyp_compiler_lib.Closure_id.t)];
               declaration_map := (
                   Closure_id.Map.add closure_id decl !declaration_map);
               E.Decl decl
 
             | E.Inlined inlined ->
               let open Option.Let_syntax in 
-              let new_children =
-                let%bind closure_id = inlined.func.closure_id in
-                let%map decl =
-                  Closure_id.Map.find_opt closure_id !declaration_map
+              let inlining_path = inlined.path in
+              if Int.(>) (List.length inlining_path) 100 then begin
+                failwithf !"inlining path too long: %{Apply_id.Path}"  inlining_path ()
+              end;
+              Log.Global.sexp ~level:`Debug [%message (inlining_path : Apply_id.Path.t)];
+              let new_replayed, new_children =
+                let opt = 
+                  let%bind closure_id = inlined.func.closure_id in
+                  let%bind decl =
+                    Closure_id.Map.find_opt closure_id !declaration_map
+                  in
+                  if Apply_id.Path.Set.mem replayed inlining_path then
+                    None
+                  else
+                    Some (
+                      replay_declaration_inlined_leaves inlined.children
+                        ~inlining_path:inlined.path
+                        ~declaration_root:decl.children
+                    )
                 in
-                replay_declaration_inlined_leaves inlined.children
-                  ~inlining_path:inlined.path
-                  ~declaration_root:decl.children
+                match opt with
+                | None -> (Apply_id.Path.Set.empty, inlined.children)
+                | Some (a, b) -> (a, b)
               in
-              let new_children =
-                Option.value new_children ~default:inlined.children
-              in
-              let new_children = loop new_children in
+              let replayed = Apply_id.Path.Set.union new_replayed replayed in
+              let new_children = loop ~replayed new_children in
               E.Inlined { inlined with children = new_children }
 
             | E.Apply apply -> E.Apply apply)
       in
-      loop input_root
+      loop ~replayed:Apply_id.Path.Set.empty input_root
     ;;
 
-    (* We are not relabelling -- okay? **)
     let expand root =
+      let _ = fill_in_decisions_from_declaration in
       root
       |> expand_decisions_in_call_site_based_on_inlining_path
       |> merge_decisions_in_call_site
-      |> fill_in_decisions_from_declaration
     ;;
 
     module T = struct
