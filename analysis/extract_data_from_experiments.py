@@ -238,8 +238,11 @@ def main():
 
     if args.debug:
         tasks = tasks[:10]
+        num_threads = 1
+    else:
+        num_threads = 7
 
-    pool = concurrent.futures.ThreadPoolExecutor(8)
+    pool = concurrent.futures.ThreadPoolExecutor(num_threads)
     futures = [
             pool.submit(inlining_tree.load_tree_from_rundir, task, args.bin_name,
                 ("path_patching", args.exp_subdir))
