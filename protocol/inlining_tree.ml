@@ -1177,14 +1177,22 @@ module V1 = struct
 
       let to_override_rules (root_ : t) =
         let open Data_collector in
-        let build_decision ~trace ~source ~path ~applied ~action =
+        let build_decisions ~trace:old_trace ~source ~path ~applied ~action =
           let apply_id = Apply_id.of_path_inconsistent path in
           let acs = { Trace_item. source; applied; apply_id; } in
           let metadata = applied in
           let acs = Trace_item.At_call_site acs in
-          let trace = acs :: trace in
+          let trace = acs :: old_trace in
           let round = 0 in
-          { Decision. round; trace; apply_id;  action; metadata; }
+          let rec loop remaining_trace =
+            match remaining_trace with
+            | [] -> []
+            | _ :: tl ->
+             { Decision.
+               round; trace = acs :: remaining_trace;
+               apply_id; action; metadata; } :: loop tl
+          in
+          (trace, loop old_trace)
         in
         let rec loop ~trace ~previous root =
           List.concat_map root ~f:(function
@@ -1198,20 +1206,20 @@ module V1 = struct
               loop ~trace ~previous decl.children
 
             | Inlined inlined ->
-              let decision =
-                build_decision ~source:previous ~action:Action.Inline ~trace
+              let trace, decisions =
+                build_decisions ~source:previous ~action:Action.Inline ~trace
                   ~path:inlined.path ~applied:inlined.func
               in
               let previous = Some inlined.func in
               let children = inlined.children in
-              decision :: (loop ~trace:decision.trace ~previous children)
+              decisions @ (loop ~trace ~previous children)
 
             | Apply apply ->
-              let decision =
-                build_decision ~source:previous ~action:Action.Apply ~trace
+              let (_trace, decisions) =
+                build_decisions ~source:previous ~action:Action.Apply ~trace
                   ~path:apply.path ~applied:apply.func
               in
-              [decision])
+              decisions)
         in
         Overrides.of_decisions (loop ~trace:[] ~previous:None root_)
       ;;
