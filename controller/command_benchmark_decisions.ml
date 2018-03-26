@@ -76,7 +76,7 @@ let command_run =
           printf "Execution [%s]\n" identifier;
           printf " - path_to_bin = %s\n" path_to_bin;
           printf " - raw execution_time = %s\n" raw_execution_time;
-          printf !" - gmean raw execution time = %{Time.Span.to_string_hum}"
+          printf !" - gmean raw execution time = %{Time.Span.to_string_hum}\n"
             gmean_exec_time);
         Deferred.Or_error.ok_unit]
 
