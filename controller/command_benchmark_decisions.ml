@@ -17,7 +17,9 @@ let command_run =
         bin_name;
         bin_args;
        } = Command_params.params
-      and overrides_file = flag "-overrides" (required file) ~doc:"Hello" in
+      and overrides_file = flag "-overrides" (required file) ~doc:"Hello"
+      and should_print_csv = flag "-csv" no_arg ~doc:"Machine parsable" 
+      in
       fun () ->
         let open Deferred.Or_error.Let_syntax in
         let%bind config =
@@ -73,11 +75,22 @@ let command_run =
             |> Common.geometric_mean
             |> Time.Span.of_sec
           in
-          printf "Execution [%s]\n" identifier;
-          printf " - path_to_bin = %s\n" path_to_bin;
-          printf " - raw execution_time = %s\n" raw_execution_time;
-          printf !" - gmean raw execution time = %{Time.Span.to_string_hum}\n"
-            gmean_exec_time);
+          if not should_print_csv then begin
+            printf "Execution [%s]\n" identifier;
+            printf " - path_to_bin = %s\n" path_to_bin;
+            printf " - raw execution_time = %s\n" raw_execution_time;
+            printf !" - gmean raw execution time = %{Time.Span.to_string_hum}\n"
+              gmean_exec_time
+          end else begin
+            let raw_execution_time =
+              List.map execution_stats.raw_execution_time
+                ~f:Time.Span.to_string_hum
+            in
+            overrides_file :: identifier :: raw_execution_time
+            |> String.concat ~sep:","
+            |> printf "%s"
+          end
+        );
         Deferred.Or_error.ok_unit]
 
 ;;

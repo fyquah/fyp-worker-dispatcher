@@ -11,7 +11,7 @@ export EXPERIMENT_BIN_ARGS="400"
 
 wait_for_completion() {
   PROCESS_PID=$1
-  echo "[BATCH EXECUTOR] Waiting for completion on $PROCESS_PID"
+  echo "[BATCH EXECUTOR] Waiting for completion on $PROCESS_PID" 2>/dev/stderr
   while true; do
     STATUS="$(kill -0 "$PROCESS_PID" 2>/dev/null || echo -n "completed")"
     if [ "$STATUS" == "completed" ]; then
@@ -19,11 +19,11 @@ wait_for_completion() {
     fi
     sleep 5.0
   done
-  echo "[BATCH EXECUTOR] `cat tmp/controller.pid` done!"
+  echo "[BATCH EXECUTOR] `cat tmp/controller.pid` done!" 2>/dev/stderr
 }
 
 for override_file in $@; do
-  export ADDITIONAL_CONTROLLER_ARGS="-overrides $(readlink -f $override_file)"
+  export ADDITIONAL_CONTROLLER_ARGS="-csv -overrides $(readlink -f $override_file)"
   echo "Benchmarking $override_file"
   scripts/run_prod.sh benchmark-decisions 1>/dev/null 2>/dev/null
 
