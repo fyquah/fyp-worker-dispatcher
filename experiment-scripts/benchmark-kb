@@ -1,0 +1,32 @@
+#!/bin/bash
+
+set -euo pipefail
+
+cd "$(dirname "$0")"
+cd ../
+
+export EXPERIMENT_DIR="normal/kb_benchmark"
+export EXPERIMENT_BIN_NAME="kb"
+export EXPERIMENT_BIN_ARGS="400"
+
+wait_for_completion() {
+  PROCESS_PID=$1
+  echo "[BATCH EXECUTOR] Waiting for completion on $PROCESS_PID"
+  while true; do
+    STATUS="$(kill -0 "$PROCESS_PID" 2>/dev/null || echo -n "completed")"
+    if [ "$STATUS" == "completed" ]; then
+      break
+    fi
+    sleep 5.0
+  done
+  echo "[BATCH EXECUTOR] `cat tmp/controller.pid` done!"
+}
+
+for override_file in $@; do
+  export ADDITIONAL_CONTROLLER_ARGS="-overrides $(readlink -f $override_file)"
+  echo "Benchmarking $override_file"
+  scripts/run_prod.sh benchmark-decisions 1>/dev/null 2>/dev/null
+
+  wait_for_completion $(cat tmp/controller.pid)
+  cat $(cat tmp/controller.rundir)/stdout.log
+done
