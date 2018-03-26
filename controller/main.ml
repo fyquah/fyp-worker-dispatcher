@@ -8,5 +8,6 @@ let () =
       ("simulated-annealing", Command_simulated_annealing.command);
       ("rl", Command_rl.command);
       ("random-walk", Command_random.command);
+      ("benchmark-decisions", Command_benchmark_decisions.command);
     ]
   |> Command.run
