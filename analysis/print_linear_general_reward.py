@@ -161,7 +161,7 @@ def main():
             problem.execution_times)
     num_nodes = problem_matrices.participation_mask.shape[1] / 2
     participation_count = np.sum(problem_matrices.participation_mask, axis=0)
-    w, residual, _, _ = np.load(
+    w = np.load(
             os.path.join(args.experiment_dir, "contributions.npy"))
 
     if args.opt_info:

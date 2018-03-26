@@ -16,20 +16,17 @@ EXPERIMENT_NAME = "linear-general-reward"
 
 parser = argparse.ArgumentParser(description="formulate the problem")
 parser.add_argument("directory", type=str, help="experiment dir")
-parser.add_argument("--decay-factor", type=float, default=None)
-parser.add_argument("--vector-space", action="store_true")
+parser.add_argument("--decay-factor", type=float, default=None, required=True)
+parser.add_argument("--ridge-factor", type=float, default=None, required=True)
 
 
 HyperParametersBase = collections.namedtuple("HyperParametersBase",
-        ["decay_factor", "is_vector_space"])
+        ["decay_factor", "ridge_factor"])
 
 class HyperParameters(HyperParametersBase):
 
     def directory_name(self):
-        if self.is_vector_space:
-            return "without-vector-space-decay-%f" % self.decay_factor
-        else:
-            return "without-vector-space-decay-%f" % self.decay_factor
+        return "decay-%f-ridge-%f" % (self.decay_factor, self.ridge_factor)
 
 def is_very_small(x):
     return x < 1e-10
@@ -86,7 +83,7 @@ def main():
     logging.info("Loading problem definition from disk")
     hyperparams = HyperParameters(
             decay_factor=args.decay_factor,
-            is_vector_space=args.vector_space)
+            ridge_factor=args.ridge_factor)
     exp_directory = os.path.join(
             problem_directory, EXPERIMENT_NAME, hyperparams.directory_name())
     if not os.path.exists(exp_directory):
@@ -101,38 +98,18 @@ def main():
     target_benefit = construct_benefit_from_exec_time(execution_times)
     num_features = problem_matrices.benefit_relations.shape[1]
 
-    if args.vector_space:
-        logging.info(
-                "Computing analytical vector space of solution for \
-                reward")
-        A = problem_matrices.benefit_relations
-
-        # A.shape = (m, n)
-        # b.shape = (m,)
-        #   w = (A' A)^(-1) A' b
-        # but we know for sure that it is not going to be invertible
-        # due to infinite solutions
-        # So:
-        #   K = A' A
-        #   Q R = K
-        #   Q R w = A' b
-        #   R w = Q^(-1) A' b  # efficient because Q is othorgonal unit
-        # R is now in reduced echlon form
-        logging.info("Decomposing matrix")
-        Q, R = linalg.qr(np.matmul(A.T, A))
-
-        logging.info("Backward substitution")
-
-        # Q is orthogonal, so inv(Q) == Q.T
-        rhs = np.matmul(Q.T, np.matmul(A.T, target_benefit))
-        assert R.shape == (num_features, num_features)
-        compute_vector_space_of_solutions(R, rhs)
-    else:
-        logging.info("Finding _a single_ solution")
-        A = problem_matrices.benefit_relations
-        w = linalg.lstsq(A, target_benefit)
-        with open(os.path.join(exp_directory, "contributions.npy"), "wb") as f:
-            np.save(f, w)
+    logging.info("Computing analytical solution.")
+    logging.info("  decay factor = %.6f" % (args.decay_factor))
+    logging.info("  ridge factor (aka l2 reg) = %.6f" % (args.ridge_factor))
+    lambda_ = args.ridge_factor
+    A = problem_matrices.benefit_relations
+    w = np.linalg.solve(
+            np.matmul(A.T , A) + (lambda_ * np.identity(A.shape[1])),
+            np.matmul(A.T, target_benefit)
+    )
+    logging.info("Found analytical solution!")
+    with open(os.path.join(exp_directory, "contributions.npy"), "wb") as f:
+        np.save(f, w)
 
 
 if __name__ == "__main__":
