@@ -1174,6 +1174,47 @@ module V1 = struct
           specialised_for = None;
         }
       ;;
+
+      let to_override_rules (root_ : t) =
+        let open Data_collector in
+        let build_decision ~trace ~source ~path ~applied ~action =
+          let apply_id = Apply_id.of_path_inconsistent path in
+          let acs = { Trace_item. source; applied; apply_id; } in
+          let metadata = applied in
+          let acs = Trace_item.At_call_site acs in
+          let trace = acs :: trace in
+          let round = 0 in
+          { Decision. round; trace; apply_id;  action; metadata; }
+        in
+        let rec loop ~trace ~previous root =
+          List.concat_map root ~f:(function
+            | Decl decl ->
+              let enter_decl =
+                { Trace_item. source = previous; declared = decl.func }
+              in
+              let enter_decl = Trace_item.Enter_decl enter_decl in
+              let previous = Some decl.func in
+              let trace = (enter_decl :: trace) in
+              loop ~trace ~previous decl.children
+
+            | Inlined inlined ->
+              let decision =
+                build_decision ~source:previous ~action:Action.Inline ~trace
+                  ~path:inlined.path ~applied:inlined.func
+              in
+              let previous = Some inlined.func in
+              let children = inlined.children in
+              decision :: (loop ~trace:decision.trace ~previous children)
+
+            | Apply apply ->
+              let decision =
+                build_decision ~source:previous ~action:Action.Apply ~trace
+                  ~path:apply.path ~applied:apply.func
+              in
+              [decision])
+        in
+        Overrides.of_decisions (loop ~trace:[] ~previous:None root_)
+      ;;
     end
 
     module E = Expanded

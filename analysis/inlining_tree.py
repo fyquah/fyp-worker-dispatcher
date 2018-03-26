@@ -106,6 +106,9 @@ class Function_metadata(Function_metadata_base):
         fp.write("%s | set_of_closure_id = %s\n" % (prefix, str(self.set_of_closure_id)))
         fp.write("%s | closure_origin = %s\n" % (prefix, str(self.closure_origin)))
 
+    def id(self):
+        return self.closure_origin.id()
+
 
 class Function_call(Function_call_base):
 
@@ -140,7 +143,8 @@ def sexp_to_map(sexp):
 def is_atom(sexp):
     return isinstance(sexp, str) \
             or isinstance(sexp, sexpdata.Symbol) \
-            or isinstance(sexp, int)
+            or isinstance(sexp, int) \
+            or isinstance(sexp, unicode)
 
 def sexp_of_compilation_unit(cu):
     return [ cu.ident, cu.linkage_name, ]
@@ -152,10 +156,12 @@ def compilation_unit_of_sexp(sexp):
     
 
 def sexp_of_variable(var):
+    assert is_atom(var.stamp)
+    assert is_atom(var.name)
     return [
             sexp_of_compilation_unit(var.compilation_unit),
-            var.name,
-            var.stamp,  # TODO: This shouldn't be a string
+            unpack_atom(var.name),
+            str(var.stamp),  # TODO: This shouldn't be a string
     ]
 
 
@@ -209,7 +215,12 @@ def option_of_sexp(sexp, f):
 
 
 def sexp_of_stamp(stamp):
-    return [ stamp.kind, stamp.stamp ]
+    if stamp.kind == "Plain_apply" or stamp.kind == "Over_application":
+        return [ stamp.kind, stamp.stamp ]
+    elif stamp.kind == "Stub":
+        return [ stamp.kind ]
+    else:
+        assert False
 
 
 def stamp_of_sexp(sexp):
@@ -218,7 +229,7 @@ def stamp_of_sexp(sexp):
         stamp = unpack_atom(sexp[1])
         return Apply_stamp(kind=kind, stamp=stamp)
     else:
-        assert len(sexp) == 1
+        assert sexp == [ "Stub" ]
         return Apply_stamp(kind=kind, stamp=None)
 
 
@@ -238,7 +249,7 @@ def node_id_of_sexp(sexp):
 
 
 def sexp_of_path(path):
-    return [sexp_of_node_id(p) for p in self.path]
+    return [sexp_of_node_id(p) for p in path.path]
 
 
 def path_of_sexp(sexp):
@@ -399,7 +410,7 @@ class Absolute_path(object):
                 # (Local_path.t * Closure_origin.t)
                 ret.append("<%s__%s>" % (item[1].id(), item[2].id()))
             elif item[0] == "declaration":
-                # (Local_path.t * Closure_origin.t)
+                # (Closure_origin.t)
                 ret.append("{%s}" % item[1].id())
             else:
                 raise RuntimeError("Unknown item[0] %s" % item[0])

@@ -203,10 +203,13 @@ module V1 : sig
       val pprint : ?indent: int -> Buffer.t -> t -> unit
 
       val expanded_function_metadata : Function_metadata.t
+
+      val to_override_rules : t -> Overrides.t
     end
 
+    val iter : f:(node -> t) -> t -> unit
+
     val expand : t -> Expanded.t
-    (* val compress : Expanded.t -> t *)
 
     (** Checking routines **)
     module Soundness : sig

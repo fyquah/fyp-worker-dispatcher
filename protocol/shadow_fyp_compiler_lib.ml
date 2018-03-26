@@ -43,6 +43,19 @@ module Apply_id = struct
     (t.compilation_unit, t.stamp)
   ;;
 
+  let of_path_inconsistent path =
+    let build_directly =
+      Fyp_compiler_lib.Apply_id.build_directly
+    in
+    let call_site_node_id = List.hd_exn (List.rev path) in
+    let rev_context_node_ids = List.tl_exn (List.rev path) in
+    let parents =
+      List.map rev_context_node_ids ~f:(fun node_id ->
+          build_directly (fst node_id) (snd node_id) [])
+    in
+    build_directly (fst call_site_node_id) (snd call_site_node_id) parents
+  ;;
+
   module Stamp = struct
     module T = struct
       type t = stamp

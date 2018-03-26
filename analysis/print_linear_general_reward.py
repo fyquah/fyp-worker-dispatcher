@@ -101,8 +101,6 @@ def build_optimal_tree(tree, hyperparams):
 
     local_path = tree.name.trace[-1][1]
     func = tree.name.trace[-1][2]
-    print("func", func)
-    print("local path", local_path)
     assert isinstance(func, inlining_tree.Function_metadata)
     assert isinstance(local_path, inlining_tree.Local_path)
     value = inlining_tree.Function_call(function=func, path=local_path)
@@ -213,7 +211,7 @@ def main():
                 optimal_tree)
         logging.info("Optimal decision has a value of %f" % value)
         sexp_buffer = StringIO.StringIO()
-        sexp_utils.dump_without_quotes(sexp_buffer, sexp_inlining_tree)
+        sexp_utils.dump_without_quotes(sexp_buffer, sexp_optimal_tree)
         print(sexp_buffer.getvalue())
 
     elif args.inspect_run is not None:

@@ -382,6 +382,25 @@ module V1 = struct
             Deferred.Or_error.error_string "Not sound"
           end]
   ;;
+  
+  let command_expanded_to_decisions =
+    let open Command.Let_syntax in
+    Command.async' ~summary:"bla" [%map_open
+      let input = anon ("filename" %: string)
+      and output  = flag "-output"  (required string) ~doc:"output" in
+      fun () ->
+        let open Deferred.Let_syntax in
+        let%bind tree = 
+          Reader.load_sexp_exn input
+            [%of_sexp: Inlining_tree.Top_level.Expanded.t]
+        in
+        let overrides =
+          Inlining_tree.Top_level.Expanded.to_override_rules tree
+        in
+        let sexp = [%sexp_of: Data_collector.Overrides.t] overrides in
+        let%map wrt = Writer.open_file output in
+        Writer.write wrt (Sexp.to_string sexp)]
+  ;;
 
   let command =
     Command.group ~summary:"Tree tools (for v1)"
@@ -392,6 +411,7 @@ module V1 = struct
        ("diff-tree", command_diff_tree);
        ("decisions-to-tree", command_decisions_to_tree);
        ("check-soundness", command_check_soundness);
+       ("expanded-to-decisions", command_expanded_to_decisions);
       ]
 end
 
