@@ -88,7 +88,7 @@ let command_run =
             in
             overrides_file :: identifier :: raw_execution_time
             |> String.concat ~sep:","
-            |> printf "%s"
+            |> printf "%s\n"
           end
         );
         Deferred.Or_error.ok_unit]
