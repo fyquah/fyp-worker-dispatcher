@@ -22,6 +22,7 @@ let run () =
       >>| function
       | Error exn -> 
         printf "=======> %s failed <=========\n" M.name;
+        printf "%s\n" (Exn.to_string exn);
         failed := M.name :: !failed
       | Ok () -> 
         printf "=======> %s passed <=========\n" M.name;

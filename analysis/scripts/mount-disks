@@ -1,0 +1,3 @@
+#!/bin/bash
+sudo mount /dev/sdb1 /media/usb
+sudo mount /dev/sdc1 /media/usb2

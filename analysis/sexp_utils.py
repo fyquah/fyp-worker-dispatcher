@@ -11,4 +11,5 @@ def dump_without_quotes(output, sexp):
                 output.write(" ")
         output.write(")")
     else:
+        print(type(sexp))
         assert False

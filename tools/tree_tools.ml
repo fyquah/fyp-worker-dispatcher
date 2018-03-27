@@ -119,17 +119,17 @@ module V1 = struct
       match node with
       | Inlining_tree.Declaration decl ->
         bprintf buffer "%sDECL(%s)\n" space
-          (Format.asprintf "%a" Function_metadata.print decl.declared);
+          (Function_metadata.pprint decl.declared);
         iterate_children ~buffer ~indent decl.children
       | Apply_inlined_function inlined ->
         bprintf buffer "%sINLINE[%s](%s)\n" space
           (Format.asprintf "%a" Apply_id.print inlined.apply_id)
-          (Format.asprintf "%a" Function_metadata.print inlined.applied);
+          (Function_metadata.pprint inlined.applied);
         iterate_children ~buffer ~indent inlined.children
       | Apply_non_inlined_function non_inlined ->
         bprintf buffer "%sDONT_INLINE[%s](%s)\n" space
           (Format.asprintf "%a" Apply_id.print non_inlined.apply_id)
-          (Format.asprintf "%a" Function_metadata.print non_inlined.applied);
+          (Function_metadata.pprint non_inlined.applied);
 
     and iterate_children ~buffer ~indent children =
       List.iter children ~f:(fun child ->
@@ -242,6 +242,23 @@ module V1 = struct
       ]
   ;;
 
+  let command_pp_expanded =
+    let open Command.Let_syntax in
+    Command.async' ~summary:"pp"
+      [%map_open
+       let file = anon ("filename" %: string) in
+       fun () ->
+         let open Deferred.Let_syntax in
+         let%bind tree =
+           Reader.load_sexp_exn file [%of_sexp: Inlining_tree.Top_level.Expanded.t]
+         in
+         let buffer = Buffer.create 1000 in
+         Inlining_tree.Top_level.Expanded.pprint buffer tree;
+         printf "%s" (Buffer.contents buffer);
+         Deferred.unit
+      ]
+  ;;
+
   let command_diff_tree =
     let open Command.Let_syntax in
     Command.async' ~summary:"diff_tree"
@@ -309,13 +326,13 @@ module V1 = struct
             Reader.load_sexp_exn input_file [%of_sexp: Decision.t list]
           in
           let tree = Inlining_tree.build decisions in
-          let tree =
+          let sexp =
             if expand then
-              Inlining_tree.Top_level.expand_decisions tree
+              Inlining_tree.Top_level.expand tree
+              |> Inlining_tree.Top_level.Expanded.sexp_of_t
             else
-              tree
+              Inlining_tree.Top_level.sexp_of_t tree
           in
-          let sexp = Inlining_tree.Top_level.sexp_of_t tree in
           let%map wrt = Writer.open_file output_file in
           Writer.write wrt (Sexp.to_string sexp)
       ]
@@ -365,15 +382,36 @@ module V1 = struct
             Deferred.Or_error.error_string "Not sound"
           end]
   ;;
+  
+  let command_expanded_to_decisions =
+    let open Command.Let_syntax in
+    Command.async' ~summary:"bla" [%map_open
+      let input = anon ("filename" %: string)
+      and output  = flag "-output"  (required string) ~doc:"output" in
+      fun () ->
+        let open Deferred.Let_syntax in
+        let%bind tree = 
+          Reader.load_sexp_exn input
+            [%of_sexp: Inlining_tree.Top_level.Expanded.t]
+        in
+        let overrides =
+          Inlining_tree.Top_level.Expanded.to_override_rules tree
+        in
+        let sexp = [%sexp_of: Data_collector.Overrides.t] overrides in
+        let%map wrt = Writer.open_file output in
+        Writer.write wrt (Sexp.to_string sexp)]
+  ;;
 
   let command =
     Command.group ~summary:"Tree tools (for v1)"
       [("print-tree", command_pp_tree);
+       ("print-expanded", command_pp_expanded);
        ("print-tree-from-decisions", command_pp_tree_from_decisions);
        ("print-decisions", command_pp_decisions);
        ("diff-tree", command_diff_tree);
        ("decisions-to-tree", command_decisions_to_tree);
        ("check-soundness", command_check_soundness);
+       ("expanded-to-decisions", command_expanded_to_decisions);
       ]
 end
 

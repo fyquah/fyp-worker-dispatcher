@@ -113,6 +113,7 @@ module V1 = struct
         set_of_closures_id: Set_of_closures_id.t option;
         closure_origin: Closure_origin.t;
         opt_closure_origin: Closure_origin.t option;
+        specialised_for : Apply_id.t option;
       }
 
     let unknown =
@@ -120,26 +121,22 @@ module V1 = struct
       let set_of_closures_id = None in
       let closure_origin = Closure_origin.unknown in
       let opt_closure_origin = None in
-      { closure_id; set_of_closures_id; closure_origin; opt_closure_origin; }
+      let specialised_for = None in
+      { closure_id; set_of_closures_id; closure_origin; opt_closure_origin;
+        specialised_for;
+      }
     ;;
 
     let compare a b = Closure_origin.compare a.closure_origin b.closure_origin
 
     let sexp_of_t t =
-      match t.opt_closure_origin with
-      | Some opt_closure_origin ->
-        Sexp.List [
-          Option.sexp_of_t Closure_id.sexp_of_t t.closure_id;
-          Option.sexp_of_t Set_of_closures_id.sexp_of_t None;
-          Closure_origin.sexp_of_t t.closure_origin;
-          Closure_origin.sexp_of_t opt_closure_origin;
-        ]
-      | None ->
-        Sexp.List [
-          Option.sexp_of_t Closure_id.sexp_of_t t.closure_id;
-          Option.sexp_of_t Set_of_closures_id.sexp_of_t None;
-          Closure_origin.sexp_of_t t.closure_origin;
-        ]
+      Sexp.List [
+        Option.sexp_of_t Closure_id.sexp_of_t t.closure_id;
+        Option.sexp_of_t Set_of_closures_id.sexp_of_t None;
+        Closure_origin.sexp_of_t t.closure_origin;
+        Option.sexp_of_t Closure_origin.sexp_of_t t.opt_closure_origin;
+        Option.sexp_of_t Apply_id.sexp_of_t t.specialised_for;
+      ]
     ;;
 
     let print ppf t = Sexp.print_mach ppf (sexp_of_t t)
@@ -147,6 +144,21 @@ module V1 = struct
     let t_of_sexp sexp =
       let open Sexp in
       match sexp with
+      | List [closure_id; _set_of_closures_id; closure_origin; opt_closure_origin; specialised_for; ] ->
+        let closure_id =
+          Option.t_of_sexp Closure_id.t_of_sexp closure_id
+        in
+        let set_of_closures_id = None in  (* TODO(fyq14): Actually import this *)
+        let closure_origin = Closure_origin.t_of_sexp closure_origin in
+        let opt_closure_origin =
+          Option.t_of_sexp Closure_origin.t_of_sexp opt_closure_origin
+        in
+        let specialised_for =
+          Option.t_of_sexp Apply_id.t_of_sexp specialised_for
+        in
+        { closure_id; set_of_closures_id; closure_origin; opt_closure_origin; specialised_for; }
+
+      (* Parses the version after proof, but before specialised_for *)
       | List [closure_id; _set_of_closures_id; closure_origin; opt_closure_origin] ->
         let closure_id =
           Option.t_of_sexp Closure_id.t_of_sexp closure_id
@@ -156,7 +168,10 @@ module V1 = struct
         let opt_closure_origin =
           Some (Closure_origin.t_of_sexp opt_closure_origin)
         in
-        { closure_id; set_of_closures_id; closure_origin; opt_closure_origin; }
+        let specialised_for = None in
+        { closure_id; set_of_closures_id; closure_origin; opt_closure_origin; specialised_for; }
+
+      (* Parses the version before proof and specialised_for *)
       | List [closure_id; _set_of_closures_id; closure_origin] ->
         let closure_id =
           Option.t_of_sexp Closure_id.t_of_sexp closure_id
@@ -164,7 +179,8 @@ module V1 = struct
         let set_of_closures_id = None in  (* TODO(fyq14): Actually import this *)
         let closure_origin = Closure_origin.t_of_sexp closure_origin in
         let opt_closure_origin = None in
-        { closure_id; set_of_closures_id; closure_origin; opt_closure_origin; }
+        let specialised_for = None in
+        { closure_id; set_of_closures_id; closure_origin; opt_closure_origin; specialised_for; }
       | _ -> raise (Sexp.Parse_error "oops")
     ;;
   end

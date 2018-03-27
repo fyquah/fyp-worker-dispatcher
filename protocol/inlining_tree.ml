@@ -590,13 +590,6 @@ module V1 = struct
         Function_metadata.sexp_of_t non_inlined_function.applied;
       ]
 
-  let children t =
-    match t with
-    | Declaration decl -> decl.children
-    | Apply_inlined_function inlined -> inlined.children
-    | Apply_non_inlined_function _ -> []
-  ;;
-
   let locally_unique_identifier = function
     | Declaration a -> `Declaration a.declared
     | Apply_inlined_function a -> `Application a.apply_id
@@ -659,6 +652,8 @@ module V1 = struct
   ;;
 
   module Top_level = struct
+    type node = t
+
     type root = t list [@@deriving sexp, compare]
 
     let count_leaves root =
@@ -1022,191 +1017,489 @@ module V1 = struct
       Data_collector.Simple_overrides.of_v1_overrides (to_override_rules root)
     ;;
 
-    let get_uninlined_leaves nodes =
-      let rec loop ~acc = function
-        | Declaration _ -> acc
-        | Apply_inlined_function inlined ->
-          List.fold inlined.children ~init:acc ~f:(fun acc child ->
-              loop ~acc child)
-        | Apply_non_inlined_function non_inlined ->
-          non_inlined :: acc
-      in
-      List.fold nodes ~init:[] ~f:(fun acc node ->
-        loop ~acc node)
-      |> List.rev
-    ;;
+    module Expanded = struct
+      type decl = {
+        func : Function_metadata.t;
+        children : node list;
+      }
+      and inlined = {
+        func     : Function_metadata.t;
+        path     : Apply_id.Path.t;
+        children : node list;
+      }
+      and apply = {
+        func : Function_metadata.t;
+        path : Apply_id.Path.t;
+      }
+      and node =
+        | Decl    of decl
+        | Inlined of inlined
+        | Apply   of apply
+      [@@deriving sexp]
 
-    let rec replace_leaf_calls original_node
-        ~(leaf_substitution: Apply_id.t -> t option) =
-      match original_node with
-      | Declaration _ -> original_node
-      | Apply_inlined_function inlined ->
-        let children =
-          List.map inlined.children ~f:(fun child ->
-              replace_leaf_calls child ~leaf_substitution)
-        in
-        Apply_inlined_function { inlined with children }
-      | Apply_non_inlined_function non_inlined ->
-        let apply_id = non_inlined.apply_id in
-        match leaf_substitution apply_id with
-        | None -> original_node
-        | Some found -> found
-    ;;
+      let node_equal_without_descend a b =
+        match a, b with
+        | Decl a, Decl b ->
+          Closure_origin.equal a.func.closure_origin b.func.closure_origin
+        | Inlined a, Inlined b -> Apply_id.Path.equal a.path b.path
+        | Apply   a, Apply   b -> Apply_id.Path.equal a.path b.path
+        | _ -> false
+      ;;
 
-    let rewrite_leaf_nodes ~stack_trace
-        ~processed_inline_node ~declaration_children =
-      let (leaf_substitution_map : t Apply_id.Path.Map.t) =
-        List.fold processed_inline_node.children ~init:Apply_id.Path.Map.empty
-          ~f:(fun acc child ->
-              match child with
-              | Declaration _ -> acc
-              | Apply_inlined_function { applied; apply_id; _ }
-              | Apply_non_inlined_function { applied; apply_id; _ } ->
-                let path = Apply_id.to_path apply_id in
-                let closure_origin = applied.closure_origin in
-                let pretty_trace =
-                  List.rev stack_trace
-                  |> List.map ~f:to_identifier
-                  |> String.concat ~sep:"/"
-                in
-                if Apply_id.Path.Map.mem acc path then begin
-                  Log.Global.info "WARNING (trace: %s) %s(%s) duplicated"
-                    pretty_trace
-                    (Format.asprintf "%a" Closure_origin.print closure_origin)
-                    (Apply_id.Path.to_string path)
-                end;
-                Apply_id.Path.Map.add acc ~key:path ~data:child)
-      in
-      let leaf_substitution apply_id =
-        Apply_id.Path.Map.find leaf_substitution_map (Apply_id.to_path apply_id)
-      in
-      let new_node_with_declaration_children =
-        let children = declaration_children in
-        Apply_inlined_function { processed_inline_node with children }
-      in
-      replace_leaf_calls new_node_with_declaration_children ~leaf_substitution
-    ;;
+      let get_children_exn node =
+        match node with
+        | Decl decl -> decl.children
+        | Inlined inlined -> inlined.children
+        | Apply _ -> assert false
+      ;;
 
-    let rec expand_decisions_in_call_site
-        ~stack_trace
-        ~(declaration_map : declaration Closure_origin.Map.t)
-        (all_nodes : t list) =
-      List.fold all_nodes ~init:([], declaration_map)
-        ~f:(fun (acc, declaration_map) node ->
-          let stack_trace = node :: stack_trace in
+      let get_children_with_empty_default node =
+        match node with
+        | Decl decl -> decl.children
+        | Inlined inlined -> inlined.children
+        | Apply _ -> []
+      ;;
+
+      let update_children_exn node children =
+        match node with
+        | Decl decl -> Decl { decl with children }
+        | Inlined inlined -> Inlined { inlined with children }
+        | Apply _ -> assert false
+      ;;
+
+      let rec weak_equal a b =
+        List.equal a b ~equal:(fun a b ->
+            node_equal_without_descend a b && (
+              weak_equal
+                (get_children_with_empty_default a)
+                (get_children_with_empty_default b)))
+      ;;
+
+      let pprint ?(indent = -1) buffer nodes =
+        let rec loop ~indent node =
+          let space =
+           List.init indent ~f:(fun _ -> " ")  |> String.concat ~sep:""
+          in
           match node with
-          | Declaration decl ->
-            let new_children =
-              let declaration_map =
-                Closure_origin.Map.add decl.declared.closure_origin decl
-                  declaration_map
+          | Decl decl ->
+            bprintf buffer "%sDECL(%s)\n" space
+              (Format.asprintf "%a" Closure_origin.print decl.func.closure_origin);
+            iterate_children ~indent decl.children
+          | Inlined inlined ->
+            bprintf buffer "%sINLINE[%s](%s)\n" space
+              (Apply_id.Path.to_string inlined.path)
+              (Format.asprintf "%a"
+                 Closure_origin.print inlined.func.closure_origin);
+            iterate_children ~indent inlined.children
+          | Apply apply ->
+            bprintf buffer "%sAPPLY[%s](%s)\n" space
+              (Apply_id.Path.to_string apply.path)
+              (Format.asprintf "%a"
+                Closure_origin.print apply.func.closure_origin);
+
+        and iterate_children ~indent children =
+          List.iter children ~f:(fun child ->
+              loop ~indent:(indent + 1) child)
+        in
+        iterate_children ~indent:indent nodes
+      ;;
+
+      let rec filter_map root ~f =
+        let open Option.Let_syntax in
+        List.filter_map root ~f:(fun (node : node) ->
+            let%map node = f node in
+            match node with
+            | Decl decl ->
+              let children = filter_map ~f decl.children in
+              Decl { decl with children }
+            | Inlined inlined ->
+              let children = filter_map ~f inlined.children in
+              Inlined { inlined with children }
+            | Apply _ -> node
+          )
+      ;;
+
+      let rec iter root ~f =
+        List.iter root ~f:(fun (node : node) ->
+            f node;
+            match node with
+            | Decl decl -> iter ~f decl.children
+            | Inlined inlined -> iter ~f inlined.children
+            | Apply _ -> ())
+      ;;
+
+      type t = node list [@@deriving sexp]
+
+      let of_list (t : t) = t
+
+      let rec add_node_to_parent_head (root : t) (arg_node : node) =
+        let matches_arg = node_equal_without_descend arg_node in
+        match List.find root ~f:matches_arg with
+        | None -> arg_node :: root
+        | Some matched_node_in_root ->
+          let children_of_matched_node_in_root =
+            get_children_exn matched_node_in_root
+          in
+          let children_of_matched_node_in_root =
+            List.fold (get_children_with_empty_default arg_node)
+              ~init:children_of_matched_node_in_root
+              ~f:add_node_to_parent_head
+          in
+          let new_arg_node =
+            update_children_exn matched_node_in_root
+              children_of_matched_node_in_root
+          in
+          List.map root ~f:(fun child_node ->
+              if matches_arg child_node then
+                new_arg_node
+              else
+                child_node)
+      ;;
+
+      let expanded_function_metadata =
+        let closure_origin =
+          let current_compilation_unit =
+            let ident = Fyp_compiler_lib.Ident.create_persistent "expanded" in
+            let linkage_name = Fyp_compiler_lib.Linkage_name.create "expanded" in
+            Compilation_unit.create ident linkage_name
+          in
+          Fyp_compiler_lib.Closure_origin.create (
+            Fyp_compiler_lib.Closure_id.wrap (
+              Fyp_compiler_lib.Variable.create ~current_compilation_unit "expanded"))
+        in
+        { Function_metadata.
+          closure_id = None; set_of_closures_id = None;
+          opt_closure_origin = None;
+          closure_origin;
+          specialised_for = None;
+        }
+      ;;
+
+      let to_override_rules (root_ : t) =
+        let open Data_collector in
+        let build_decisions ~trace:old_trace ~source ~path ~applied ~action =
+          let apply_id = Apply_id.of_path_inconsistent path in
+          let acs = { Trace_item. source; applied; apply_id; } in
+          let metadata = applied in
+          let acs = Trace_item.At_call_site acs in
+          let trace = acs :: old_trace in
+          let round = 0 in
+          let rec loop remaining_trace =
+            match remaining_trace with
+            | [] -> []
+            | _ :: tl ->
+             { Decision.
+               round; trace = acs :: remaining_trace;
+               apply_id; action; metadata; } :: loop tl
+          in
+          (trace, loop old_trace)
+        in
+        let rec loop ~trace ~previous root =
+          List.concat_map root ~f:(function
+            | Decl decl ->
+              let enter_decl =
+                { Trace_item. source = previous; declared = decl.func }
               in
-              expand_decisions_in_call_site ~stack_trace ~declaration_map
-                decl.children
-            in
-            let rewritten_decl = { decl with children = new_children } in
-            let declaration_map =
-              Closure_origin.Map.add
-                decl.declared.closure_origin
-                rewritten_decl
-                declaration_map
-            in
-            let rewritten_node = Declaration rewritten_decl in
-            (rewritten_node :: acc, declaration_map)
+              let enter_decl = Trace_item.Enter_decl enter_decl in
+              let previous = Some decl.func in
+              let trace = (enter_decl :: trace) in
+              loop ~trace ~previous decl.children
 
-          | Apply_non_inlined_function _ ->
-            (node :: acc, declaration_map)
-
-          | Apply_inlined_function inlined ->
-            let (option_declaration : declaration option) =
-              Closure_origin.Map.find_opt inlined.applied.closure_origin
-                declaration_map
-            in
-            begin match option_declaration with
-            | None ->
+            | Inlined inlined ->
+              let trace, decisions =
+                build_decisions ~source:previous ~action:Action.Inline ~trace
+                  ~path:inlined.path ~applied:inlined.func
+              in
+              let previous = Some inlined.func in
               let children = inlined.children in
-              let children =
-                expand_decisions_in_call_site ~stack_trace
-                  ~declaration_map children
-              in
-              let new_node =
-                Apply_inlined_function { inlined with children }
-              in
-              (new_node :: acc, declaration_map)
-            | Some declaration ->
-              let calls_from_declaration =
-                get_uninlined_leaves declaration.children
-              in
+              decisions @ (loop ~trace ~previous children)
 
-              (* Children of inlining node must should be a subset of
-               * non-inlined leaf nodes.
-               *
-               * I say 'should', rather than 'must', due to the inherent
-               * complexity in getting this correct ...
-               *)
-              List.iter inlined.children ~f:(fun node ->
-                  match node with
-                  | Declaration _ -> ()
-                  | Apply_inlined_function { applied; apply_id; _ }
-                  | Apply_non_inlined_function { applied; apply_id; } ->
-                    let exists_somewhere =
-                      List.exists calls_from_declaration ~f:(fun non_inlined ->
-                          Apply_id.Path.equal 
-                            (Apply_id.to_path apply_id )
-                            (Apply_id.to_path non_inlined.apply_id))
-                    in
-                    let closure_origin = applied.closure_origin in
-                    if not exists_somewhere then begin
-                      let pretty_trace =
-                        List.rev stack_trace
-                        |> List.map ~f:to_identifier
-                        |> String.concat ~sep:"/"
-                      in
-                      Log.Global.info "(trace: %s) Missing %s in leaf nodes"
-                        pretty_trace
-                        (Format.asprintf "%a" Closure_origin.print closure_origin)
-                    end);
+            | Apply apply ->
+              let (_trace, decisions) =
+                build_decisions ~source:previous ~action:Action.Apply ~trace
+                  ~path:apply.path ~applied:apply.func
+              in
+              decisions)
+        in
+        Overrides.of_decisions (loop ~trace:[] ~previous:None root_)
+      ;;
+    end
 
-              (* Process the children that's obtained after inlining,
-               * recursively *)
-              let processed_inline_node =
-                let children =
-                  expand_decisions_in_call_site ~stack_trace ~declaration_map
-                    inlined.children
+    module E = Expanded
+
+    let rec map ~f root =
+      let add_children node children =
+        match node with
+        | Declaration d -> Declaration { d with children }
+        | Apply_inlined_function inlined ->
+          Apply_inlined_function { inlined with children }
+        | Apply_non_inlined_function _ -> node
+      in
+      List.map root ~f:(fun node ->
+        match node with
+        | Declaration d ->
+          let new_node = (f node) in
+          let children = map ~f d.children in
+          add_children new_node children
+
+        | Apply_inlined_function inlined ->
+          let new_node = (f node) in
+          let children = map ~f inlined.children in
+          add_children new_node children
+
+        | Apply_non_inlined_function _ -> f node)
+    ;;
+
+    let get_children_with_empty_default node =
+      match node with
+      | Declaration { children; _ }
+      | Apply_inlined_function { children; _ } -> children
+      | Apply_non_inlined_function _ -> []
+    ;;
+
+    let rec iter ~f root =
+      List.iter root  ~f:(fun node ->
+          f node;
+          iter ~f (get_children_with_empty_default node))
+    ;;
+
+    let expand_decisions_in_call_site_based_on_inlining_path input_tree =
+      let rec trim_prefix ~prefix path =
+        match prefix, path with
+        | [], path -> path
+        | prefix_hd :: prefix_tl, hd :: tl ->
+          if not (Apply_id.Node_id.equal prefix_hd hd) then begin
+            failwithf "prefix don't match! prefix=(%s) and (%s)"
+              (Apply_id.Path.to_string prefix)
+              (Apply_id.Path.to_string path)
+              ();
+          end;
+          trim_prefix ~prefix:prefix_tl tl
+        | _, [] -> assert false
+      in
+      let remove_last_node_exn l =
+        List.rev (List.tl_exn (List.rev l))
+      in
+      let expand_inlining_path_parents
+          ~child_node
+          ~history
+          ~inlining_path:this_inlining_path =
+        assert (Int.(>) (List.length this_inlining_path) 0);
+        (* Recall that the path is from top to bottom, that is if
+         *   [f_a] -> [f_b] -> [f_c] -> [f_d]
+         * This is /a/b/c/d
+         *)
+        let path_prefix = history in
+        let path_to_patch =
+          remove_last_node_exn (
+            trim_prefix ~prefix:path_prefix this_inlining_path)
+        in
+        (* We construct the node bottom-up to prevent stack-overflow
+         * (this recursive depth can be potentially very very deep) *)
+        let rec patch_bottom_up ~child ~rev_path =
+          match rev_path with
+          | [] -> child
+          | _ :: tl ->
+            let inlined = 
+              { E.
+                func     = E.expanded_function_metadata;
+                path     = history @ List.rev rev_path;
+                children = [ child ];
+              }
+            in
+            let child = E.Inlined inlined in
+            patch_bottom_up ~child ~rev_path:tl
+        in
+        patch_bottom_up ~child:child_node ~rev_path:(List.rev path_to_patch)
+      in
+      let rec loop ~history root =
+        List.map root ~f:(function
+            | Declaration decl ->
+              let children = loop ~history:[] decl.children in
+              E.Decl { 
+                children = children;
+                func     = decl.declared;
+              }
+
+            | Apply_inlined_function inlined ->
+              let inlining_path = Apply_id.to_path inlined.apply_id in
+              let children = loop ~history:inlining_path inlined.children in
+              Log.Global.sexp ~level:`Debug
+                [%message (inlining_path : Apply_id.Path.t) (history: Apply_id.Path.t)];
+              let child_node =
+                E.Inlined {
+                  func     = inlined.applied;
+                  path     = inlining_path;
+                  children = children;
+                }
+              in
+              expand_inlining_path_parents ~child_node ~history ~inlining_path
+
+            | Apply_non_inlined_function non_inlined ->
+              let inlining_path = Apply_id.to_path non_inlined.apply_id in
+              let child_node =
+                E.Apply {
+                  func     = non_inlined.applied;
+                  path     = inlining_path;
+                }
+              in
+              expand_inlining_path_parents ~child_node ~history ~inlining_path)
+      in
+      loop ~history:[] input_tree
+    ;;
+
+    let rec merge_decisions_in_call_site (tree : Expanded.t) =
+      let used = Array.create ~len:(List.length tree) false in
+      let tree = Array.of_list tree in
+
+      Array.mapi tree ~f:(fun i this_node ->
+          if used.(i) then
+            None
+          else begin
+            let additional_children =
+              let ret = ref [] in
+              for j = i + 1 to Array.length tree - 1 do
+                if not used.(j) then begin
+                  let another_node = tree.(j) in
+                  if
+                    Expanded.node_equal_without_descend another_node this_node
+                  then begin
+                    used.(j) <- true;
+                    ret := another_node :: !ret
+                  end
+                end
+              done;
+              List.rev !ret
+              |> List.concat_map ~f:(function
+                  | E.Inlined { children; _ } -> children
+                  | E.Decl { children; _ } -> children
+                  | E.Apply _ -> [])
+            in
+            used.(i) <- true;
+            match additional_children with
+            | [] -> Some this_node
+            | additional_children ->
+              Some (
+                E.update_children_exn this_node (
+                  E.get_children_exn this_node @ additional_children))
+          end)
+      |> Array.to_list
+      |> List.filter_opt
+      |> List.map ~f:(function
+          | E.Inlined inlined ->
+            let children = merge_decisions_in_call_site inlined.children in
+            E.Inlined { inlined with children }
+          | E.Decl decl ->
+            let children = merge_decisions_in_call_site decl.children in
+            E.Decl { decl with children }
+          | E.Apply a -> E.Apply a)
+    ;;
+
+    (*
+     * The input has the form
+     *
+     * {F}:
+     *    <inline:A>
+     *      <noline:B>
+     *    <inline:C>
+     *
+     * <inline:F>
+     *   <inline:A>
+     *     <inline:B>
+     *
+     * We want to transform it to:
+     *
+     * <inline:F>
+     *   <inline:A>
+     *     <inline:B>
+     *   <inline:C>
+     *
+     * to denote that the inlining decision C exists.
+     *
+     * TODO: The following implementation jumbles up the order, this is 
+     *       not ideal, but not catostrophic..
+     *)
+    let fill_in_decisions_from_declaration input_root =
+      let declaration_map = ref Closure_id.Map.empty in
+      let replay_declaration_inlined_leaves inlined_root
+          ~inlining_path ~declaration_root =
+        let nodes_to_replay =
+          E.filter_map declaration_root ~f:(fun node ->
+              match node with
+              | E.Decl   _ -> None
+              | E.Inlined inlined ->
+                let path = inlining_path @ inlined.path in
+                Some (E.Inlined { inlined with path })
+              | E.Apply _ ->  None)
+          |> List.rev
+        in
+        let replayed_paths =
+          let ret = ref Apply_id.Path.Set.empty in
+          E.iter nodes_to_replay ~f:(function
+              | E.Inlined { path; _ } -> ret := Apply_id.Path.Set.add !ret path
+              | _ -> ());
+          !ret
+        in
+        replayed_paths, List.fold nodes_to_replay ~init:inlined_root ~f:(fun root node ->
+            E.add_node_to_parent_head root node)
+      in
+      let rec loop ~replayed root =
+        List.map root ~f:(function
+            | E.Decl decl ->
+              let children = loop ~replayed:Apply_id.Path.Set.empty decl.children in
+              let decl = { E. children = children; func = decl.func } in
+              let closure_id =
+                let message =
+                  Format.asprintf "%a" Closure_origin.print
+                    decl.func.closure_origin
                 in
-                { inlined with children }
+                Option.value_exn ~message decl.func.closure_id
               in
+              Log.Global.sexp ~level:`Debug [%message (closure_id : Shadow_fyp_compiler_lib.Closure_id.t)];
+              declaration_map := (
+                  Closure_id.Map.add closure_id decl !declaration_map);
+              E.Decl decl
 
-              (* Now, take the original function declaration, and substitute
-               * the leaf nodes obtained after inlining into the function
-               * calls.
-               *)
-              let new_node =
-                let declaration_children = declaration.children in
-                rewrite_leaf_nodes ~stack_trace
-                  ~processed_inline_node ~declaration_children
+            | E.Inlined inlined ->
+              let open Option.Let_syntax in 
+              let inlining_path = inlined.path in
+              if Int.(>) (List.length inlining_path) 100 then begin
+                failwithf !"inlining path too long: %{Apply_id.Path}"  inlining_path ()
+              end;
+              Log.Global.sexp ~level:`Debug [%message (inlining_path : Apply_id.Path.t)];
+              let new_replayed, new_children =
+                let opt = 
+                  let%bind closure_id = inlined.func.closure_id in
+                  let%bind decl =
+                    Closure_id.Map.find_opt closure_id !declaration_map
+                  in
+                  if Apply_id.Path.Set.mem replayed inlining_path then
+                    None
+                  else
+                    Some (
+                      replay_declaration_inlined_leaves inlined.children
+                        ~inlining_path:inlined.path
+                        ~declaration_root:decl.children
+                    )
+                in
+                match opt with
+                | None -> (Apply_id.Path.Set.empty, inlined.children)
+                | Some (a, b) -> (a, b)
               in
+              let replayed = Apply_id.Path.Set.union new_replayed replayed in
+              let new_children = loop ~replayed new_children in
+              E.Inlined { inlined with children = new_children }
 
-              (* TODO: Nodes that are somehow present in the inlined node,
-               *       but absent in the original declaration is omitted
-               *       here. This may, or may not, be the best course of
-               *       action, but definitely the easiest to reason about
-               *       / implement
-               *)
-              (new_node :: acc, declaration_map)
-            end)
-      |> fst
-      |> List.rev
+            | E.Apply apply -> E.Apply apply)
+      in
+      loop ~replayed:Apply_id.Path.Set.empty input_root
     ;;
 
-    let expand_decisions root =
-      let declaration_map = Closure_origin.Map.empty in
-      expand_decisions_in_call_site ~stack_trace:[] ~declaration_map root
-    ;;
-
-    let compress_decisions root =
-      let declaration_map = Closure_origin.Map.empty in
-      expand_decisions_in_call_site ~stack_trace:[] ~declaration_map root
+    let expand root =
+      let _ = fill_in_decisions_from_declaration in
+      root
+      |> expand_decisions_in_call_site_based_on_inlining_path
+      |> merge_decisions_in_call_site
     ;;
 
     module T = struct
@@ -1374,6 +1667,7 @@ module V1 = struct
         set_of_closures_id = None;
         closure_origin;
         opt_closure_origin = None;
+        specialised_for = None;
       }
     in
     let children = top_level_tree in
@@ -1408,29 +1702,6 @@ module V1 = struct
         | Data_collector.Action.Apply -> true)
     |> List.fold ~init ~f:add
     |> recursively_reverse
-  ;;
-
-  let rec map ~f root =
-    let add_children node children =
-      match node with
-      | Declaration d -> Declaration { d with children }
-      | Apply_inlined_function inlined ->
-        Apply_inlined_function { inlined with children }
-      | Apply_non_inlined_function _ -> node
-    in
-    List.map root ~f:(fun node ->
-      match node with
-      | Declaration d ->
-        let new_node = (f node) in
-        let children = map ~f d.children in
-        add_children new_node children
-
-      | Apply_inlined_function inlined ->
-        let new_node = (f node) in
-        let children = map ~f inlined.children in
-        add_children new_node children
-
-      | Apply_non_inlined_function _ -> f node)
   ;;
 
   module Diff = struct

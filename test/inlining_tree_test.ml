@@ -1,6 +1,7 @@
 open Core
 open Async
 open Protocol.Shadow_fyp_compiler_lib
+open Patdiff_lib
 
 module Inlining_tree = Protocol.Inlining_tree
 module Data_collector = Protocol.Shadow_fyp_compiler_lib.Data_collector
@@ -71,11 +72,12 @@ module Test_v1 = struct
     let%map compiled_tree = load_decision_tree () in
 
     assert (not (Inlining_tree.Top_level.compare tree modified_tree = 0));
-
-    if not (Inlining_tree.Top_level.check_soundness
-              ~compiled:compiled_tree
-              ~reference:modified_tree)
-    then begin
+    let soundness =
+      Inlining_tree.Top_level.check_soundness
+        ~compiled:compiled_tree
+        ~reference:modified_tree ()
+    in
+    if not soundness.is_sound then begin
       let buffer = Buffer.create 1000 in
       Inlining_tree.Top_level.pprint buffer tree;
       printf "ORIGINAL TREE:\n%s\n" (Buffer.contents buffer);
@@ -162,34 +164,42 @@ module Test_v1 = struct
   module Verify_expansion = struct
     let name = "v1.verify_expansion"
 
+    module E = Inlining_tree.Top_level.Expanded
+
     let run () =
-      List.iteri Expansion_testdata.examples ~f:(fun i (input, expected_output) ->
-          let obtained = Inlining_tree.Top_level.expand_decisions input in
-          let c =
-            Inlining_tree.Top_level.compare obtained expected_output
+      List.iteri Expansion_testdata.examples ~f:(fun i (name, input, expected_output) ->
+          let obtained = Inlining_tree.Top_level.expand input in
+          let eq =
+            Inlining_tree.Top_level.Expanded.weak_equal obtained expected_output
           in
-          if not (c = 0) then begin
+          if not eq then begin
             let buffer = Buffer.create 1000 in
-            printf ">>> FAILED IN test %d <<<\n" i;
             Inlining_tree.Top_level.pprint buffer input;
-            printf "INPUT:\n%s\n" (Buffer.contents buffer);
-            Buffer.clear buffer;
+            printf ">>>>> FAILED at input %s <<<<<\n" name;
+            printf "Input tree:\n%s\n" (Buffer.contents buffer);
+            let pprint_expanded name expanded =
+              let buffer = Buffer.create 1000 in
+              E.pprint buffer expanded;
+              { Patdiff_core. name; text = Buffer.contents buffer }
+            in
 
-            Inlining_tree.Top_level.pprint buffer expected_output;
-            printf "EXPECTED:\n%s\n" (Buffer.contents buffer);
-            Buffer.clear buffer;
+            let obtained = pprint_expanded "obtained" obtained in
+            let expected = pprint_expanded "expected" expected_output in
+            let diff =
+              Patdiff_core.patdiff ~keep_ws:true ~from_:expected ~to_:obtained ()
+            in
+            printf "DIFF:\n%s\n\n\n" diff;
 
-            Inlining_tree.Top_level.pprint buffer obtained;
-            printf "OBTAINED:\n%s\n" (Buffer.contents buffer);
-            Buffer.clear buffer;
-          end;
-          assert (c = 0)
+            assert eq
+          end
         );
       Deferred.unit
   end
 end
 
 let () =
+  Testlib.register (module Test_v1.Verify_expansion);
+  (*
   Testlib.register (module Test_v1.Verify_v1_overrides);
   Testlib.register (module Test_v1.Verify_simple_overrides);
-  Testlib.register (module Test_v1.Verify_expansion)
+     *)

@@ -35,6 +35,8 @@ val create : ?current_compilation_unit:Compilation_unit.t -> label -> t
 
 val create_old : ?current_compilation_unit:Compilation_unit.t -> label -> t
 
+val build_directly : Compilation_unit.t -> stamp -> t list -> t
+
 val change_label : t -> label -> t
 
 val in_compilation_unit : t -> Compilation_unit.t -> bool

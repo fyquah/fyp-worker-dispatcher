@@ -92,7 +92,10 @@ module V1 : sig
 
   exception Flip_error of string
 
+  val to_identifier : t -> string
+
   module Top_level : sig
+    type node = t
 
     type nonrec t = t list [@@deriving sexp, compare]
 
@@ -156,6 +159,8 @@ module V1 : sig
      * [compress_deciions] transforms the latter to the former
      *)
 
+    val map : f: (node -> node) -> t -> t
+
     (** WARNING: THIS FUNCTION IS POTENTIALLY LOSSY *)
 
     (* Cleaning passes *)
@@ -163,8 +168,48 @@ module V1 : sig
     val remove_empty_declarations : t -> t
 
     (** This is the expansion and compression as defined in the thesis **)
-    val expand_decisions : t -> t
-    val compress_decisions : t -> t
+    module Expanded : sig
+      type t
+      [@@deriving sexp]
+
+      type decl = {
+        func : Function_metadata.t;
+        children : node list;
+      }
+      and inlined = {
+        func     : Function_metadata.t;
+        path     : Apply_id.Path.t;
+        children : node list;
+      }
+      and apply = {
+        func : Function_metadata.t;
+        path : Apply_id.Path.t;
+      }
+      and node =
+        | Decl    of decl
+        | Inlined of inlined
+        | Apply   of apply
+
+      val of_list : node list -> t
+
+      (* The structures must match (hence, the number of nodes must be the
+       * same, amongst all things).
+       *
+       * In declaration, checks if the function metadata matches.
+       * In application / inlined, only checks if the apply path matches.
+       *)
+      val weak_equal : t -> t -> bool
+
+      val pprint : ?indent: int -> Buffer.t -> t -> unit
+
+      val expanded_function_metadata : Function_metadata.t
+
+      val to_override_rules : t -> Overrides.t
+    end
+
+    val iter : f:(node -> t) -> t -> unit
+
+    val expand : t -> Expanded.t
 
     (** Checking routines **)
     module Soundness : sig
@@ -183,8 +228,6 @@ module V1 : sig
 
     (* TODO: Implement [check_completeness] *)
   end
-
-  val map : f: (t -> t) -> t list -> t list
 
   module Diff : sig
     type nonrec t =

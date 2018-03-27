@@ -43,6 +43,19 @@ module Apply_id = struct
     (t.compilation_unit, t.stamp)
   ;;
 
+  let of_path_inconsistent path =
+    let build_directly =
+      Fyp_compiler_lib.Apply_id.build_directly
+    in
+    let call_site_node_id = List.hd_exn (List.rev path) in
+    let rev_context_node_ids = List.tl_exn (List.rev path) in
+    let parents =
+      List.map rev_context_node_ids ~f:(fun node_id ->
+          build_directly (fst node_id) (snd node_id) [])
+    in
+    build_directly (fst call_site_node_id) (snd call_site_node_id) parents
+  ;;
+
   module Stamp = struct
     module T = struct
       type t = stamp
@@ -128,6 +141,19 @@ module Data_collector = struct
     module Function_metadata = struct
       include Fyp_compiler_lib.Data_collector.V1.Function_metadata
       include Make_core_sexp(Fyp_compiler_lib.Data_collector.V1.Function_metadata)
+
+      let pprint (t : t) =
+        let closure_origin =
+          Format.asprintf "%a" Closure_origin.print t.closure_origin
+        in
+        let closure_id =
+          match t.closure_id with
+          | None -> "NONE"
+          | Some closure_id -> Format.asprintf "%a" Closure_id.print closure_id
+        in
+        sprintf "closure_origin = %s | closure_id = %s"
+          closure_origin closure_id
+      ;;
 
       let equal a b = (compare a b = 0)
     end
