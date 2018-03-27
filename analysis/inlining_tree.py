@@ -639,7 +639,6 @@ def load_tree_from_rundir(substep_dir, bin_name, preprocessing):
         tree = build_tree_from_str(proc.stdout.read())
         if tree is None:
             logging.info("Dropping %s because cannot parse sexp correctly" % substep_dir)
-            shutil.rmtree(substep_tmp_dir)
             return None
 
         with open(execution_stats_file) as f:
@@ -653,5 +652,6 @@ def load_tree_from_rundir(substep_dir, bin_name, preprocessing):
         logging.info("Done with %s" % substep_dir)
     finally:
         logging.info("Removed %s" % substep_tmp_dir)
-        shutil.rmtree(substep_tmp_dir)
+        if os.path.exists(substep_tmp_dir):
+            shutil.rmtree(substep_tmp_dir)
     return (tree, execution_time)
