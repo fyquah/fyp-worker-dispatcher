@@ -246,13 +246,27 @@ def main():
 
     tasks = list(set(tasks))  # Unlikely, but possible, to get duplicates
 
-    pool = concurrent.futures.ThreadPoolExecutor(num_threads)
-    futures = [
-            pool.submit(inlining_tree.load_tree_from_rundir, task, args.bin_name,
-                ("path_patching", args.exp_subdir))
-            for task in tasks
-    ]
-    results = [r.result() for r in concurrent.futures.as_completed(futures)]
+    if num_threads > 1:
+        pool = concurrent.futures.ThreadPoolExecutor(num_threads)
+        futures = [
+                pool.submit(inlining_tree.load_tree_from_rundir, task, args.bin_name,
+                    ("path_patching", args.exp_subdir))
+                for task in tasks
+        ]
+        results = [r.result() for r in concurrent.futures.as_completed(futures)]
+    elif num_threads == 1:
+        results = []
+        for task in tasks:
+            results.append(
+                    inlining_tree.load_tree_from_rundir(
+                        task,
+                        args.bin_name,
+                        ("path_patching", args.exp_subdir)
+                    )
+            )
+    else:
+        assert False
+
     results = [(d, r[0], r[1]) for d, r in zip(tasks, results) if r is not None]
 
     # loop = asyncio.get_event_loop()
