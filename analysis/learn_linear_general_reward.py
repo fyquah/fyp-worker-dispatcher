@@ -4,6 +4,7 @@ import sympy
 import logging
 import os
 import pickle
+import sys
 
 import numpy as np
 from scipy import linalg
@@ -94,9 +95,9 @@ def construct_benefit_from_exec_time(kind, execution_times):
     return dispatch[kind](execution_times)
 
 
-def main():
+def run(args):
     logging.getLogger().setLevel(logging.INFO)
-    args = parser.parse_args()
+    args = parser.parse_args(args)
     problem_directory = args.directory
     problem = inlining_tree.Problem.load(problem_directory)
     execution_times = problem.execution_times
@@ -135,6 +136,8 @@ def main():
     with open(os.path.join(exp_directory, "contributions.npy"), "wb") as f:
         np.save(f, w)
 
+def main():
+    run(sys.argv[1:])
 
 if __name__ == "__main__":
     main()
