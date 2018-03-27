@@ -10,6 +10,7 @@ import numpy as np
 import scipy.sparse
 import shutil
 import sexpdata
+import sexp_parser
 
 
 NodeBase = collections.namedtuple("NodeBase", ["name", "value", "children"])
@@ -161,7 +162,7 @@ def sexp_of_variable(var):
     return [
             sexp_of_compilation_unit(var.compilation_unit),
             unpack_atom(var.name),
-            str(var.stamp),  # TODO: This shouldn't be a string
+            str(var.stamp),
     ]
 
 
@@ -171,7 +172,7 @@ def variable_of_sexp(kind, sexp):
             kind= kind,
             compilation_unit= compilation_unit_of_sexp(sexp[0]),
             name=unpack_atom(sexp[1]),
-            stamp=unpack_atom(sexp[2]),  # TODO: This shouldn't be a string
+            stamp=int(unpack_atom(sexp[2])),
     )
 
 
@@ -226,7 +227,7 @@ def sexp_of_stamp(stamp):
 def stamp_of_sexp(sexp):
     kind = unpack_atom(sexp[0])
     if kind == "Plain_apply" or kind == "Over_application":
-        stamp = unpack_atom(sexp[1])
+        stamp = int(unpack_atom(sexp[1]))
         return Apply_stamp(kind=kind, stamp=stamp)
     else:
         assert sexp == [ "Stub" ]
@@ -530,7 +531,7 @@ def remove_brackets_from_sexp(sexp):
 def build_tree_from_str(s):
     s = s.decode("utf-8")
     try:
-        return top_level_of_sexp(remove_brackets_from_sexp(sexpdata.loads(s)))
+        return top_level_of_sexp(remove_brackets_from_sexp(sexp_parser.parse(s)))
     except sexpdata.ExpectClosingBracket:
         return None
 
