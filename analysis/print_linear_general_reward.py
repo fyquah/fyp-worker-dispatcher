@@ -22,6 +22,7 @@ import sexp_utils
 parser = argparse.ArgumentParser(description="formulate the problem")
 parser.add_argument("--experiment-dir", type=str, help="experiment dir")
 parser.add_argument("--problem-dir", type=str, help="problem dir")
+parser.add_argument("--output", type=str, help="output", default="/dev/stdout")
 group1 = parser.add_mutually_exclusive_group(required=True)
 group1.add_argument(
         "--opt-info", action="store_true",
@@ -212,7 +213,8 @@ def main():
         logging.info("Optimal decision has a value of %f" % value)
         sexp_buffer = StringIO.StringIO()
         sexp_utils.dump_without_quotes(sexp_buffer, sexp_optimal_tree)
-        print(sexp_buffer.getvalue())
+        with open(args.output, "w") as f:
+            f.write(sexp_buffer.getvalue())
 
     elif args.inspect_run is not None:
         index = args.inspect_run
