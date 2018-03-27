@@ -5,6 +5,7 @@ import os
 import pickle
 import threading
 import subprocess
+import tempfile
 
 import numpy as np
 import scipy.sparse
@@ -624,20 +625,25 @@ def load_tree_from_rundir(substep_dir, bin_name, preprocessing):
             else:
                 assert False
 
-        proc = subprocess.Popen([
-            "../_build/default/tools/tree_tools.exe", "v1",
-            "decisions-to-tree",
-            data_collector_file,
-            "-expand",
-            "-output", "/dev/stdout"], stdout=subprocess.PIPE)
+        (_, tree_file) = tempfile.mkstemp(suffix="tree")
+        try:
+            proc = subprocess.Popen([
+                "../_build/default/tools/tree_tools.exe", "v1",
+                "decisions-to-tree", data_collector_file,
+                "-expand", "-output", tree_file])
 
-        proc.wait()
-        if proc.returncode != 0:
-            raise RuntimeError(
-                "decisions-to-tree failed for arguments %s -expand"
-                % data_collector_file)
+            proc.wait()
+            if proc.returncode != 0:
+                raise RuntimeError(
+                    "decisions-to-tree failed for arguments %s -expand"
+                    % data_collector_file)
 
-        tree = build_tree_from_str(proc.stdout.read())
+            with open(tree_file, "r") as f:
+                tree = build_tree_from_str(f.read())
+        finally:
+            print(tree_file)
+            os.remove(tree_file)
+
         if tree is None:
             logging.info("Dropping %s because cannot parse sexp correctly" % substep_dir)
             return None

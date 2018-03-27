@@ -240,7 +240,11 @@ def main():
         tasks = tasks[:10]
         num_threads = 1
     else:
-        num_threads = 7
+        # TODO: Using multiple threads causes sexp file to be read only
+        #       partially -- why?
+        num_threads = 1
+
+    tasks = list(set(tasks))  # Unlikely, but possible, to get duplicates
 
     pool = concurrent.futures.ThreadPoolExecutor(num_threads)
     futures = [
