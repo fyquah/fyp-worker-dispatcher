@@ -625,12 +625,12 @@ def load_tree_from_rundir(substep_dir, bin_name, preprocessing):
             else:
                 assert False
 
-        (_, tree_file) = tempfile.mkstemp(suffix="tree")
+        tree_file = tempfile.NamedTemporaryFile(delete=True)
         try:
             proc = subprocess.Popen([
                 "../_build/default/tools/tree_tools.exe", "v1",
                 "decisions-to-tree", data_collector_file,
-                "-expand", "-output", tree_file])
+                "-expand", "-output", tree_file.name])
 
             proc.wait()
             if proc.returncode != 0:
@@ -638,11 +638,9 @@ def load_tree_from_rundir(substep_dir, bin_name, preprocessing):
                     "decisions-to-tree failed for arguments %s -expand"
                     % data_collector_file)
 
-            with open(tree_file, "r") as f:
-                tree = build_tree_from_str(f.read())
+            tree = build_tree_from_str(tree_file.read())
         finally:
-            print(tree_file)
-            os.remove(tree_file)
+            tree_file.close()
 
         if tree is None:
             logging.info("Dropping %s because cannot parse sexp correctly" % substep_dir)
