@@ -19,6 +19,9 @@ lex.lex()
 
 precedence = {}
 
+class ParseError(Exception):
+    pass
+
 
 def p_sexp_list(p):
     """sexp : LPAREN sexplist RPAREN
@@ -51,8 +54,15 @@ def p_sexplist_many(p):
     p[0] = p[1]
 
 
+def p_error(p):
+    stack_state_str = ' '.join([symbol.type for symbol in parser.symstack][1:])
+    print('Syntax error in input! Parser State:{} {} . {}'.format(
+        parser.state, stack_state_str, p))
+    raise ParseError()
+
+
 import ply.yacc as yacc
-yacc.yacc()
+parser = yacc.yacc()
 
 parse = yacc.parse
 

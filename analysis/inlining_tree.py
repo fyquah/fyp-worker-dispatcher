@@ -531,8 +531,8 @@ def remove_brackets_from_sexp(sexp):
 def build_tree_from_str(s):
     s = s.decode("utf-8")
     try:
-        return top_level_of_sexp(remove_brackets_from_sexp(sexp_parser.parse(s)))
-    except sexpdata.ExpectClosingBracket:
+        return top_level_of_sexp(sexp_parser.parse(s))
+    except sexp_parser.ParseError:
         return None
 
 
