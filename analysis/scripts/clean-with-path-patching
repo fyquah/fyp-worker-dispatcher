@@ -31,6 +31,12 @@ echo "Running path patching in $SCRATCH_DIR for for $PATH_TO_SEXP_FILE"
 
 cd $SCRATCH_DIR
 cp $EXPERIMENT_DIR/* $SCRATCH_DIR/
+cp Makefile ./Makefile.bak
+cat Makefile.bak \
+  | grep -v "ifneq" \
+  | grep -v "inlining-overrides" \
+  | grep -v "endif" \
+  >Makefile
 sed -i'' -e 's#ocamlopt#~/fyp/ocaml-unstable-closure-origins/ocamlopt.opt -inlining-overrides overrides.sexp#g' Makefile
 
 echo "Running make in $(pwd)"
@@ -42,4 +48,4 @@ echo "Backed up  $PATH_TO_SEXP_FILE to $PATH_TO_SEXP_FILE.bak"
 cp $PATH_TO_SEXP_FILE $PATH_TO_SEXP_FILE.bak
 cp $EXPERIMENT_BIN_NAME.0.data_collector.v1.sexp $PATH_TO_SEXP_FILE
 
-# rm -rf $SCRATCH_DIR
+rm -rf $SCRATCH_DIR

@@ -5,11 +5,13 @@ import os
 import pickle
 import threading
 import subprocess
+import tempfile
 
 import numpy as np
 import scipy.sparse
 import shutil
 import sexpdata
+import sexp_parser
 
 
 NodeBase = collections.namedtuple("NodeBase", ["name", "value", "children"])
@@ -161,7 +163,7 @@ def sexp_of_variable(var):
     return [
             sexp_of_compilation_unit(var.compilation_unit),
             unpack_atom(var.name),
-            str(var.stamp),  # TODO: This shouldn't be a string
+            str(var.stamp),
     ]
 
 
@@ -171,7 +173,7 @@ def variable_of_sexp(kind, sexp):
             kind= kind,
             compilation_unit= compilation_unit_of_sexp(sexp[0]),
             name=unpack_atom(sexp[1]),
-            stamp=unpack_atom(sexp[2]),  # TODO: This shouldn't be a string
+            stamp=int(unpack_atom(sexp[2])),
     )
 
 
@@ -226,7 +228,7 @@ def sexp_of_stamp(stamp):
 def stamp_of_sexp(sexp):
     kind = unpack_atom(sexp[0])
     if kind == "Plain_apply" or kind == "Over_application":
-        stamp = unpack_atom(sexp[1])
+        stamp = int(unpack_atom(sexp[1]))
         return Apply_stamp(kind=kind, stamp=stamp)
     else:
         assert sexp == [ "Stub" ]
@@ -463,8 +465,14 @@ class Problem(object):
                 os.path.join(directory, "node_labels"),
                 self.node_labels)
 
+    _cls_cache = {}
+
     @classmethod
     def load(cls, directory):
+        if directory in cls._cls_cache:
+            logging.info("Loading problem from in-memory cache")
+            return cls._cls_cache[directory]
+
         logging.info("Loading problem definitions and objects from %s" % directory)
         with open(os.path.join(directory, "properties.pkl"), "rb") as f:
             properties = pickle.load(f)
@@ -480,7 +488,7 @@ class Problem(object):
         execution_times = np.load(os.path.join(directory, "execution_times.npy"))
         # node_labels = np.load(os.path.join(directory, "node_labels.npy"))
         node_labels = None
-        return cls(
+        cls._cls_cache[directory] = cls(
                 tree_path_to_ids=properties.tree_path_to_ids,
                 matrices=matrices,
                 node_labels=node_labels,
@@ -488,6 +496,7 @@ class Problem(object):
                 edges_lists=edges_lists,
                 execution_directories=execution_directories,
         )
+        return cls._cls_cache[directory]
 
 
 def geometric_mean(times):
@@ -495,15 +504,6 @@ def geometric_mean(times):
     for t in times:
         p = p * t
     return p ** (1.0 / len(times))
-
-
-@contextlib.contextmanager
-def in_temporary_directory(substep_tmp_dir):
-    if not os.path.exists(substep_tmp_dir):
-        os.mkdir(substep_tmp_dir)
-    yield
-    logging.info("Removed %s" % substep_tmp_dir)
-    shutil.rmtree(substep_tmp_dir)
 
 
 def remove_brackets_from_sexp(sexp):
@@ -532,8 +532,8 @@ def remove_brackets_from_sexp(sexp):
 def build_tree_from_str(s):
     s = s.decode("utf-8")
     try:
-        return top_level_of_sexp(remove_brackets_from_sexp(sexpdata.loads(s)))
-    except sexpdata.ExpectClosingBracket:
+        return top_level_of_sexp(sexp_parser.parse(s))
+    except sexp_parser.ParseError:
         return None
 
 
@@ -581,7 +581,10 @@ def load_tree_from_rundir(substep_dir, bin_name, preprocessing):
     logging.info("Loading tree from %s" % substep_dir)
     substep_tmp_dir = os.path.join(substep_dir, "tmp")
 
-    with in_temporary_directory(substep_tmp_dir):
+    if not os.path.exists(substep_tmp_dir):
+        os.mkdir(substep_tmp_dir)
+
+    try:
         with open(os.devnull, 'w') as FNULL:
             logging.info("Created tar process for %s" % substep_dir)
             subprocess.call(["tar", 
@@ -614,21 +617,36 @@ def load_tree_from_rundir(substep_dir, bin_name, preprocessing):
                         cleaner_script,
                         data_collector_file, bin_name, experiment_subdir])
                 proc.wait()
+
+                if proc.returncode != 0:
+                    raise RuntimeError(
+                            "scripts/clean-with-path-patching failed for arguments %s %s %s"
+                            % (data_collector_file, bin_name, experiment_subdir))
             else:
                 assert False
 
-        proc = subprocess.Popen([
-            "../_build/default/tools/tree_tools.exe", "v1",
-            "decisions-to-tree",
-            data_collector_file,
-            "-expand",
-            "-output", "/dev/stdout"], stdout=subprocess.PIPE)
+        (_, tree_file) = tempfile.mkstemp(suffix="tree")
+        try:
+            proc = subprocess.Popen([
+                "../_build/default/tools/tree_tools.exe", "v1",
+                "decisions-to-tree", data_collector_file,
+                "-expand", "-output", tree_file])
 
-        tree = build_tree_from_str(proc.stdout.read())
+            proc.wait()
+            if proc.returncode != 0:
+                raise RuntimeError(
+                    "decisions-to-tree failed for arguments %s -expand"
+                    % data_collector_file)
+
+            with open(tree_file, "r") as f:
+                tree = build_tree_from_str(f.read())
+        finally:
+            print(tree_file)
+            os.remove(tree_file)
+
         if tree is None:
             logging.info("Dropping %s because cannot parse sexp correctly" % substep_dir)
             return None
-        proc.wait()
 
         with open(execution_stats_file) as f:
             execution_stats_sexp = sexpdata.load(f)
@@ -639,4 +657,8 @@ def load_tree_from_rundir(substep_dir, bin_name, preprocessing):
             ])
 
         logging.info("Done with %s" % substep_dir)
+    finally:
+        logging.info("Removed %s" % substep_tmp_dir)
+        if os.path.exists(substep_tmp_dir):
+            shutil.rmtree(substep_tmp_dir)
     return (tree, execution_time)

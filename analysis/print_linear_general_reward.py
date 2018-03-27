@@ -158,7 +158,7 @@ def main():
     problem_matrices = learn_problem.construct_problem_matrices(
             problem, hyperparams)
     target_benefit = learn_linear_general_reward.construct_benefit_from_exec_time(
-            problem.execution_times)
+            hyperparams.benefit_function, problem.execution_times)
     num_nodes = problem_matrices.participation_mask.shape[1] / 2
     participation_count = np.sum(problem_matrices.participation_mask, axis=0)
     w = np.load(

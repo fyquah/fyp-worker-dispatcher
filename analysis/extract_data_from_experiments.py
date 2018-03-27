@@ -238,8 +238,15 @@ def main():
 
     if args.debug:
         tasks = tasks[:10]
+        num_threads = 1
+    else:
+        # TODO: Using multiple threads causes sexp file to be read only
+        #       partially -- why?
+        num_threads = 1
 
-    pool = concurrent.futures.ThreadPoolExecutor(8)
+    tasks = list(set(tasks))  # Unlikely, but possible, to get duplicates
+
+    pool = concurrent.futures.ThreadPoolExecutor(num_threads)
     futures = [
             pool.submit(inlining_tree.load_tree_from_rundir, task, args.bin_name,
                 ("path_patching", args.exp_subdir))
