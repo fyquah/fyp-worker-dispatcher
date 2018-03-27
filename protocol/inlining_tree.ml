@@ -1291,8 +1291,14 @@ module V1 = struct
          *)
         let path_prefix = history in
         let path_to_patch =
-          remove_last_node_exn (
-            trim_prefix ~prefix:path_prefix this_inlining_path)
+          let trimmed = trim_prefix ~prefix:path_prefix this_inlining_path in
+          begin match trimmed with
+          | [] ->
+            failwithf !"trimed is empty this = %{Apply_id.Path} prefix = %{Apply_id.Path}" 
+              this_inlining_path path_prefix ()
+          | _ -> ()
+          end;
+          remove_last_node_exn trimmed
         in
         (* We construct the node bottom-up to prevent stack-overflow
          * (this recursive depth can be potentially very very deep) *)
