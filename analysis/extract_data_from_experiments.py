@@ -180,6 +180,9 @@ def formulate_problem(raw_trees, execution_times, execution_directories):
 
     trees_with_path_labels = [relabel_to_paths(tree, []) for tree in raw_trees]
     num_unique_paths = len(tree_paths)
+
+    # TODO: We really want to extract only the depth, not a bunch of useless
+    #       sparse matrices.
     matrices = collections.defaultdict(
             lambda : scipy.sparse.lil_matrix(
                 (num_unique_paths, num_unique_paths),

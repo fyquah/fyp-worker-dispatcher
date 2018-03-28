@@ -434,13 +434,12 @@ ProblemProperties = collections.namedtuple("ProblemProperties", [
 
 class Problem(object):
 
-    def __init__(self, tree_path_to_ids, matrices, node_labels, execution_times, edges_lists, execution_directories):
+    def __init__(self, tree_path_to_ids, depth, node_labels, execution_times, edges_lists, execution_directories):
         self.properties = ProblemProperties(
-                depth=len(matrices), tree_path_to_ids=tree_path_to_ids
+                depth=depth, tree_path_to_ids=tree_path_to_ids
         )
         self.node_labels = node_labels
         self.execution_times = execution_times
-        self.matrices = matrices
         self.edges_lists = edges_lists
         self.execution_directories = execution_directories
 
@@ -451,12 +450,6 @@ class Problem(object):
             pickle.dump(self.execution_directories, f)
         with open(os.path.join(directory, "edges_lists.pkl"), "wb") as f:
             pickle.dump(self.edges_lists, f)
-
-        for i, matrix in self.matrices.items():
-            scipy.sparse.save_npz(
-                    os.path.join(directory, ("adjacency_matrix_%d.npz" % i)),
-                    matrix,
-            )
 
         np.save(
                 os.path.join(directory, "execution_times"),
@@ -480,17 +473,13 @@ class Problem(object):
             edges_lists = pickle.load(f)
         with open(os.path.join(directory, "execution_directories.pkl"), "rb") as f:
             execution_directories = pickle.load(f)
-        matrices = []
-        for i in range(properties.depth):
-            matrix = scipy.sparse.load_npz(
-                    os.path.join(directory, ("adjacency_matrix_%d.npz" % i)))
-            matrices.append(matrix)
         execution_times = np.load(os.path.join(directory, "execution_times.npy"))
         # node_labels = np.load(os.path.join(directory, "node_labels.npy"))
         node_labels = None
+        depth = properties.depth
         cls._cls_cache[directory] = cls(
                 tree_path_to_ids=properties.tree_path_to_ids,
-                matrices=matrices,
+                depth=depth,
                 node_labels=node_labels,
                 execution_times=execution_times,
                 edges_lists=edges_lists,
