@@ -39,6 +39,8 @@ HyperParameters = collections.namedtuple("HyperParameters",
         ["decay_factor", "variance_factor"])
 
 
+# TODO: This is the bottleneck for a lot of the problems - should this be
+#       reimplemented in C++?
 def construct_linear_benefit_relation(root, num_nodes, edge_list, decay_factor):
     adjacency_list = inlining_tree.adjacency_list_from_edge_lists(
             num_nodes, [edge_list])
@@ -75,13 +77,14 @@ def construct_linear_benefit_relation(root, num_nodes, edge_list, decay_factor):
 
         for child in adjacency_list[node]:
             assert isinstance(child, int)
-            assert not visited[child]
-            child_kind = kind_map[(node, child)]
-            assert isinstance(child_kind, str)
 
             # TODO: Why is this check needed?? Technically we are dealing
             #       with trees. This implies there is unintended redundancy
             #       in data source
+            assert not visited[child]
+            child_kind = kind_map[(node, child)]
+            assert isinstance(child_kind, str)
+
             s.append({
                 "factor": factor * decay_factor / num_children,
                 "node":   child,
