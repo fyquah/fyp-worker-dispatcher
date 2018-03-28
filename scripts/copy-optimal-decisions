@@ -1,0 +1,9 @@
+#!/bin/bash
+set -euo pipefail
+
+DIRS=(out/almabench out/bdd out/fft out/floats-in-functor out/hamming out/kahan-sum out/kb out/lens-benchmark out/lexifi out/quicksort out/sequence out/sequence-cps)
+
+for d in $DIRS; do
+  mkdir -p ./analysis/$d
+  scp -r -P 3022  fyquah@82.28.62.7:~/fyp/worker-dispatcher/analysis/$d/$1 ./analysis/$d/$1
+done

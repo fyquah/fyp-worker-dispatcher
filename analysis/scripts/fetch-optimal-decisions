@@ -1,0 +1,5 @@
+#!/bin/bash
+set -euo pipefail
+
+scp -P 3022 fyquah@82.28.62.7:~/fyp/worker-dispatcher/analysis/optimal-decisions.tar ./
+tar xzvf optimal-decisions.tar

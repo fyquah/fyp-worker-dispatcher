@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# Runs all the experiments' benchmark using overrides obtained from a given
+# model. The overrides are looked for in "analysis/out/[exp_name]/[method]/*/optimal.sexp"
+#   Note: This script is written w/o "set -euo pipefail", because it is possible
+#         that the relevant directory containing the optimal.sexp file does
+#         note exist. It is not a bug!
+
+method=$1
+mkdir -p results/$method
+
+if [ "$method" == "" ]; then
+  echo "Missing method!"
+  exit 1
+fi
+
+for exp in $(python ./scripts/query_experiment_params.py --all); do
+  for file in $(ls analysis/out/$exp/$method/*/optimal.sexp); do
+    echo ">>>>> Running experiment $exp with override $file"
+    ./scripts/run-benchmark $exp $file \
+      1>results/$method/$(basename $(dirname $file)).csv \
+      2>/dev/null
+  done
+done

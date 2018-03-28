@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -euo pipefail
+
+wait_for_completion() {
+  PROCESS_PID=$1
+  echo "[BATCH EXECUTOR] Waiting for completion on $PROCESS_PID" >/dev/stderr
+  while true; do
+    STATUS="$(kill -0 "$PROCESS_PID" 2>/dev/null || echo -n "completed")"
+    if [ "$STATUS" == "completed" ]; then
+      break
+    fi
+    sleep 5.0
+  done
+  echo "[BATCH EXECUTOR] `cat tmp/controller.pid` done!" >/dev/stderr
+}
+
+cd "$(dirname "$0")"
+cd ../
+
+name=$1
+override_file=$2
+
+export EXPERIMENT_DIR=$(python scripts/query_experiment_params.py --name $name --subdir)
+export EXPERIMENT_BIN_NAME=$(python scripts/query_experiment_params.py --name $name --bin-name)
+export EXPERIMENT_BIN_ARGS=$(python scripts/query_experiment_params.py --name $name --bin-args)
+export ADDITIONAL_CONTROLLER_ARGS="-csv -overrides $(readlink -f $override_file)"
+
+echo "Benchmarking $override_file" >/dev/stderr
+scripts/run_prod.sh benchmark-decisions &>/dev/stderr
+
+wait_for_completion $(cat tmp/controller.pid)
+cat $(cat tmp/controller.rundir)/stdout.log

@@ -1,3 +1,8 @@
+import collections
+
+ExperimentParameters = collections.namedtuple(
+        "ExperimentParameters", ["bin_name", "subdir", "bin_args"])
+
 SCRIPT_TO_BIN_NAME = {
         "simulated-annealing-almabench":              "almabench",
         "simulated-annealing-bdd":                    "bdd",
@@ -19,3 +24,65 @@ SCRIPT_TO_BIN_NAME = {
         "mcts-sequence_benchmark": "sequence_benchmark",
 }
 
+EXPERIMENT_TO_PARAMETERS = {
+
+        "almabench": ExperimentParameters(
+            bin_name="almabench",
+            subdir="normal/almabench",
+            bin_args="23"),
+
+        "bdd": ExperimentParameters(
+            bin_name="bdd",
+            subdir="normal/bdd_benchmark",
+            bin_args="28"),
+
+        "fft": ExperimentParameters(
+            bin_name="fft",
+            subdir="normal/fft",
+            bin_args="24"),
+
+        "floats-in-functor": ExperimentParameters(
+            bin_name="b",
+            subdir="normal/floats-in-functor",
+            bin_args="500000 3.0"),
+
+        "hamming": ExperimentParameters(
+            bin_name="hamming",
+            subdir="normal/hamming",
+            bin_args="20000000"),
+
+        "kahan_sum": ExperimentParameters(
+            bin_name="kahan_sum",
+            subdir="normal/kahan_sum",
+            bin_args="300000000"),
+
+        "kb": ExperimentParameters(
+            bin_name="kb",
+            subdir="normal/kb_benchmark",
+            bin_args="400"),
+
+        "lens": ExperimentParameters(
+            bin_name="lens",
+            subdir="normal/lens_benchmark",
+            bin_args="1500000000"),
+
+        "lexifi": ExperimentParameters(
+            bin_name="main",
+            subdir="normal/lexifi-g2pp_benchmark",
+            bin_args=""),
+
+        "quicksort": ExperimentParameters(
+            bin_name="quicksort",
+            subdir="normal/quicksort",
+            bin_args="1500"),
+
+        "sequence": ExperimentParameters(
+            bin_name="sequence_benchmark",
+            subdir="normal/sequence_benchmark",
+            bin_args="45000"),
+
+        "sequence-cps": ExperimentParameters(
+            bin_name="sequence_cps_benchmark",
+            subdir="normal/sequence_cps_benchmark",
+            bin_args="120000")
+}
