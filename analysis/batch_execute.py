@@ -1,12 +1,12 @@
 import argparse
 import concurrent.futures
 import sys
+from learn_linear_general_reward import HyperParameters
 
 parser = argparse.ArgumentParser(description=
         "batch executor. Executes the [run] method of the module given in "
         "the args' flag.")
 parser.add_argument("module", type=str, help="module")
-parser.add_argument("--num-threads", type=int, help="num threads", default=2)
 parser.add_argument("--dry-run", action="store_true", help="dry run (for testing)")
 
 
@@ -22,12 +22,8 @@ def main():
         for task in tasks:
             print "   ", module.parser.parse_args(task)
     else:
-        pool = concurrent.futures.ThreadPoolExecutor(args.num_threads)
-        futures = []
         for task in tasks:
-            futures.append(pool.submit(module.run, task))
-        for r in concurrent.futures.as_completed(futures):
-            r.result()
+            module.run(task)
 
 
 if __name__ == "__main__":
