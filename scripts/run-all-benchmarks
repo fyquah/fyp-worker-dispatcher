@@ -7,7 +7,6 @@
 #         note exist. It is not a bug!
 
 method=$1
-mkdir -p results/$method
 
 if [ "$method" == "" ]; then
   echo "Missing method!"
@@ -15,10 +14,11 @@ if [ "$method" == "" ]; then
 fi
 
 for exp in $(python ./scripts/query_experiment_params.py --all); do
+  mkdir -p results/$exp/$method
   for file in $(ls analysis/out/$exp/$method/*/optimal.sexp); do
     echo ">>>>> Running experiment $exp with override $file"
     ./scripts/run-benchmark $exp $file \
-      1>results/$method/$(basename $(dirname $file)).csv \
+      1>results/$exp/$method/$(basename $(dirname $file)).csv \
       2>/dev/null
   done
 done
