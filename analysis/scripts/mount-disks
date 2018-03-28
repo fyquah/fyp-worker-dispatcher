@@ -1,3 +1,5 @@
 #!/bin/bash
-sudo mount /dev/sdb1 /media/usb
-sudo mount /dev/sdc1 /media/usb2
+sudo mount /dev/sdb1 /media/usb   # My Acer hard disk
+sudo mount /dev/sdd1 /media/usb2  # SSD
+sudo mount /dev/sdc  /media/usb3  # The 5GBP DoC hard disk.
+# sudo mount /dev/sde /media/fyp-backup  # 1.5TB Hard disk I bought from Piotr

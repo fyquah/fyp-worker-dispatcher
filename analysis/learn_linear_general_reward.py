@@ -3,7 +3,7 @@ import collections
 import sympy
 import logging
 import os
-import pickle
+import cPickle as pickle
 import sys
 
 import numpy as np

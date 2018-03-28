@@ -147,9 +147,9 @@ def project_benefit_tree(
         return None
 
 
-def main():
+def run(argv):
     logging.getLogger().setLevel(logging.INFO)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     hyperparams_path = os.path.join(args.experiment_dir, "hyperparams.pkl")
 
     problem = inlining_tree.Problem.load(args.problem_dir)
@@ -247,6 +247,9 @@ def main():
     else:
         assert False
 
+
+def main():
+    run(sys.argv[1:])
 
 if __name__ == "__main__":
     main()

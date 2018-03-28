@@ -5,12 +5,14 @@ import sys
 import os
 import pickle
 import logging
+import functools
 
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import linalg
 import scipy.sparse
 import tensorflow as tf
+from repoze import lru 
 
 import inlining_tree
 
@@ -37,7 +39,7 @@ HyperParameters = collections.namedtuple("HyperParameters",
         ["decay_factor", "variance_factor"])
 
 
-def construct_linear_benefit_relation(root, num_nodes, edge_list, hyperparams):
+def construct_linear_benefit_relation(root, num_nodes, edge_list, decay_factor):
     adjacency_list = inlining_tree.adjacency_list_from_edge_lists(
             num_nodes, [edge_list])
     kind_map = {}
@@ -81,7 +83,7 @@ def construct_linear_benefit_relation(root, num_nodes, edge_list, hyperparams):
             #       with trees. This implies there is unintended redundancy
             #       in data source
             s.append({
-                "factor": factor * hyperparams.decay_factor / num_children,
+                "factor": factor * decay_factor / num_children,
                 "node":   child,
                 "kind":   child_kind,
             })
@@ -99,7 +101,8 @@ ProblemMatrices = collections.namedtuple("ProblemMatrices", [
     "participation_mask", "benefit_relations"])
 
 
-def construct_problem_matrices(problem, hyperparams):
+@lru.lru_cache(maxsize=2)
+def construct_problem_matrices_impl(problem, decay_factor):
     logging.info("Constructing problem matrices")
     num_runs = len(problem.execution_times)
     num_vertices = len(problem.properties.tree_path_to_ids)
@@ -108,10 +111,14 @@ def construct_problem_matrices(problem, hyperparams):
     for i, edge_list in enumerate(problem.edges_lists):
         root = problem.properties.tree_path_to_ids[inlining_tree.Absolute_path([])]
         benefit_relation, participation = construct_linear_benefit_relation(
-                root, num_vertices, edge_list, hyperparams=hyperparams)
+                root, num_vertices, edge_list, decay_factor=decay_factor)
         benefit_relations[i, :] = benefit_relation
         participation_mask[i, :] = participation
     return ProblemMatrices(participation_mask, benefit_relations)
+
+
+def construct_problem_matrices(problem, hyperparams):
+    return construct_problem_matrices_impl(problem, hyperparams.decay_factor)
 
 
 def construct_objective(
