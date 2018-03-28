@@ -8,6 +8,7 @@ import sys
 
 import numpy as np
 from scipy import linalg
+import sklearn.linear_model
 
 import inlining_tree
 import learn_problem
@@ -126,12 +127,21 @@ def run(args):
     logging.info("  decay factor = %.6f" % (args.decay_factor))
     logging.info("  ridge factor (aka l2 reg) = %.6f" % (args.ridge_factor))
     logging.info("  benefit function = %s" % args.benefit_function)
+
     lambda_ = args.ridge_factor
     A = problem_matrices.benefit_relations
-    w = np.linalg.solve(
-            np.matmul(A.T , A) + (lambda_ * np.identity(A.shape[1])),
-            np.matmul(A.T, target_benefit)
-    )
+
+    model = sklearn.linear_model.Ridge(alpha=lambda_, fit_intercept=False)
+    model.fit(A, target_benefit)
+    w = model.coef_
+    assert w.shape == (A.shape[1],)
+
+    # old impl: this uses matrix multiplication, which uses cubic memory.
+    # w = np.linalg.solve(
+    #         np.matmul(A.T , A) + (lambda_ * np.identity(A.shape[1])),
+    #         np.matmul(A.T, target_benefit)
+    # )
+
     logging.info("Found analytical solution, saving to %s!" % exp_directory)
     with open(os.path.join(exp_directory, "contributions.npy"), "wb") as f:
         np.save(f, w)
