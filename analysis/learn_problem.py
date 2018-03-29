@@ -104,7 +104,7 @@ ProblemMatrices = collections.namedtuple("ProblemMatrices", [
     "participation_mask", "benefit_relations"])
 
 
-@lru.lru_cache(maxsize=2)
+@lru.lru_cache(maxsize=1)
 def construct_problem_matrices_impl(problem, decay_factor):
     logging.info("Constructing problem matrices")
     num_runs = len(problem.execution_times)
