@@ -17,7 +17,7 @@ fi
 # RIDGE_FACTORS="0.003 0.005 0.009 0.03 0.05 0.09 0.3 0.5 0.9"
 
 ## Simple parameters
-DECAY_FACTORS="0.3 0.7 0.93 0.97 0.993 0.997"
+DECAY_FACTORS="0.3 0.7 0.93 0.97 0.993 0.997 1.0"
 RIDGE_FACTORS="0.003 0.007 0.03 0.07 0.3 0.7"
 BENEFIT_FUNCTIONS="sigmoid_speedup_over_mean linear_speedup_over_mean log_speedup_over_mean"
 
@@ -35,6 +35,8 @@ for decay_factor in $DECAY_FACTORS; do
   done
 done
 python2 batch_execute.py learn_linear_general_reward $ADDITIONAL_FLAGS <$TASK_FILE
+
+echo ">>>>> Learning done! Printing solutions...."
 
 
 ### (2) print optimal decisions for every hyperparams configuration
