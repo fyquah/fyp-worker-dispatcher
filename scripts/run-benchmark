@@ -31,3 +31,5 @@ scripts/run_prod.sh benchmark-decisions &>/dev/stderr
 
 wait_for_completion $(cat tmp/controller.pid)
 cat $(cat tmp/controller.rundir)/stdout.log
+
+rm -rf $(cat $EXPERIMENT_TMP_DIR/controller.rundir)/experiments
