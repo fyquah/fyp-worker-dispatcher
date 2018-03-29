@@ -41,7 +41,8 @@ HyperParameters = collections.namedtuple("HyperParameters",
 
 # TODO: This is the bottleneck for a lot of the problems - should this be
 #       reimplemented in C++?
-def construct_linear_benefit_relation(root, num_nodes, edge_list, decay_factor):
+def construct_linear_benefit_relation(
+        root, num_nodes, edge_list, decay_factor, normalise_with_num_children):
     adjacency_list = inlining_tree.adjacency_list_from_edge_lists(
             num_nodes, [edge_list])
     kind_map = {}
@@ -73,8 +74,6 @@ def construct_linear_benefit_relation(root, num_nodes, edge_list, decay_factor):
             print("unexpected kind =", kind)
             assert False
 
-        num_children = float(len(adjacency_list[node]))
-
         for child in adjacency_list[node]:
             assert isinstance(child, int)
 
@@ -85,11 +84,20 @@ def construct_linear_benefit_relation(root, num_nodes, edge_list, decay_factor):
             child_kind = kind_map[(node, child)]
             assert isinstance(child_kind, str)
 
-            s.append({
-                "factor": factor * decay_factor / num_children,
-                "node":   child,
-                "kind":   child_kind,
-            })
+            if not normalise_with_num_children:
+                s.append({
+                    "factor": factor * decay_factor,
+                    "node":   child,
+                    "kind": child_kind,
+                })
+            else:
+                num_children = float(len(adjacency_list[node]))
+
+                s.append({
+                    "factor": factor * decay_factor / num_children,
+                    "node":   child,
+                    "kind":   child_kind,
+                })
 
     assert not(
         all(not visited[x] or benefit_relation[x] > 0
@@ -105,7 +113,7 @@ ProblemMatrices = collections.namedtuple("ProblemMatrices", [
 
 
 @lru.lru_cache(maxsize=1)
-def construct_problem_matrices_impl(problem, decay_factor):
+def construct_problem_matrices_impl(problem, decay_factor, normalise_with_num_children):
     logging.info("Constructing problem matrices")
     num_runs = len(problem.execution_times)
     num_vertices = len(problem.properties.tree_path_to_ids)
@@ -114,14 +122,20 @@ def construct_problem_matrices_impl(problem, decay_factor):
     for i, edge_list in enumerate(problem.edges_lists):
         root = problem.properties.tree_path_to_ids[inlining_tree.Absolute_path([])]
         benefit_relation, participation = construct_linear_benefit_relation(
-                root, num_vertices, edge_list, decay_factor=decay_factor)
+                root, num_vertices, edge_list,
+                decay_factor=decay_factor,
+                normalise_with_num_children=normalise_with_num_children)
         benefit_relations[i, :] = benefit_relation
         participation_mask[i, :] = participation
     return ProblemMatrices(participation_mask, benefit_relations)
 
 
-def construct_problem_matrices(problem, hyperparams):
-    return construct_problem_matrices_impl(problem, hyperparams.decay_factor)
+def construct_problem_matrices(problem, hyperparams, normalise_with_num_children):
+    assert isinstance(normalise_with_num_children, bool)
+    return construct_problem_matrices_impl(
+            problem,
+            decay_factor=hyperparams.decay_factor,
+            normalise_with_num_children=normalise_with_num_children)
 
 
 def construct_objective(

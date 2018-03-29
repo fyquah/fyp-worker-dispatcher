@@ -23,6 +23,7 @@ parser = argparse.ArgumentParser(description="formulate the problem")
 parser.add_argument("--experiment-dir", type=str, help="experiment dir")
 parser.add_argument("--problem-dir", type=str, help="problem dir")
 parser.add_argument("--output", type=str, help="output", default="/dev/stdout")
+parser.add_argument("--skip-normalisation", action="store_true")
 group1 = parser.add_mutually_exclusive_group(required=True)
 group1.add_argument(
         "--opt-info", action="store_true",
@@ -156,8 +157,10 @@ def run(argv):
     with open(hyperparams_path, "rb") as f:
         hyperparams = pickle.load(f)
 
+    normalise_with_num_children = not args.skip_normalisation
     problem_matrices = learn_problem.construct_problem_matrices(
-            problem, hyperparams)
+            problem, hyperparams,
+            normalise_with_num_children=normalise_with_num_children)
     target_benefit = learn_linear_general_reward.construct_benefit_from_exec_time(
             hyperparams.benefit_function, problem.execution_times)
     num_nodes = problem_matrices.participation_mask.shape[1] / 2

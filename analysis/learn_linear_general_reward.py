@@ -13,7 +13,6 @@ import sklearn.linear_model
 import inlining_tree
 import learn_problem
 
-EXPERIMENT_NAME = "linear-general-reward"
 
 
 parser = argparse.ArgumentParser(description="formulate the problem")
@@ -21,6 +20,7 @@ parser.add_argument("directory", type=str, help="experiment dir")
 parser.add_argument("--decay-factor", type=float, default=None, required=True)
 parser.add_argument("--ridge-factor", type=float, default=None, required=True)
 parser.add_argument("--benefit-function", type=str, default=None, required=True)
+parser.add_argument("--skip-normalisation", action="store_true")
 
 
 HyperParametersBase = collections.namedtuple("HyperParametersBase",
@@ -100,30 +100,41 @@ def run(args):
     logging.getLogger().setLevel(logging.INFO)
     args = parser.parse_args(args)
     problem_directory = args.directory
-    problem = inlining_tree.Problem.load(problem_directory)
-    execution_times = problem.execution_times
-
-    logging.info("Loading problem definition from disk")
+    logging.info("Loading problem definition ...")
     hyperparams = HyperParameters(
             decay_factor=args.decay_factor,
             ridge_factor=args.ridge_factor,
             benefit_function=args.benefit_function)
+    if args.skip_normalisation:
+        experiment_name = "linear-general-reward-without-normalisation"
+    else:
+        experiment_name = "linear-general-reward"
     exp_directory = os.path.join(
-            problem_directory, EXPERIMENT_NAME, hyperparams.directory_name())
+            problem_directory, experiment_name, hyperparams.directory_name())
+
+    if os.path.exists(os.path.join(exp_directory, "contributions.npy")):
+        logging.info("A solution already exist for %s/%s/%s! Pass --force to recompute"
+                % (problem_directory, experiment_name, hyperparams.directory_name()))
+        return
+
+    problem = inlining_tree.Problem.load(problem_directory)
+    execution_times = problem.execution_times
+
     if not os.path.exists(exp_directory):
         os.makedirs(exp_directory)
 
     with open(os.path.join(exp_directory, "hyperparams.pkl"), "wb") as f:
         pickle.dump(hyperparams, f)
 
+    normalise_with_num_children = not args.skip_normalisation
     problem_matrices = learn_problem.construct_problem_matrices(
-            problem, hyperparams)
+            problem, hyperparams, normalise_with_num_children)
 
     target_benefit = construct_benefit_from_exec_time(
             args.benefit_function, execution_times)
     num_features = problem_matrices.benefit_relations.shape[1]
 
-    logging.info("Computing analytical solution.")
+    logging.info("Computing analytical solution for %s." % (experiment_name))
     logging.info("  decay factor = %.6f" % (args.decay_factor))
     logging.info("  ridge factor (aka l2 reg) = %.6f" % (args.ridge_factor))
     logging.info("  benefit function = %s" % args.benefit_function)

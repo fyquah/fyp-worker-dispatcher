@@ -24,6 +24,7 @@ def main():
     else:
         for task in tasks:
             module.run(task)
+        print "Finished %d tasks in batch execution!" % len(tasks)
 
 
 if __name__ == "__main__":
