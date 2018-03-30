@@ -4,7 +4,7 @@ set -euo pipefail
 
 # learns everything in all non ill-defined experiments.
 TASK_FILE=$(mktemp)
-PROBLEMS="almabench  bdd  fft  floats-in-functor  hamming  kahan-sum  kb  lens-benchmark  quicksort"
+PROBLEMS="almabench  bdd  fft  floats-in-functor  hamming  kahan-sum  kb  lens  quicksort"
 
 for problem in $PROBLEMS; do
   echo "./print_linear_general_reward.sh out/$problem &>tmp/$problem-learn-linear-general-reward.log" >>$TASK_FILE

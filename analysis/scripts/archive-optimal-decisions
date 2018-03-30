@@ -1,4 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-tar czvf optimal-decisions.tar out/*/linear-general-reward/*/optimal.sexp
+tar czvf \
+  optimal-decisions.tar out/*/linear-general-reward/*/optimal.sexp \
+  optimal-decisions.tar out/*/linear-general-reward-without-normalisation/*/optimal.sexp
