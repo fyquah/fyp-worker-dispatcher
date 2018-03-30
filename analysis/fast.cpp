@@ -20,13 +20,13 @@ enum node_kind_t {
 node_kind_t
 kind_from_string(const char * c)
 {
-  if (strcmp(c, "Top_level") != 0) {
+  if (strcmp(c, "Top_level") == 0) {
     return KIND_Top_level;
-  } else if (strcmp(c, "Inlined") != 0) {
+  } else if (strcmp(c, "Inlined") == 0) {
     return KIND_Inlined;
-  } else if (strcmp(c, "Decl") != 0) {
+  } else if (strcmp(c, "Decl") == 0) {
     return KIND_Decl;
-  } else if (strcmp(c, "Apply") != 0) {
+  } else if (strcmp(c, "Apply") == 0) {
     return KIND_Apply;
   } else {
     assert(false);
@@ -130,11 +130,11 @@ construct_linear_benefit_relation(PyObject *self, PyObject *args)
   long num_nodes;
   PyObject *edge_list;
   double decay_factor;
-  bool normalise_with_num_children;
+  int normalise_with_num_children;
   PyObject *benefit_relation;
   PyObject *participation_mask;
 
-  int ok = PyArg_ParseTuple(args, "llodboo", &root, &num_nodes,
+  int ok = PyArg_ParseTuple(args, "llOdiOO", &root, &num_nodes,
       &edge_list, &decay_factor, &normalise_with_num_children,
       &benefit_relation, &participation_mask);
   if (!ok) {
@@ -151,7 +151,7 @@ construct_linear_benefit_relation(PyObject *self, PyObject *args)
     long v = PyInt_AsLong(PyTuple_GetItem(edge, 1));
     adjacency_list[u].push_back(v);
 
-    const char *kind = PyString_AsString(PyTuple_GetItem(edge, 1));
+    const char *kind = PyString_AsString(PyTuple_GetItem(edge, 2));
     node_kinds[v] = fyp::kind_from_string(kind);
   }
 

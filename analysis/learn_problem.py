@@ -6,6 +6,7 @@ import os
 import pickle
 import logging
 import functools
+import time
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,6 +16,7 @@ import tensorflow as tf
 from repoze import lru 
 
 import inlining_tree
+import fast
 
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
@@ -115,19 +117,26 @@ ProblemMatrices = collections.namedtuple("ProblemMatrices", [
 @lru.lru_cache(maxsize=1)
 def construct_problem_matrices_impl(problem, decay_factor, normalise_with_num_children):
     logging.info("Constructing problem matrices")
+    start = time.clock()
     num_runs = len(problem.execution_times)
     num_vertices = len(problem.properties.tree_path_to_ids)
     participation_mask = np.zeros((num_runs, num_vertices * 2))
     benefit_relations = np.zeros((num_runs, num_vertices * 2))
     for i, edge_list in enumerate(problem.edges_lists):
         root = problem.properties.tree_path_to_ids[inlining_tree.Absolute_path([])]
-        benefit_relation, participation = construct_linear_benefit_relation(
+        ## C-accelerated variant
+        fast.construct_linear_benefit_relation(
                 root, num_vertices, edge_list,
-                decay_factor=decay_factor,
-                normalise_with_num_children=normalise_with_num_children)
-        benefit_relations[i, :] = benefit_relation
-        participation_mask[i, :] = participation
-    return ProblemMatrices(participation_mask, benefit_relations)
+                decay_factor,
+                normalise_with_num_children,
+                benefit_relations[i],
+                participation_mask[i])
+        ## Pure python variant
+        # benefit_relations[i], participation_mask[i] = construct_linear_benefit_relation(
+        #         root, num_vertices, edge_list, decay_factor, normalise_with_num_children)
+    ret = ProblemMatrices(participation_mask, benefit_relations)
+    logging.info("Matrix construction taken %s", str(time.clock() - start))
+    return ret
 
 
 def construct_problem_matrices(problem, hyperparams, normalise_with_num_children):

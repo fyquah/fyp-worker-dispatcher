@@ -19,6 +19,7 @@ def main():
     num_vertices = len(problem.properties.tree_path_to_ids)
     arr_num_children = [0] * num_vertices
     time_average = np.mean(problem.execution_times)
+
     num_runs = len(problem.execution_times)
 
     assert len(problem.execution_times) == len(problem.edges_lists)
