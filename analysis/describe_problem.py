@@ -23,13 +23,20 @@ def main():
 
     assert len(problem.execution_times) == len(problem.edges_lists)
 
-    print("Inlining tree depth =", problem.properties.depth)
-    print("Number of unique node identifiers =", num_vertices)
-    print("Number of apply nodes =", len(apply_nodes))
-    print("Number of runs =", num_runs)
+    edges = set()
+    for edge_list in problem.edges_lists:
+        for u, v, _kind in edge_list:
+            edges.add((u, v))
 
-    for path in problem.properties.tree_path_to_ids.keys():
-        print(path)
+    print "Inlining tree depth =", problem.properties.depth
+    print "Number of unique node identifiers =", num_vertices
+    print "Number of edges =", num_runs
+    print "Number of apply nodes =", len(apply_nodes)
+    print "Number of runs =", num_runs
+    print "Number of unique edges =", len(edges)
+
+    # for path in problem.properties.tree_path_to_ids.keys():
+    #     print(path)
 
 
 if __name__ == "__main__":
