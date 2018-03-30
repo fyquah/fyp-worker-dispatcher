@@ -3,3 +3,4 @@ parsetab.py
 parser.out
 optimal-decisions.tar
 out/
+fast.so
