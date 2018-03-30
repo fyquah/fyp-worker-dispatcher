@@ -56,22 +56,26 @@ struct linear_relation_t {
 };
 
 
-static linear_relation_t
+static void
 construct_linear_benefit_relation_impl(
     const long root,
     long num_nodes,
     const std::vector<std::vector<long>> & adjacency_list,
     const std::vector<node_kind_t> & node_kinds,
     double decay_factor,
-    bool normalise_with_num_children
+    bool normalise_with_num_children,
+    PyObject* benefit_relation,
+    PyObject* participation_mask
 )
 {
-  std::vector<bool> visited(num_nodes, 0);
+  const npy_intp benifit_relation_stride = PyArray_STRIDE(
+      benefit_relation, 0);
+  const npy_intp participation_mask_stride = PyArray_STRIDE(
+      participation_mask, 0);
+  void *benefit_relation_ptr = PyArray_BYTES(benefit_relation);
+  void *participation_mask_ptr = PyArray_BYTES(participation_mask);
 
-  linear_relation_t ret(
-      std::vector<int32_t>(num_nodes * 2, 0),
-      std::vector<double>(num_nodes * 2, 0)
-  );
+  std::vector<bool> visited(num_nodes, 0);
 
   std::stack<stack_item_t> s;
   s.push(stack_item_t(root, 1.0));
@@ -92,12 +96,29 @@ construct_linear_benefit_relation_impl(
     if (kind == KIND_Inlined
           || kind == KIND_Decl
           || kind == KIND_Top_level) {
-      ret.benefit_relation[2 * node] = factor;
-      ret.participation[2 * node] = 1;
+
+      PyArray_SETITEM(
+          benefit_relation,
+          benefit_relation_ptr + (2 * node * benifit_relation_stride),
+          PyFloat_FromDouble(factor)
+      );
+      PyArray_SETITEM(
+          participation_mask,
+          participation_mask_ptr + (2 * node * participation_mask_stride),
+          PyInt_FromLong(1ul)
+      );
 
     } else if(kind == KIND_Apply) {
-      ret.benefit_relation[2 * node + 1] = factor;
-      ret.participation[2 * node + 1] = 1;
+      PyArray_SETITEM(
+          benefit_relation,
+          benefit_relation_ptr + ((2 * node + 1) * benifit_relation_stride),
+          PyFloat_FromDouble(factor)
+      );
+      PyArray_SETITEM(
+          participation_mask,
+          participation_mask_ptr + ((2 * node + 1) * participation_mask_stride),
+          PyInt_FromLong(1ul)
+      );
 
     } else {
       assert(false);
@@ -113,8 +134,6 @@ construct_linear_benefit_relation_impl(
       }
     }
   }
-
-  return ret;
 }
 
 }  // fyp
@@ -155,31 +174,33 @@ construct_linear_benefit_relation(PyObject *self, PyObject *args)
     node_kinds[v] = fyp::kind_from_string(kind);
   }
 
-  auto evaluated = fyp::construct_linear_benefit_relation_impl(
+  fyp::construct_linear_benefit_relation_impl(
       root, num_nodes, adjacency_list, node_kinds,
-      decay_factor, normalise_with_num_children);
+      decay_factor, normalise_with_num_children,
+      benefit_relation,
+      participation_mask);
 
-  npy_intp stride = PyArray_STRIDE(benefit_relation, 0);
-  void *dataptr = PyArray_BYTES(benefit_relation);
-  for (int i = 0; i < 2 * num_nodes ; i++) {
-    PyArray_SETITEM(
-        benefit_relation,
-        dataptr,
-        PyFloat_FromDouble(evaluated.benefit_relation[i])
-    );
-    dataptr = dataptr + stride;
-  }
+  // npy_intp stride = PyArray_STRIDE(benefit_relation, 0);
+  // void *dataptr = PyArray_BYTES(benefit_relation);
+  // for (int i = 0; i < 2 * num_nodes ; i++) {
+  //   PyArray_SETITEM(
+  //       benefit_relation,
+  //       dataptr,
+  //       PyFloat_FromDouble(evaluated.benefit_relation[i])
+  //   );
+  //   dataptr = dataptr + stride;
+  // }
 
-  stride = PyArray_STRIDE(participation_mask, 0);
-  dataptr = PyArray_BYTES(participation_mask);
-  for (int i = 0; i < 2 * num_nodes ; i++) {
-    PyArray_SETITEM(
-        participation_mask,
-        dataptr,
-        PyFloat_FromDouble(evaluated.participation[i])
-    );
-    dataptr = dataptr + stride;
-  }
+  // stride = PyArray_STRIDE(participation_mask, 0);
+  // dataptr = PyArray_BYTES(participation_mask);
+  // for (int i = 0; i < 2 * num_nodes ; i++) {
+  //   PyArray_SETITEM(
+  //       participation_mask,
+  //       dataptr,
+  //       PyFloat_FromDouble(evaluated.participation[i])
+  //   );
+  //   dataptr = dataptr + stride;
+  // }
 
   Py_RETURN_NONE;
 }
