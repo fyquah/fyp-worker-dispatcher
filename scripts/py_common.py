@@ -62,7 +62,7 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_args="400"),
 
         "lens": ExperimentParameters(
-            bin_name="lens",
+            bin_name="lens_benchmark",
             subdir="normal/lens_benchmark",
             bin_args="1500000000"),
 

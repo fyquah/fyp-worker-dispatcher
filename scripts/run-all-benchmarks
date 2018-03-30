@@ -13,7 +13,14 @@ if [ "$method" == "" ]; then
   exit 1
 fi
 
-for exp in $(python ./scripts/query_experiment_params.py --all); do
+if [ "$2" == "" ]; then
+  EXPS=$(python ./scripts/query_experiment_params.py --all)
+else
+  echo "Running only $2"
+  EXPS="$2"
+fi
+
+for exp in $EXPS; do
   mkdir -p results/$exp/$method
   for file in $(ls analysis/out/$exp/$method/*/optimal.sexp); do
     OUTPUT="results/$exp/$method/$(basename $(dirname $file)).csv"
@@ -23,7 +30,7 @@ for exp in $(python ./scripts/query_experiment_params.py --all); do
     else
       echo ">>>>> Running experiment $exp with override $file"
       ./scripts/run-benchmark $exp $file \
-        1> "$OUTPUT" 2>/dev/null
+        1> "$OUTPUT"
     fi
   done
 done
