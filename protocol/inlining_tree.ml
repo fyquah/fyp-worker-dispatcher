@@ -1184,15 +1184,13 @@ module V1 = struct
           let acs = Trace_item.At_call_site acs in
           let trace = acs :: old_trace in
           let round = 0 in
-          let rec loop remaining_trace =
-            match remaining_trace with
-            | [] -> []
-            | _ :: tl ->
-             { Decision.
-               round; trace = acs :: remaining_trace;
-               apply_id; action; metadata; } :: loop tl
+          let decisions =
+            { Decision.
+              round; trace = acs :: old_trace;
+              apply_id; action; metadata;
+            }
           in
-          (trace, loop old_trace)
+          (trace, [decisions])
         in
         let rec loop ~trace ~previous root =
           List.concat_map root ~f:(function

@@ -79,16 +79,17 @@ module Test_v1 = struct
     in
     if not soundness.is_sound then begin
       let buffer = Buffer.create 1000 in
-      Inlining_tree.Top_level.pprint buffer tree;
-      printf "ORIGINAL TREE:\n%s\n" (Buffer.contents buffer);
-
-      let buffer = Buffer.create 1000 in
       Inlining_tree.Top_level.pprint buffer compiled_tree;
       printf "COMPILED:\n%s\n" (Buffer.contents buffer);
 
       let buffer = Buffer.create 1000 in
       Inlining_tree.Top_level.pprint buffer modified_tree;
       printf "TARGET:\n%s\n" (Buffer.contents buffer);
+
+      let buffer = Buffer.create 1000 in
+      Inlining_tree.Top_level.Expanded.pprint buffer
+        (Inlining_tree.Top_level.expand modified_tree);
+      printf "Expanded tree:\n%s\n" (Buffer.contents buffer);
 
       assert false;
     end;
@@ -119,6 +120,32 @@ module Test_v1 = struct
     let overrides_sexp_of_tree root =
       [%sexp_of: Data_collector.Overrides.t] (
         Inlining_tree.Top_level.to_override_rules root
+      )
+    ;;
+
+    let compile_with_decisions =
+      compile_with_decisions ~overrides_sexp_of_tree
+    ;;
+
+    let run () =
+      (* printf "Running initial complation\n"; *)
+      let%bind () = compile_with_decisions [] in
+      let%bind tree = load_decision_tree () in
+      Deferred.ignore (
+        List.init 30 ~f:Fn.id
+        |> Deferred.List.fold ~init:tree ~f:(fun tree iter  ->
+            run_single_iter ~iter ~tree ~compile_with_decisions)
+      )
+  end
+
+  module Verify_v1_expanded_overrides = struct
+    let name = "v1.verify_v1_expanded_overrides"
+
+    let overrides_sexp_of_tree root =
+      [%sexp_of: Data_collector.Overrides.t] (
+        root
+        |> Inlining_tree.Top_level.expand
+        |> Inlining_tree.Top_level.Expanded.to_override_rules
       )
     ;;
 
@@ -199,7 +226,7 @@ end
 
 let () =
   Testlib.register (module Test_v1.Verify_expansion);
-  (*
   Testlib.register (module Test_v1.Verify_v1_overrides);
   Testlib.register (module Test_v1.Verify_simple_overrides);
-     *)
+  Testlib.register (module Test_v1.Verify_v1_expanded_overrides)
+;;
