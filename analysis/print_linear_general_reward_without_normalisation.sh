@@ -19,4 +19,4 @@ for subdir in $(ls $EXP_BASE_DIR/); do
   echo "../_build/default/tools/tree_tools.exe v1 expanded-to-decisions \
     $EXP_BASE_DIR/$subdir/optimal-expanded.sexp \
     -output $EXP_BASE_DIR/$subdir/optimal.sexp"
-done | parallel $ADDITIONAL_FLAGS
+done
