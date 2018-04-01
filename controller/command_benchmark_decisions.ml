@@ -12,7 +12,7 @@ let command_run =
       let {
         Command_params.
         config_filename;
-        controller_rundir = _;
+        controller_rundir;
         exp_dir;
         bin_name;
         bin_args;
@@ -86,7 +86,7 @@ let command_run =
               List.map execution_stats.raw_execution_time
                 ~f:Time.Span.to_string_hum
             in
-            overrides_file :: identifier :: raw_execution_time
+            identifier :: overrides_file :: controller_rundir :: raw_execution_time
             |> String.concat ~sep:","
             |> printf "%s\n"
           end
