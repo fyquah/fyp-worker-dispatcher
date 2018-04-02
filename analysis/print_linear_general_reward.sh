@@ -8,7 +8,11 @@ TASK_FILE=$(mktemp)
 EXP_BASE_DIR=$PROBLEM_BASE_DIR/linear-general-reward
 # 
 for subdir in $(ls $EXP_BASE_DIR/); do
+  if [ -f "$EXP_BASE_DIR/$subdir/optimal-expanded.sexp" ]; then
+    echo "$EXP_BASE_DIR/$subdir/optimal-expanded.sexp exists -- skipping" >/dev/stderr
+  else
     echo "--experiment-dir $EXP_BASE_DIR/$subdir/ --problem-dir $PROBLEM_BASE_DIR --optimal-decision --output $EXP_BASE_DIR/$subdir/optimal-expanded.sexp" >>$TASK_FILE
+  fi
 done
 python2 batch_execute.py print_linear_general_reward $ADDITIONAL_FLAGS <$TASK_FILE
 
@@ -16,7 +20,7 @@ python2 batch_execute.py print_linear_general_reward $ADDITIONAL_FLAGS <$TASK_FI
 ###       It is okay to use GNU parallel for this, as there is no state-sharing
 ###       across different executions.
 for subdir in $(ls $EXP_BASE_DIR/); do
-  echo "../_build/default/tools/tree_tools.exe v1 expanded-to-decisions \
+  ../_build/default/tools/tree_tools.exe v1 expanded-to-decisions \
     $EXP_BASE_DIR/$subdir/optimal-expanded.sexp \
-    -output $EXP_BASE_DIR/$subdir/optimal.sexp"
+    -output $EXP_BASE_DIR/$subdir/optimal.sexp
 done
