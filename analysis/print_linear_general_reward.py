@@ -34,6 +34,9 @@ group1.add_argument(
 group1.add_argument(
         "--inspect-run", type=int, default=None,
         help="dump about how much the model has done something")
+group1.add_argument(
+        "--inspect-rewards", action="store_true",
+        help="Inspect values learnt for nodes in the inlining tree.")
 
 
 def choose_left(a, b):
@@ -52,11 +55,43 @@ def neg_inf_if_none(a):
         return a
 
 
-def build_optimal_tree(tree, hyperparams):
+def prettify(n):
+    if n == np.inf:
+        return "   INF"
+    elif n == -np.inf:
+        return "  -INF"
+    elif n > 0:
+        return " %.3f" % n
+    else:
+        return "%.3f" % n
+
+
+def format_trace_item(trace_item):
+    if trace_item[0] == "declaration":
+        return "{" + trace_item[1].closure_origin.id() + "}"
+    elif trace_item[0] == "function":
+        return "<" + trace_item[1].path[-1].id() + ">"
+    else:
+        assert False
+
+
+def print_tree(tree, depth=0):
+    print "(%s | %s)\t%s%s" % (
+            prettify(neg_inf_if_none(tree.value[0])),
+            prettify(neg_inf_if_none(tree.value[1])),
+            str("--" * depth),
+            str("<ROOT>" if len(tree.name.trace) == 0 else " " + str(format_trace_item(tree.name.trace[-1]))))
+
+    for child in tree.children:
+        print_tree(child, depth=depth + 1)
+
+
+def build_optimal_tree(tree, hyperparams, normalise_with_num_children):
     """
     args:
         tree<name: path, value: (float * float)>
         hyperparams
+        normalise_with_num_children: boolean
     returns:
         (tree<name: [ Inlined | Apply | Decl ], value: [ Function_call |  Closure_origin ]>, float)
     """
@@ -69,13 +104,14 @@ def build_optimal_tree(tree, hyperparams):
         value_acc = 0.0
 
         for child in tree.children:
-            acc.append(build_optimal_tree(child, hyperparams))
+            acc.append(build_optimal_tree(
+                child, hyperparams, normalise_with_num_children))
             value_acc += acc[-1][1]
             optimal_children.append(acc[-1][0])
 
-        children_value = \
-                hyperparams.decay_factor * value_acc \
-                / float(len(tree.children))
+        children_value = hyperparams.decay_factor * value_acc
+        if normalise_with_num_children:
+            children_value = (children_value / float(len(tree.children)))
     else:
         children_value = 0.0
 
@@ -116,7 +152,7 @@ def build_optimal_tree(tree, hyperparams):
 
 
 def project_benefit_tree(
-        root, hyperparams, id_to_tree_path, adjacency_list, contributions, mask, indent=0):
+        root, hyperparams, id_to_tree_path, adjacency_list, contributions, mask, indent=0, normalise_with_num_children=False):
     space = " " * indent
     assert not (mask[2 * root] and mask[2 * root + 1])
     if mask[2 * root]:
@@ -129,13 +165,19 @@ def project_benefit_tree(
             assert isinstance(child, int)
             child_value = project_benefit_tree(
                     child, hyperparams, id_to_tree_path, adjacency_list,
-                    contributions, mask, indent=indent+1)
+                    contributions, mask,
+                    indent=indent+1,
+                    normalise_with_num_children=normalise_with_num_children)
             if child_value is None:
                 num_children -= 1
             else:
                 acc += child_value
         if num_children:
-            return base + (hyperparams.decay_factor * acc / float(num_children))
+            if normalise_with_num_children:
+                norm_factor = float(num_children)
+            else:
+                norm_factor = 1.0
+            return base + (hyperparams.decay_factor * acc / norm_factor)
         else:
             return base
     elif mask[2 * root + 1]:
@@ -168,6 +210,21 @@ def run(argv):
     w = np.load(
             os.path.join(args.experiment_dir, "contributions.npy"))
 
+    def fill_node_values(node):
+        node_id = node.name
+        if participation_count[node_id * 2] > 0:
+            lhs = w[node_id * 2]
+        else:
+            lhs = None
+        if participation_count[node_id * 2 + 1] > 0:
+            rhs = w[node_id * 2 + 1]
+        else:
+            rhs = None
+        return (node.name, (lhs, rhs))
+
+    def rename_id_to_path(node):
+        return (id_to_tree_path[node.name], node.value)
+
     if args.opt_info:
         A = problem_matrices.benefit_relations
         squared_errors = np.power(target_benefit - np.matmul(A, w), 2)
@@ -183,22 +240,21 @@ def run(argv):
         obtained = np.matmul(A, w)
         target = target_benefit
 
+    elif args.inspect_rewards:
+        A = problem_matrices.benefit_relations
+        adjacency_list = inlining_tree.adjacency_list_from_edge_lists(
+                num_nodes=num_nodes,
+                edge_lists=problem.edges_lists)
+        tree_path_to_ids = problem.properties.tree_path_to_ids
+        id_to_tree_path = {v: k for k, v in tree_path_to_ids.iteritems()}
+        root = tree_path_to_ids[inlining_tree.Absolute_path([])]
+        tree = inlining_tree.build_from_adjacency_list(
+                [None] * num_nodes, root, adjacency_list)
+        tree = tree.map(f=fill_node_values) 
+        tree = tree.map(f=rename_id_to_path)
+        print_tree(tree)
+
     elif args.optimal_decision:
-
-        def fill_node_values(node):
-            node_id = node.name
-            if participation_count[node_id * 2] > 0:
-                lhs = w[node_id * 2]
-            else:
-                lhs = None
-            if participation_count[node_id * 2 + 1] > 0:
-                rhs = w[node_id * 2 + 1]
-            else:
-                rhs = None
-            return (node.name, (lhs, rhs))
-
-        def rename_id_to_path(node):
-            return (id_to_tree_path[node.name], node.value)
 
         tree_path_to_ids = problem.properties.tree_path_to_ids
         id_to_tree_path = {v: k for k, v in tree_path_to_ids.iteritems()}
@@ -210,7 +266,8 @@ def run(argv):
                 [None] * num_nodes, root, adjacency_list)
         tree = tree.map(f=fill_node_values)
         tree = tree.map(f=rename_id_to_path)
-        (optimal_tree, value) = build_optimal_tree(tree, hyperparams)
+        (optimal_tree, value) = build_optimal_tree(
+                tree, hyperparams, normalise_with_num_children)
         sexp_optimal_tree = inlining_tree.sexp_of_top_level(
                 optimal_tree)
         logging.info("Optimal decision has a value of %f" % value)
@@ -239,11 +296,13 @@ def run(argv):
                 adjacency_list=adjacency_list,
                 id_to_tree_path=id_to_tree_path,
                 contributions=w,
-                mask=participation_mask)
+                mask=participation_mask,
+                normalise_with_num_children=normalise_with_num_children)
 
         print "--- Information on run %d ---" % index
         print "Execution directory =", problem.execution_directories[index]
         print "Target benefit =", target_benefit
+        print "Execution time =", problem.execution_times[index]
         print "Projected benefit (with matmul) =", projected_benefit
         print "Projected benefit (with DFS) =", projected_benefit_with_dfs
 
