@@ -1,0 +1,3 @@
+192.168.0.10_0,/home/fyquah/fyp/worker-dispatcher/analysis/out/lexifi/linear-general-reward-without-normalisation/decay-0.993000-ridge-0.007000-benefit-log_speedup_over_mean/optimal.sexp,/home/fyquah/fyp/prod/rundir/2018-04-02T05_13_07.854673Z,15.385s,15.3s
+192.168.0.11_0,/home/fyquah/fyp/worker-dispatcher/analysis/out/lexifi/linear-general-reward-without-normalisation/decay-0.993000-ridge-0.007000-benefit-log_speedup_over_mean/optimal.sexp,/home/fyquah/fyp/prod/rundir/2018-04-02T05_13_07.854673Z,15.485s,15.324s
+192.168.0.12_0,/home/fyquah/fyp/worker-dispatcher/analysis/out/lexifi/linear-general-reward-without-normalisation/decay-0.993000-ridge-0.007000-benefit-log_speedup_over_mean/optimal.sexp,/home/fyquah/fyp/prod/rundir/2018-04-02T05_13_07.854673Z,15.671s,15.315s
