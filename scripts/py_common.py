@@ -51,7 +51,7 @@ EXPERIMENT_TO_PARAMETERS = {
             subdir="normal/hamming",
             bin_args="20000000"),
 
-        "kahan_sum": ExperimentParameters(
+        "kahan-sum": ExperimentParameters(
             bin_name="kahan_sum",
             subdir="normal/kahan_sum",
             bin_args="300000000"),
