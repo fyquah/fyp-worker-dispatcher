@@ -29,6 +29,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--decay-factor", type=str, help="filename")
 parser.add_argument("--ridge-factor", type=str, help="filename")
 parser.add_argument("--benefit-function", type=str, help="")
+parser.add_argument("--model", type=str, required=true,
+        help="linear-general-reward-without-normalisation OR linear-general-reward-learn-normalised-use-unnormalised")
 
 def almost_equal(a, b):
     return np.abs(float(a) - float(b)) < 0.000001
@@ -69,8 +71,8 @@ def main():
 
     for benchmark in py_common.EXPERIMENT_TO_PARAMETERS.keys():
         bench_dir = (
-            "../results/%s/linear-general-reward-without-normalisation/"
-            % benchmark)
+            "../results/%s/%s/"
+            % (benchmark, args.model))
         csv_files = os.listdir(bench_dir)
         initial_exec_time = initial_exec_time_by_bench[benchmark]
         best_time = best_times_by_bench[benchmark]
