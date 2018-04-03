@@ -57,6 +57,7 @@ def main():
                         proposed_time = min(proposed_time, time)
         if proposed_time is not None:
             plot_data.append((benchmark, (proposed_time - best_time) / (initial_exec_time - best_time)))
+        print benchmark, (proposed_time - best_time) / (initial_exec_time - best_time), proposed_time, initial_exec_time, best_time
     x = [a[0] for a in plot_data]
     y = [a[1] for a in plot_data]
     plt.title("Individually-tuned Models on Individual Benchmarks")
