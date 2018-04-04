@@ -2,6 +2,7 @@ open Core
 open Async
 open Protocol.Shadow_fyp_compiler_lib
 
+module Data_collector = Data_collector.V1
 module Inlining_tree = Protocol.Inlining_tree.V1
 module Function_metadata = Data_collector.Function_metadata
 
@@ -9,8 +10,7 @@ let command_path_patching =
   let open Command.Let_syntax in
   Command.async' ~summary:"path patching"
     [%map_open
-      let dirty = anon ("filename" %: string)
-      and reference = flag "-reference" (required string) ~doc:"Aa"
+      let reference = flag "-reference" (required string) ~doc:"Aa"
       and output_file = flag "-output" (optional_with_default "/dev/stdout" string) ~doc:"Aa"
       in
       fun () ->
@@ -18,11 +18,8 @@ let command_path_patching =
         let%bind reference_tree =
           Reader.load_sexp_exn reference [%of_sexp: Inlining_tree.Top_level.t]
         in
-        let%bind dirty_tree =
-          Reader.load_sexp_exn dirty [%of_sexp: Inlining_tree.Top_level.t]
-        in
         let replace_closure_origin (function_metadata : Function_metadata.t) =
-          let closure_origin = function_metadata.closure_origin in
+          let closure_origin = Option.value_exn function_metadata.opt_closure_origin in
           let opt_closure_origin = None in
           { function_metadata with opt_closure_origin; closure_origin; }
         in
@@ -43,10 +40,54 @@ let command_path_patching =
         Writer.write wrt (Sexp.to_string sexp);
         Deferred.unit]
 
+let command_path_patching_on_decisions =
+  let open Command.Let_syntax in
+  Command.async' ~summary:"path patching"
+    [%map_open
+      let reference = flag "-reference" (required string) ~doc:"Aa"
+      and output_file = flag "-output" (optional_with_default "/dev/stdout" string) ~doc:"Aa"
+      in
+      fun () ->
+        let open Deferred.Let_syntax in
+        let%bind reference_decisions =
+          Reader.load_sexp_exn reference [%of_sexp: Data_collector.Decision.t list]
+        in
+        let replace_closure_origin (function_metadata : Function_metadata.t) =
+          if Closure_origin.equal Closure_origin.unknown function_metadata.closure_origin
+          then function_metadata
+          else
+            let closure_origin = Option.value_exn function_metadata.opt_closure_origin in
+            let opt_closure_origin = None in
+            { function_metadata with opt_closure_origin; closure_origin; }
+        in
+        let patched_decisions =
+          List.map reference_decisions ~f:(fun decision ->
+              let metadata = replace_closure_origin decision.metadata in
+              let trace = List.map decision.trace ~f:(fun trace_item ->
+                  match trace_item with
+                  | Enter_decl decl -> 
+                    let source = Option.map ~f:replace_closure_origin decl.source in
+                    let declared = replace_closure_origin decl.declared in
+                    Data_collector.Trace_item.Enter_decl { source; declared; }
+                  | At_call_site acs ->
+                    let source = Option.map ~f:replace_closure_origin acs.source in
+                    let applied = replace_closure_origin acs.applied in
+                    At_call_site { acs with source; applied; })
+              in
+              { decision with metadata; trace; })
+        in
+        let sexp = [%sexp_of: Data_collector.Decision.t list] patched_decisions in 
+        let%bind wrt = Writer.open_file output_file in
+        Writer.write wrt (Sexp.to_string sexp);
+        Deferred.unit]
+;;
+
 
 let () =
   Command.group ~summary:"Data cleaner" [
-    ("path-patching", command_path_patching)]
+    ("path-patching", command_path_patching);
+    ("path-patching-on-decisions", command_path_patching_on_decisions)
+  ]
   |> Command.run
 ;;
 

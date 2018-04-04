@@ -205,7 +205,7 @@ def formulate_problem(raw_trees, execution_times, execution_directories):
 
     return inlining_tree.Problem(
             tree_path_to_ids=tree_path_to_ids,
-            matrices=matrices,
+            depth=len(matrices),
             node_labels=None,
             execution_times=execution_times,
             execution_directories=execution_directories,
@@ -248,6 +248,7 @@ def main():
         num_threads = 1
 
     tasks = list(set(tasks))  # Unlikely, but possible, to get duplicates
+    logging.info("Found %d tasks to perform data extraction" % len(tasks))
 
     if num_threads > 1:
         pool = concurrent.futures.ThreadPoolExecutor(num_threads)
