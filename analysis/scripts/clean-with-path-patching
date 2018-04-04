@@ -48,4 +48,19 @@ echo "Backed up  $PATH_TO_SEXP_FILE to $PATH_TO_SEXP_FILE.bak"
 cp $PATH_TO_SEXP_FILE $PATH_TO_SEXP_FILE.bak
 cp $EXPERIMENT_BIN_NAME.0.data_collector.v1.sexp $PATH_TO_SEXP_FILE
 
+# Note: An older version of the code had this instead of the above [cp] 
+#       statement.
+#
+# ~/fyp/worker-dispatcher/_build/default/tools/data_cleaner.exe \
+#   path-patching-on-decisions \
+#   -reference $EXPERIMENT_BIN_NAME.0.data_collector.v1.sexp \
+#   -output $PATH_TO_SEXP_FILE
+#
+# which isn't correct. The [closure_origin] field in the data collector
+# files refers to [stable_closure_origin] and whereas the
+# [opt_closure_origin] field refers to the unstable version of closure
+# origin used to real loop tracking. The creation of the [data_cleaner.ml]
+# binary was caused by this confusion, and strictly speaking, is not really
+# needed.
+
 rm -rf $SCRATCH_DIR
