@@ -4,7 +4,6 @@ import csv
 import os
 import re
 
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -27,7 +26,6 @@ def geometric_mean(times):
     return acc ** (1.0 / len(times))
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--title", type=str, help="title")
 parser.add_argument("--decay-factor", type=str, help="filename")
 parser.add_argument("--ridge-factor", type=str, help="filename")
 parser.add_argument("--benefit-function", type=str, help="")
@@ -88,50 +86,25 @@ def main():
                     ratio = (time - best_time) / (initial_exec_time - best_time)
                     all_records[benchmark].append((filename, time, ratio))
 
+    collected_ratios = collections.defaultdict(list)
 
     for benchmark in py_common.EXPERIMENT_TO_PARAMETERS.keys():
         best_ratio = None
         worst_ratio = None
         active_ratio = None
 
-        for filename, _time, ratio in all_records[benchmark]:
-            if best_ratio is None:
-                best_ratio = ratio
-                worst_ratio = ratio
-            else:
-                best_ratio = min(best_ratio, ratio)
-                worst_ratio = max(worst_ratio, ratio)
+        for filename, time, ratio in all_records[benchmark]:
+            collected_ratios[filename].append(max(0, ratio))
 
-            if matches_filter(filename, args):
-                if active_ratio is None:
-                    active_ratio = ratio
-                else:
-                    active_ratio = min(active_ratio, ratio)
+    for k in collected_ratios.keys():
+        if len(collected_ratios[k]) < len(py_common.EXPERIMENT_TO_PARAMETERS.keys()):
+            del collected_ratios[k]
 
-        plot_data.append((benchmark, best_ratio, worst_ratio, active_ratio))
-        print benchmark, best_ratio, initial_exec_time, best_time
+    for k, v in collected_ratios.iteritems():
+        print k, sum(v)
 
-    x = [a[0] for a in plot_data]
-
-    matplotlib.rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
-
-    fig = plt.figure(figsize=(13, 9))
-
-    plt.title(args.title)
-    plt.axhline(y=1.0, color='r', linestyle='--')
-    plt.axhline(y=0.0, color='g', linestyle='--')
-
-    plt.plot(x, [a[1] for a in plot_data], 'kx')
-    plt.plot(x, [a[2] for a in plot_data], 'rx')
-    plt.bar(range(0, len(x)), [a[3] or 0 for a in plot_data])
-    plt.xticks(range(0, len(x)), x)
-    plt.xlabel("benchmark")
-    plt.xlabel("relative performance")
-    axes = plt.gca()
-    axes.set_ylim([-1.5, 1.5])
-
-    plt.grid(True)
-    plt.show()
+    print min([(k, v) for k, v in collected_ratios.iteritems()],
+            key=lambda a: sum(a[1]))
 
 if __name__ == "__main__":
     main()
