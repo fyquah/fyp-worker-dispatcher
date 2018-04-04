@@ -7,7 +7,7 @@ TASK_FILE=$(mktemp)
 PROBLEMS="almabench  bdd  fft  floats-in-functor  hamming  kahan-sum  kb  lens  quicksort sequence-cps sequence lexifi"
 
 for problem in $PROBLEMS; do
-  echo "./print_linear_general_reward.sh out/$problem &>tmp/$problem-learn-linear-general-reward.log" >>$TASK_FILE
+  # echo "./print_linear_general_reward.sh out/$problem &>tmp/$problem-learn-linear-general-reward.log" >>$TASK_FILE
   echo "./print_linear_general_reward_without_normalisation.sh out/$problem &>tmp/$problem-learn-linear-general-reward-without-normalisation.log" >>$TASK_FILE
 done
 
