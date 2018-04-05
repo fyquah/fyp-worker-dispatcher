@@ -6,6 +6,7 @@ import re
 
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.backends import backend_pdf
 import numpy as np
 
 import py_common
@@ -33,6 +34,7 @@ parser.add_argument("--ridge-factor", type=str, help="filename")
 parser.add_argument("--benefit-function", type=str, help="")
 parser.add_argument("--model", type=str, required=True,
         help="linear-general-reward-without-normalisation OR linear-general-reward-learn-normalised-use-unnormalised")
+parser.add_argument("--pdf", type=str, default=None, help="")
 
 def almost_equal(a, b):
     return np.abs(float(a) - float(b)) < 0.000001
@@ -88,52 +90,77 @@ def main():
                 if len(times) >= 1:
                     time = geometric_mean(times)
                     ratio = (time - best_time) / (initial_exec_time - best_time)
-                    all_records[benchmark].append((filename, time, ratio))
+                    speedup = (initial_exec_time - time) / initial_exec_time
+                    all_records[benchmark].append((filename, time, ratio, speedup))
 
 
     for benchmark in py_common.EXPERIMENT_TO_PARAMETERS.keys():
         best_ratio = None
         worst_ratio = None
+        best_speedup = None
+        worst_speedup = None
         active_ratio = None
+        active_speedup = None
 
-        for filename, _time, ratio in all_records[benchmark]:
+        for filename, _time, ratio, speedup in all_records[benchmark]:
             if best_ratio is None:
                 best_ratio = ratio
                 worst_ratio = ratio
+                best_speedup = speedup
+                worst_speedup = speedup
             else:
                 best_ratio = min(best_ratio, ratio)
                 worst_ratio = max(worst_ratio, ratio)
+                best_speedup = max(best_speedup, speedup)
+                worst_speedup = min(worst_speedup, speedup)
 
             if matches_filter(filename, args):
                 if active_ratio is None:
                     active_ratio = ratio
+                    active_speedup = speedup
                 else:
                     active_ratio = min(active_ratio, ratio)
+                    active_speedup = max(active_speedup, speedup)
 
-        plot_data.append((benchmark, best_ratio, worst_ratio, active_ratio))
+        plot_data.append((benchmark, best_ratio, worst_ratio, active_ratio, best_speedup, worst_speedup, active_speedup))
         print benchmark, best_ratio, initial_exec_time, best_time
 
     x = [a[0] for a in plot_data]
 
     matplotlib.rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 
-    fig = plt.figure(figsize=(13, 9))
+    fig, axes = plt.subplots(2, 1, figsize=(18, 9))
+    fig.suptitle(args.title)
 
-    plt.title(args.title)
-    plt.axhline(y=1.0, color='r', linestyle='--')
-    plt.axhline(y=0.0, color='g', linestyle='--')
+    axes[0].axhline(y=1.0, color='r', linestyle='--')
+    axes[0].axhline(y=0.0, color='g', linestyle='--')
 
-    plt.plot(x, [a[1] for a in plot_data], 'kx')
-    plt.plot(x, [a[2] for a in plot_data], 'rx')
-    plt.bar(range(0, len(x)), [a[3] or 0 for a in plot_data])
-    plt.xticks(range(0, len(x)), x)
-    plt.xlabel("benchmark")
-    plt.xlabel("relative performance")
-    axes = plt.gca()
-    axes.set_ylim([-1.5, 1.5])
+    axes[0].grid()
+    axes[0].plot(x, [a[1] for a in plot_data], 'kx')
+    axes[0].plot(x, [a[2] for a in plot_data], 'rx')
+    axes[0].bar(range(0, len(x)), [a[3] or 0 for a in plot_data])
+    # axes[0].xticks(range(0, len(x)), x)
+    axes[0].set_xlabel("benchmark")
+    axes[0].set_xlabel("Relative performance")
+    axes[0].set_ylim([-1.5, 1.5])
+
+    # axes[0].xticks(range(0, len(x)), x)
+    axes[1].bar(x, [a[6] or 0 for a in plot_data])
+    axes[1].set_xlabel("benchmark")
+    axes[1].set_xlabel("Obtained speedup")
+    axes[1].plot(x, [a[4] for a in plot_data], 'kx')
+    axes[1].plot(x, [a[5] for a in plot_data], 'rx')
+    axes[1].set_ylim([-0.1, 0.2])
 
     plt.grid(True)
-    plt.show()
+
+    if args.pdf is None:
+        plt.show()
+    else:
+        pp = backend_pdf.PdfPages(args.pdf)
+        pp.savefig()
+        pp.close()
+
 
 if __name__ == "__main__":
     main()
