@@ -7,21 +7,24 @@ open Common
 
 let with_file_lock lock_name ~f =
   let lockdir = "/home/fyquah/.fyp-locks/" in
+  let filename = lockdir ^/ lock_name in
   let%bind fd =
     Deferred.repeat_until_finished () (fun () ->
       Monitor.try_with (fun () ->
-          let mode = [ `Creat; `Excl; ] in
-          Unix.openfile (lockdir ^/ lock_name) ~mode)
+          let mode = [ `Creat; `Excl; `Rdwr; ] in
+          Unix.openfile filename ~mode)
       >>= function
       | Ok fd -> Deferred.return (`Finished fd)
-      | Error _exn ->
+      | Error exn ->
         Log.Global.info
           "Failed to acquite lock for %s. Waiting for a few seconds."
           lock_name;
+        Log.Global.sexp [%message (exn: exn)];
         Clock.after (Time.Span.of_sec 3.1415926535)
         >>= fun () -> Deferred.return (`Repeat ()))
   in
   let%bind result = Monitor.try_with f in
+  let%bind () = Unix.unlink filename in
   let%map () = Unix.close fd in
   match result with
   | Ok result -> result
