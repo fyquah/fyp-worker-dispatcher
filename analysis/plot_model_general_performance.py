@@ -75,6 +75,8 @@ def main():
         bench_dir = (
             "../results/%s/%s/"
             % (benchmark, args.model))
+        if not os.path.exists(bench_dir):
+            continue
         csv_files = os.listdir(bench_dir)
         initial_exec_time = initial_exec_time_by_bench[benchmark]
         best_time = best_times_by_bench[benchmark]
