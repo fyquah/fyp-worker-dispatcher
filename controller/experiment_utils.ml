@@ -5,6 +5,29 @@ open Async
 open Common
 
 
+let with_file_lock lock_name ~f =
+  let lockdir = "/home/fyquah/.fyp-locks/" in
+  let%bind fd =
+    Deferred.repeat_until_finished () (fun () ->
+      Monitor.try_with (fun () ->
+          let mode = [ `Creat; `Excl; ] in
+          Unix.openfile (lockdir ^/ lock_name) ~mode)
+      >>= function
+      | Ok fd -> Deferred.return (`Finished fd)
+      | Error _exn ->
+        Log.Global.info
+          "Failed to acquite lock for %s. Waiting for a few seconds."
+          lock_name;
+        Clock.after (Time.Span.of_sec 3.1415926535)
+        >>= fun () -> Deferred.return (`Repeat ()))
+  in
+  let%bind result = Monitor.try_with f in
+  let%map () = Unix.close fd in
+  match result with
+  | Ok result -> result
+  | Error exn -> raise exn
+;;
+
 module Work_unit = struct
   type deprecated =
     { path_to_bin : string;
@@ -127,6 +150,9 @@ module Worker_connection = struct
     match t with
     | Rpc _ -> None
     | Ssh c -> c.processor
+  ;;
+
+  let lockname a = hostname a
 end
 
 let run_binary_on_rpc_worker
@@ -250,14 +276,15 @@ let run_binary_on_ssh_worker ~num_runs ~processor ~rundir ~user ~hostname
 let run_binary_on_worker (type a)
     ~num_runs ~processor ~hostname
     ~(conn: a Worker_connection.t) ~path_to_bin ~bin_args ~dump_dir =
-  match conn with
-  | Worker_connection.Rpc worker_connection ->
-    run_binary_on_rpc_worker ~worker_connection ~path_to_bin ~hostname
-  | Worker_connection.Ssh (ssh_config : Worker_connection.ssh_conn) ->
-    let rundir = ssh_config.rundir in
-    let user = ssh_config.user in
-    run_binary_on_ssh_worker ~processor ~num_runs ~user ~rundir ~hostname
-      ~path_to_bin ~bin_args ~dump_dir
+  with_file_lock (Worker_connection.lockname conn) ~f:(fun () ->
+    match conn with
+    | Worker_connection.Rpc worker_connection ->
+      run_binary_on_rpc_worker ~worker_connection ~path_to_bin ~hostname
+    | Worker_connection.Ssh (ssh_config : Worker_connection.ssh_conn) ->
+      let rundir = ssh_config.rundir in
+      let user = ssh_config.user in
+      run_binary_on_ssh_worker ~processor ~num_runs ~user ~rundir ~hostname
+        ~path_to_bin ~bin_args ~dump_dir)
 ;;
 
 let init_connection ~hostname ~worker_config =
@@ -464,3 +491,5 @@ let run_in_all_workers ~scheduler ~times ~config ~path_to_bin =
     }
   in
   Deferred.Or_error.return execution_stats
+;;
+

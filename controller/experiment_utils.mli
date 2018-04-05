@@ -55,6 +55,8 @@ module Worker_connection : sig
 
   val hostname : 'a t -> string
 
+  val lockname : 'a t -> string
+
   val processor : 'a t -> int option
 end
 
@@ -126,3 +128,5 @@ val run_in_all_workers
   -> config:Common.Config.t
   -> path_to_bin:string
   -> Common.Execution_stats.t Deferred.Or_error.t
+
+val with_file_lock : string -> f:(unit -> 'a Deferred.t) -> 'a Deferred.t
