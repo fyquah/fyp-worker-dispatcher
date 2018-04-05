@@ -296,23 +296,24 @@ let init_connection ~hostname ~worker_config =
     begin
     lift_deferred (Unix.getcwd ())
     >>=? fun cwd ->
-    let user = ssh_config.user in
-    let args =
-      [ "worker/benchmark_binary.sh";
-        (sprintf "%s@%s:%s" user hostname ssh_config.rundir);
-      ]
-    in
-    shell ~dir:cwd "scp" args >>=? fun () ->
-    let args =
-      [ "worker/perf.sh";
-        (sprintf "%s@%s:%s" user hostname ssh_config.rundir);
-      ]
-    in
-    shell ~dir:cwd "scp" args >>|? fun () ->
-    let rundir = ssh_config.rundir in
-    let user = ssh_config.user in
-    let processor = ssh_config.processor in
-    Worker_connection.Ssh { user; rundir; hostname; processor; }
+    with_file_lock hostname ~f:(fun () ->
+        let user = ssh_config.user in
+        let args =
+          [ "worker/benchmark_binary.sh";
+            (sprintf "%s@%s:%s" user hostname ssh_config.rundir);
+          ]
+        in
+        shell ~dir:cwd "scp" args >>=? fun () ->
+        let args =
+          [ "worker/perf.sh";
+            (sprintf "%s@%s:%s" user hostname ssh_config.rundir);
+          ]
+        in
+        shell ~dir:cwd "scp" args >>|? fun () ->
+        let rundir = ssh_config.rundir in
+        let user = ssh_config.user in
+        let processor = ssh_config.processor in
+        Worker_connection.Ssh { user; rundir; hostname; processor; })
     end
   | Protocol.Config.Rpc_worker rpc_config ->
     lift_deferred (
