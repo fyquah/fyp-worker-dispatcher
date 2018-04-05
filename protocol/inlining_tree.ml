@@ -1528,6 +1528,7 @@ module V1 = struct
       |> expand_decisions_in_call_site_based_on_inlining_path
       |> merge_decisions_in_call_site
       |> fill_in_decisions_from_declaration
+      |> merge_decisions_in_call_site
     ;;
 
     module T = struct
