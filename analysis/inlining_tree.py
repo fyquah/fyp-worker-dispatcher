@@ -405,12 +405,12 @@ class Absolute_path(object):
     def trace(self):
         return self._trace
 
-    def __str__(self):
+    def id(self):
         ret = []
         for item in self._trace:
             if item[0] == "function":
-                # (Local_path.t * Closure_origin.t)
-                ret.append("<%s__%s>" % (item[1].id(), item[2].id()))
+                # item[1:] == (Local_path.t * Closure_origin.t)
+                ret.append("<%s>" % (item[1].id()))
             elif item[0] == "declaration":
                 # (Closure_origin.t)
                 ret.append("{%s}" % item[1].id())
@@ -418,11 +418,29 @@ class Absolute_path(object):
                 raise RuntimeError("Unknown item[0] %s" % item[0])
         return "/".join(ret)
 
+    def __str__(self):
+        ret = []
+        metadata = ""
+        for i, item in enumerate(self._trace):
+            if item[0] == "function":
+                # (Local_path.t * Closure_origin.t)
+                if  i == len(self._trace) - 1:
+                    ret.append("<%s>" % (item[1].path[-1].id()))
+                    metadata = " " + item[2].id()
+                else:
+                    ret.append("<%s>" % item[1].id())
+            elif item[0] == "declaration":
+                # (Closure_origin.t)
+                ret.append("{%s}" % item[1].id())
+            else:
+                raise RuntimeError("Unknown item[0] %s" % item[0])
+        return "/".join(ret) + metadata
+
     def __eq__(self, other):
-        return str(self) == str(other)
+        return self.id() == other.id()
 
     def __hash__(self):
-        return hash(str(self))
+        return hash(self.id())
 
     def is_apply_node(self):
         return len(self._trace) >= 1 and self._trace[-1][0] == "function"
