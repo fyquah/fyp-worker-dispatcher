@@ -1221,6 +1221,18 @@ module V1 = struct
         in
         Overrides.of_decisions (loop ~trace:[] ~previous:None root_)
       ;;
+
+      let get_func = function
+        | Decl { func; _ }
+        | Inlined { func; _ }
+        | Apply { func; _ } -> func
+      ;;
+
+      let update_func node func =
+        match node with
+        | Decl decl -> Decl { decl with func }
+        | Inlined inlined -> Inlined { inlined with func }
+        | Apply apply -> Apply { apply with func }
     end
 
     module E = Expanded
@@ -1360,7 +1372,7 @@ module V1 = struct
           if used.(i) then
             None
           else begin
-            let additional_children =
+            let similar_siblings =
               let ret = ref [] in
               for j = i + 1 to Array.length tree - 1 do
                 if not used.(j) then begin
@@ -1374,12 +1386,24 @@ module V1 = struct
                 end
               done;
               List.rev !ret
-              |> List.concat_map ~f:(function
+            in
+            let additional_children =
+              List.concat_map similar_siblings ~f:(function
                   | E.Inlined { children; _ } -> children
                   | E.Decl { children; _ } -> children
                   | E.Apply _ -> [])
             in
             used.(i) <- true;
+            let func =
+              this_node :: similar_siblings
+              |> List.filter ~f:(fun node ->
+                  not (Function_metadata.equal
+                    E.expanded_function_metadata (E.get_func node)))
+              |> List.hd
+              |> Option.map ~f:E.get_func
+              |> Option.value ~default:(E.get_func this_node)
+            in
+            let this_node = E.update_func this_node func in
             match additional_children with
             | [] -> Some this_node
             | additional_children ->
@@ -1500,10 +1524,10 @@ module V1 = struct
     ;;
 
     let expand root =
-      let _ = fill_in_decisions_from_declaration in
       root
       |> expand_decisions_in_call_site_based_on_inlining_path
       |> merge_decisions_in_call_site
+      |> fill_in_decisions_from_declaration
     ;;
 
     module T = struct
