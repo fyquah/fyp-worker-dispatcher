@@ -152,9 +152,10 @@ def build_optimal_tree(tree, hyperparams, normalise_with_num_children):
 
 
 def project_benefit_tree(
-        root, hyperparams, id_to_tree_path, adjacency_list, contributions, mask, indent=0, normalise_with_num_children=False):
+        root, hyperparams, id_to_tree_path, adjacency_list, contributions, mask, indent=0, normalise_with_num_children=False, visited=None):
     space = " " * indent
     assert not (mask[2 * root] and mask[2 * root + 1])
+    visited.add(root)
     if mask[2 * root]:
         logging.info(
                 "%sLooking into %d(%s)" % (space, root, id_to_tree_path[root]))
@@ -167,7 +168,8 @@ def project_benefit_tree(
                     child, hyperparams, id_to_tree_path, adjacency_list,
                     contributions, mask,
                     indent=indent+1,
-                    normalise_with_num_children=normalise_with_num_children)
+                    normalise_with_num_children=normalise_with_num_children,
+                    visited=visited)
             if child_value is None:
                 num_children -= 1
             else:
@@ -290,6 +292,7 @@ def run(argv):
         projected_benefit = np.matmul(A, w)[index]
         participation_mask = problem_matrices.participation_mask[index, :]
         assert participation_mask.shape == (num_nodes * 2,)
+        visited = set()
         projected_benefit_with_dfs = project_benefit_tree(
                 root=tree_path_to_ids[inlining_tree.Absolute_path([])],
                 hyperparams=hyperparams,
@@ -297,7 +300,13 @@ def run(argv):
                 id_to_tree_path=id_to_tree_path,
                 contributions=w,
                 mask=participation_mask,
-                normalise_with_num_children=normalise_with_num_children)
+                normalise_with_num_children=normalise_with_num_children,
+                visited=visited)
+
+        for i in range(num_nodes):
+            if participation_mask[i * 2] or participation_mask[i * 2 + 1]:
+                if i not in visited:
+                    print "DID NOT VISIT", i, id_to_tree_path[i]
 
         print "--- Information on run %d ---" % index
         print "Execution directory =", problem.execution_directories[index]
