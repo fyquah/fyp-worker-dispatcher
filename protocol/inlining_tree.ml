@@ -1037,6 +1037,25 @@ module V1 = struct
         | Apply   of apply
       [@@deriving sexp]
 
+      let is_decl = function
+        | Decl _ -> true
+        | _  -> false
+      ;;
+
+      let update_path_exn a path =
+        match a with
+        | Decl _ -> failwith "Cannot update apply id from a Decl"
+        | Inlined inlined -> Inlined { inlined with path }
+        | Apply   apply ->   Apply { apply with path }
+      ;;
+
+      let get_path_exn a =
+        match a with
+        | Decl _ -> failwith "Cannot update apply id from a Decl"
+        | Inlined inlined -> inlined.path
+        | Apply   apply ->   apply.path
+      ;;
+
       let node_equal_without_descend a b =
         match a, b with
         | Decl a, Decl b ->
@@ -1444,6 +1463,74 @@ module V1 = struct
      *
      * to denote that the inlining decision C exists.
      *
+     * Due to a bug in Flambda, that doesn't correctly use the approximated
+     * versions of closures with Let_rec, there are cases where the
+     * unsimplified version of the function is used. Hence, to preserve
+     * support for that behaviour, we need to check if merging the
+     * declaration into the call site results in a conflict.
+     * (this is the check performed in the let%map section below). One
+     * possible (and common) consequence of this malformed thing is the
+     * occurence of following Flambda terms:
+     *
+     * Let_rec (
+     *   hello_set_of_closures (
+     *     set_of_closures (fun b -> 
+     *       (let
+     *         (a (1 + b))
+     *         apply hello_closure a
+     *        )
+     *     )
+     *   )
+     *   hello_closure (Project_closure abc)
+     * )
+     * apply hello_closure 123
+     *
+     * After some inlining in the first approximation:
+     *
+     * Let_rec (
+     *   hello_set_of_closures (
+     *     set_of_closures (fun b -> 
+     *       (let
+     *         (a (1 + b)
+     *          a' (1 + a))
+     *         apply hello_closure a'
+     *        )
+     *     )
+     *   )
+     *   hello_closure (Project_closure abc)  // approximation points to old variant!
+     * )
+     * apply hello_closure 123
+     *
+     * And inlining the hello_closure, we (incorrectly) use the unsimplified
+     * version
+     *
+     * Let_rec (
+     *   hello_set_of_closures (
+     *     set_of_closures (fun b -> 
+     *       (let
+     *         (a (1 + b)
+     *          a' (1 + a))
+     *         apply hello_closure a'
+     *        )
+     *     )
+     *   )
+     *   hello_closure (Project_closure abc)  // approximation points to old variant!
+     * )
+     * (let
+     *   (a (1 + 123)
+     *    apply hello_closure a)
+     *
+     * The way we detect that we _cannot_ simply replay the simplified
+     * declaration is by checking for node tag and apply id consistency.
+     *
+     * Some cases that is known to be replayed incorrectly still:
+     * - the inlined version DCO-ed enough. In which case, we will
+     *   replay the nodes from declarations.
+     * - 
+     *
+     * The assumption is that the cases above are not prevelant enough to
+     * cause problems.
+     *
      * TODO: The following implementation jumbles up the order, this is 
      *       not ideal, but not catostrophic..
      *)
@@ -1451,6 +1538,25 @@ module V1 = struct
       let declaration_map = ref Closure_id.Map.empty in
       let replay_declaration_inlined_leaves inlined_root
           ~inlining_path ~declaration_root =
+        let open Option.Let_syntax in
+        let%map () =
+          let cond =
+            List.for_all inlined_root ~f:(fun node ->
+                E.is_decl node ||  (* declarations are noisy, due to
+                                      function specialisation *)
+                List.exists declaration_root ~f:(fun decl_node ->
+                    let node =
+                      E.update_path_exn node
+                        (trim_prefix ~prefix:inlining_path (E.get_path_exn node))
+                    in
+                    (* Important that the tags match here. Cannot have Inlined
+                     * in one and not inlined in another. (Recursive functions
+                     * that inline the body).
+                     *)
+                    E.node_equal_without_descen decl_node node))
+          in
+          if cond then Some () else None
+        in
         let nodes_to_replay =
           E.filter_map declaration_root ~f:(fun node ->
               match node with
@@ -1504,11 +1610,9 @@ module V1 = struct
                   if Apply_id.Path.Set.mem replayed inlining_path then
                     None
                   else
-                    Some (
-                      replay_declaration_inlined_leaves inlined.children
-                        ~inlining_path:inlined.path
-                        ~declaration_root:decl.children
-                    )
+                    replay_declaration_inlined_leaves inlined.children
+                      ~inlining_path:inlined.path
+                      ~declaration_root:decl.children
                 in
                 match opt with
                 | None -> (Apply_id.Path.Set.empty, inlined.children)
