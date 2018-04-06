@@ -14,6 +14,7 @@ import sexpdata
 import scipy.sparse
 
 import inlining_tree
+import py_common
 
 
 def iterate_rundirs(rundirs):
@@ -23,18 +24,22 @@ def iterate_rundirs(rundirs):
         # initial (can have up to 9 sub steps)
         for substep in range(0, 9):
             substep_dir = os.path.join(opt_data_dir, "initial", str(substep))
+            output_dir = os.path.join(
+                    os.path.basename(rundir), "opt_data", "initial", str(substep))
             if not os.path.exists(substep_dir):
                 continue
-            yield substep_dir
+            yield (substep_dir, output_dir)
 
         # parse every step
         for step in range(0, 299):
             for substep in range(0, 3):
                 substep_dir = os.path.join(
                         opt_data_dir, str(step), str(substep))
+                output_dir = os.path.join(
+                        os.path.basename(rundir), "opt_data", str(step), str(substep))
                 if not os.path.exists(substep_dir):
                     continue
-                yield substep_dir
+                yield (substep_dir, output_dir)
 
 
 def collect_unique_nodes(acc, trace, tree):
@@ -214,9 +219,7 @@ def formulate_problem(raw_trees, execution_times, execution_directories):
 parser = argparse.ArgumentParser(description="formulate the problem")
 parser.add_argument("--script-name", type=str, help="Name of script", required=True)
 parser.add_argument("--output-dir", type=str, help="output dir", required=True)
-parser.add_argument("--bin-name", type=str, help="output dir", required=True)
-parser.add_argument("--exp-subdir", type=str,
-        help="experiment subdirectory name", required=True)
+parser.add_argument("--experiment-name", type=str, required=True, help="")
 parser.add_argument("--debug", action="store_true", help="debugging mode")
 
 
@@ -248,24 +251,36 @@ def main():
         num_threads = 1
 
     tasks = list(set(tasks))  # Unlikely, but possible, to get duplicates
+    bin_name = py_common.EXPERIMENT_TO_PARAMETERS[args.experiment_name].bin_name
+    exp_subdir = py_common.EXPERIMENT_TO_PARAMETERS[args.experiment_name].subdir
     logging.info("Found %d tasks to perform data extraction" % len(tasks))
+    logging.info("bin_name = %s" % bin_name)
+    logging.info("exp_subdir = %s" % exp_subdir)
 
     if num_threads > 1:
         pool = concurrent.futures.ThreadPoolExecutor(num_threads)
         futures = [
-                pool.submit(inlining_tree.load_tree_from_rundir, task, args.bin_name,
-                    ("path_patching", args.exp_subdir))
+                pool.submit(inlining_tree.load_tree_from_rundir, task, bin_name,
+                    ("path_patching", exp_subdir))
                 for task in tasks
         ]
         results = [r.result() for r in concurrent.futures.as_completed(futures)]
     elif num_threads == 1:
         results = []
-        for task in tasks:
+        for task, rel_output_dir in tasks:
+            print rel_output_dir
+            output_dir = os.path.join(
+                    "/media/usb/home/fyquah/fyp/prod/processed-data",
+                    args.experiment_name,
+                    rel_output_dir)
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
             results.append(
                     inlining_tree.load_tree_from_rundir(
                         task,
-                        args.bin_name,
-                        ("path_patching", args.exp_subdir)
+                        bin_name,
+                        preprocessing=("path_patching", exp_subdir),
+                        output_dir=output_dir
                     )
             )
     else:

@@ -584,7 +584,7 @@ def edge_list_to_adjacency_list():
     pass
 
 
-def load_tree_from_rundir(substep_dir, bin_name, preprocessing):
+def load_tree_from_rundir(substep_dir, bin_name, preprocessing, output_dir):
     logging.info("Loading tree from %s" % substep_dir)
     substep_tmp_dir = os.path.join(substep_dir, "tmp")
 
@@ -646,6 +646,8 @@ def load_tree_from_rundir(substep_dir, bin_name, preprocessing):
                     % data_collector_file)
 
             tree = build_tree_from_str(tree_file.read())
+            shutil.copy(data_collector_file, os.path.join(output_dir, "decisions.sexp"))
+            shutil.copy(tree_file.name, os.path.join(output_dir, "expanded-tree.sexp"))
         finally:
             tree_file.close()
 
