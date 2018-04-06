@@ -662,6 +662,7 @@ def load_tree_from_rundir(substep_dir, bin_name, preprocessing, output_dir):
                     parse_time(unpack_atom(x))
                     for x in m["raw_execution_time"]
             ])
+        shutil.copy(execution_stats_file, os.path.join(output_dir, "execution_stats.sexp"))
 
         logging.info("Done with %s" % substep_dir)
     finally:

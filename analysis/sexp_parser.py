@@ -1,4 +1,6 @@
+import logging
 import sys
+import threading
 
 import ply
 
@@ -13,9 +15,6 @@ t_ignore = " \t\n"
 def t_error(t):
     print("Illegal character '%s'" % t.value[0])
     t.lexer.skip(1)
-
-import ply.lex as lex
-lex.lex()
 
 precedence = {}
 
@@ -55,16 +54,22 @@ def p_sexplist_many(p):
 
 
 def p_error(p):
-    stack_state_str = ' '.join([symbol.type for symbol in parser.symstack][1:])
+    stack_state_str = ' '.join([symbol.type for symbol in p.parser.symstack][1:])
     print('Syntax error in input! Parser State:{} {} . {}'.format(
         parser.state, stack_state_str, p))
     raise ParseError()
 
+thread_local = threading.local()
+thread_local.parser = None
 
-import ply.yacc as yacc
-parser = yacc.yacc()
-
-parse = yacc.parse
+def parse(a):
+    if not hasattr(thread_local, "parser") or thread_local.parser is None:
+        import ply.lex as lex
+        thread_local.lexer = lex.lex()
+        import ply.yacc as yacc
+        thread_local.parser = yacc.yacc()
+        logging.info("Building a new parser")
+    return thread_local.parser.parse(a, lexer=thread_local.lexer)
 
 if __name__ == "__main__":
     print "Parsing %s" % sys.argv[1]

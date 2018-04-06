@@ -7,7 +7,7 @@ import os
 import pickle
 import sys
 import shutil
-import subprocess
+import subprocess32 as subprocess
 
 import numpy as np
 import sexpdata
@@ -268,7 +268,6 @@ def main():
     elif num_threads == 1:
         results = []
         for task, rel_output_dir in tasks:
-            print rel_output_dir
             output_dir = os.path.join(
                     "/media/usb/home/fyquah/fyp/prod/processed-data",
                     args.experiment_name,
