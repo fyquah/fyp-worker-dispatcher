@@ -102,6 +102,12 @@ module Apply_id = struct
         |> String.concat ~sep:"/"
         |> (fun s -> "/" ^ s)
       ;;
+
+      let to_readable_string a =
+        to_string (
+          Option.value ~default:[]
+            (Option.map ~f:(fun x -> [x]) (List.hd (List.rev a))))
+      ;;
     end
 
     include T

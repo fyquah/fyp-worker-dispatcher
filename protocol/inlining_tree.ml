@@ -1087,13 +1087,13 @@ module V1 = struct
             iterate_children ~indent decl.children
           | Inlined inlined ->
             bprintf buffer "%sINLINE[%s](%s)\n" space
-              (Apply_id.Path.to_string inlined.path)
+              (Apply_id.Path.to_readable_string inlined.path)
               (Format.asprintf "%a"
                  Closure_origin.print inlined.func.closure_origin);
             iterate_children ~indent inlined.children
           | Apply apply ->
             bprintf buffer "%sAPPLY[%s](%s)\n" space
-              (Apply_id.Path.to_string apply.path)
+              (Apply_id.Path.to_readable_string apply.path)
               (Format.asprintf "%a"
                 Closure_origin.print apply.func.closure_origin);
 
