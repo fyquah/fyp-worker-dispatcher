@@ -93,6 +93,20 @@ def choose_first_that_exists(candidates):
     raise RuntimeError("None of %s exists!" % (",".join(candidates)))
 
 def main():
+    def process_single_decision_file(decision_file):
+        tree = load_tree_from_from_decision_file(decision_file)
+        if tree is None:
+            return None
+        decision_file_dirname = os.path.dirname(decision_file)
+        execution_directory = infer_execution_directory(
+                os.path.dirname(decision_file))
+        execution_stats_file = choose_first_that_exists([
+            os.path.join(decision_file_dirname, "execution_stats.sexp"),
+            os.path.join(execution_directory, "execution_stats.sexp"),
+        ])
+        execution_time = load_execution_time(execution_stats_file)
+        return (execution_directory, tree, execution_time)
+
     logging.getLogger().setLevel(logging.INFO)
     args = parser.parse_args()
     bin_name = py_common.EXPERIMENT_TO_PARAMETERS[args.experiment_name].bin_name
@@ -111,34 +125,23 @@ def main():
             "find", processed_data_dir, "-name", "decisions.sexp"],
             stdout=subprocess.PIPE)
     decision_files = []
+    results = []
+
     for line in proc.stdout:
-        decision_files.append(line.strip())
+        decision_file = line.strip()
+        decision_files.append(decision_file)
+
+        # Multiple threads have pretty much zero improvement here.
+        # (Besides, the processor is going to be saturated anyway)
+        output = process_single_decision_file(decision_file)
+        if output is not None:
+            results.append(output)
+
         if args.debug and len(decision_files) > 100:
             proc.terminate()
             break
 
     logging.info("Found %d decision files" % len(decision_files))
-    results = []
-
-    def process_single_decision_file(decision_file):
-        tree = load_tree_from_from_decision_file(decision_file)
-        if tree is None:
-            return None
-        decision_file_dirname = os.path.dirname(decision_file)
-        execution_directory = infer_execution_directory(
-                os.path.dirname(decision_file))
-        execution_stats_file = choose_first_that_exists([
-            os.path.join(decision_file_dirname, "execution_stats.sexp"),
-            os.path.join(execution_directory, "execution_stats.sexp"),
-        ])
-        execution_time = load_execution_time(execution_stats_file)
-        return (execution_directory, tree, execution_time)
-
-    # Multiple threads have pretty much zero improvement here.
-    for decision_file in decision_files:
-        output = process_single_decision_file(decision_file)
-        if output is not None:
-            results.append(output)
 
     execution_directories, trees, execution_times = zip(*results)
 
