@@ -35,7 +35,3 @@ for decay_factor in $DECAY_FACTORS; do
   done
 done
 python2 batch_execute.py learn_linear_general_reward $ADDITIONAL_FLAGS <$TASK_FILE
-
-
-### (2) print optimal decisions for every hyperparams configuration
-./print_linear_general_reward_without_normalisation.sh $1
