@@ -303,8 +303,10 @@ def run(argv):
                 normalise_with_num_children=normalise_with_num_children,
                 visited=visited)
 
+        visited_count = 0
         for i in range(num_nodes):
             if participation_mask[i * 2] or participation_mask[i * 2 + 1]:
+                visited_count += 1
                 if i not in visited:
                     print "DID NOT VISIT", i, id_to_tree_path[i]
 
@@ -314,9 +316,27 @@ def run(argv):
         print "Execution time =", problem.execution_times[index]
         print "Projected benefit (with matmul) =", projected_benefit
         print "Projected benefit (with DFS) =", projected_benefit_with_dfs
+        print "Number of visited nodes =", visited_count
+        print "Number of nodes in problem =", num_nodes
+
+        adjacency_list = []
+        for _ in range(num_nodes):
+            adjacency_list.append(set())
+        for edge in problem.edges_lists[index]:
+            adjacency_list[edge[0]].add((edge[1]))
+        bfs_edge_list(adjacency_list, id_to_tree_path)
 
     else:
         assert False
+
+
+def bfs_edge_list(adjacency_list, id_to_tree_path):
+    def loop(root):
+        print "%d\t%s" % (root, id_to_tree_path[root])
+        for child in adjacency_list[root]:
+            loop(child)
+
+    loop(0)
 
 
 def main():

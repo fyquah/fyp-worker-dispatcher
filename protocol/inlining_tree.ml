@@ -1049,12 +1049,14 @@ module V1 = struct
         | Apply   apply ->   Apply { apply with path }
       ;;
 
-      let get_path_exn a =
+      let get_path a =
         match a with
-        | Decl _ -> failwith "Cannot update apply id from a Decl"
-        | Inlined inlined -> inlined.path
-        | Apply   apply ->   apply.path
+        | Decl _ -> None
+        | Inlined inlined -> Some inlined.path
+        | Apply   apply ->   Some apply.path
       ;;
+
+      let get_path_exn a = Option.value_exn (get_path a)
 
       let node_equal_without_descend a b =
         match a, b with
@@ -1292,20 +1294,21 @@ module V1 = struct
           iter ~f (get_children_with_empty_default node))
     ;;
 
+    let rec trim_prefix ~prefix path =
+      match prefix, path with
+      | [], path -> path
+      | prefix_hd :: prefix_tl, hd :: tl ->
+        if not (Apply_id.Node_id.equal prefix_hd hd) then begin
+          failwithf "prefix don't match! prefix=(%s) and (%s)"
+            (Apply_id.Path.to_string prefix)
+            (Apply_id.Path.to_string path)
+            ();
+        end;
+        trim_prefix ~prefix:prefix_tl tl
+      | _, [] -> assert false
+    ;;
+
     let expand_decisions_in_call_site_based_on_inlining_path input_tree =
-      let rec trim_prefix ~prefix path =
-        match prefix, path with
-        | [], path -> path
-        | prefix_hd :: prefix_tl, hd :: tl ->
-          if not (Apply_id.Node_id.equal prefix_hd hd) then begin
-            failwithf "prefix don't match! prefix=(%s) and (%s)"
-              (Apply_id.Path.to_string prefix)
-              (Apply_id.Path.to_string path)
-              ();
-          end;
-          trim_prefix ~prefix:prefix_tl tl
-        | _, [] -> assert false
-      in
       let remove_last_node_exn l =
         List.rev (List.tl_exn (List.rev l))
       in
@@ -1553,7 +1556,9 @@ module V1 = struct
                      * in one and not inlined in another. (Recursive functions
                      * that inline the body).
                      *)
-                    E.node_equal_without_descen decl_node node))
+                    Option.equal Apply_id.Path.equal
+                      (E.get_path decl_node)
+                      (E.get_path node)))
           in
           if cond then Some () else None
         in
@@ -1627,12 +1632,81 @@ module V1 = struct
       loop ~replayed:Apply_id.Path.Set.empty input_root
     ;;
 
+    let rec remove_bogos_apply_nodes root =
+      List.filter_map root ~f:(fun node ->
+          match node with
+          | E.Inlined inlined ->
+            let children = remove_bogos_apply_nodes inlined.children in
+            Some (E.Inlined { inlined with children })
+          | E.Decl decl -> 
+            let children = remove_bogos_apply_nodes decl.children in
+            Some (E.Decl { decl with children })
+          | E.Apply apply ->
+            let matches_apply_id = function
+              | E.Inlined inlined ->
+                Apply_id.Path.equal inlined.path apply.path
+              | _ -> false
+            in
+            if List.exists root ~f:matches_apply_id
+            then None
+            else Some node)
+    ;;
+
+    let rec remove_stubs ~new_prefix tree =
+      let is_a_single_stub_apply children =
+        match children with
+        | [ E.Apply apply ] ->
+          let last_component = List.hd_exn (List.rev apply.path) in
+          begin match snd last_component with
+          | Apply_id.Stub -> true
+          | _ -> false
+          end
+        | _ -> false
+      in
+      List.concat_map tree ~f:(fun node ->
+          match node with
+          | E.Decl decl ->
+            [ E.Decl { decl with children = remove_stubs ~new_prefix:[] decl.children } ]
+          | E.Inlined inlined ->
+            let last_component = List.hd_exn (List.rev inlined.path) in
+            let new_path =
+              match snd last_component with
+              | Apply_id.Stub -> new_prefix
+              | _ -> new_prefix @ [last_component]
+            in
+            let children =
+              let new_prefix = new_path in
+              remove_stubs ~new_prefix inlined.children
+            in
+            begin match snd last_component with
+            | Apply_id.Stub -> children
+            | _ ->
+              let path = new_path in
+              (* We use the old children (before removing stub) because any
+               * lone stub would have been an empty list now.
+               *)
+              if is_a_single_stub_apply inlined.children then
+                [ E.Apply { func = inlined.func; path; } ]
+              else
+                [ E.Inlined { inlined with children; path; } ]
+            end
+          | E.Apply apply ->
+            let last_component = List.hd_exn (List.rev apply.path) in
+            begin match snd last_component with
+            | Apply_id.Stub -> []
+            | _ -> [ E.Apply { apply with path = new_prefix @ [last_component] } ]
+            end
+        )
+    ;;
+
     let expand root =
       root
       |> expand_decisions_in_call_site_based_on_inlining_path
       |> merge_decisions_in_call_site
       |> fill_in_decisions_from_declaration
       |> merge_decisions_in_call_site
+      |> remove_bogos_apply_nodes
+      |> remove_stubs ~new_prefix:[]
     ;;
 
     module T = struct

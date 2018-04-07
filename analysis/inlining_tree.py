@@ -44,8 +44,11 @@ class Node(NodeBase):
 
 class Apply_stamp(Apply_stamp_base):
 
-    def __str__(self):
+    def id(self):
         return "%s[%s]" % (str(self.kind), str(self.stamp))
+
+    def __str__(self):
+        return self.id()
 
 
 class Node_id(Node_id_base):
@@ -55,7 +58,7 @@ class Node_id(Node_id_base):
         fp.write("%s | apply stamp = %s\n" % (prefix, str(self.stamp)))
 
     def id(self):
-        return "%s__%s"% (self.compilation_unit.linkage_name, str(self.stamp.stamp))
+        return "%s__%s"% (self.compilation_unit.linkage_name, self.stamp.id())
 
 
 
@@ -428,7 +431,7 @@ class Absolute_path(object):
                     ret.append("<%s>" % (item[1].path[-1].id()))
                     metadata = " " + item[2].id()
                 else:
-                    ret.append("<%s>" % item[1].id())
+                    ret.append("<%s>" % item[1].path[-1].id())
             elif item[0] == "declaration":
                 # (Closure_origin.t)
                 ret.append("{%s}" % item[1].id())

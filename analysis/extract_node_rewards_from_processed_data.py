@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import shutil
 import subprocess
 import tempfile
 
@@ -32,6 +33,10 @@ def load_tree_from_from_decision_file(data_collector_file):
                 % data_collector_file)
 
         tree = inlining_tree.build_tree_from_str(tree_file.read())
+        shutil.copyfile(
+                tree_file.name,
+                os.path.join(
+                    os.path.dirname(data_collector_file), "expanded-tree.sexp"))
     finally:
         tree_file.close()
 

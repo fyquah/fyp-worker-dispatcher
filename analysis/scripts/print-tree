@@ -1,0 +1,5 @@
+#!/bin/bash
+
+set -euo pipefail
+set -x
+fyp-tree-tools v1 print-expanded /media/usb/home/fyquah/fyp/prod/processed-data/$1/$2/expanded-tree.sexp
