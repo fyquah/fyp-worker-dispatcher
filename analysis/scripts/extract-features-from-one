@@ -15,8 +15,9 @@
 
 set -euo pipefail
 
-PATH_TO_SEXP_FILE=$1
-EXPERIMENT=$2
+EXPERIMENT=$1
+PATH_TO_SEXP_FILE=$2
+PATH_TO_OUT_FILE=$3
 
 EXPERIMENT_SUB_DIR=$(python ../scripts/query_experiment_params.py --name $EXPERIMENT --subdir)
 EXPERIMENT_BIN_NAME=$(python ../scripts/query_experiment_params.py --name $EXPERIMENT --bin-name)
@@ -28,7 +29,7 @@ if [ ! -d  "$EXPERIMENT_DIR/" ]; then
   exit 1
 fi
 
-echo "Running path patching in $SCRATCH_DIR for for $PATH_TO_SEXP_FILE"
+echo "Running features extraction in $SCRATCH_DIR for override file $PATH_TO_SEXP_FILE in experiment $EXPERIMENT"
 
 cd $SCRATCH_DIR
 cp $EXPERIMENT_DIR/* $SCRATCH_DIR/
@@ -41,6 +42,9 @@ cat Makefile.bak \
 sed -i'' -e 's#ocamlopt#~/fyp/ocaml/ocamlopt.opt -dump-features "V0" -inlining-overrides overrides.sexp#g' Makefile
 
 echo "Running make in $(pwd)"
-make clean
-cp $PATH_TO_SEXP_FILE ./overrides.sexp
+rm *.native *.cm*
 make all >out.log
+
+cp $EXPERIMENT_BIN_NAME.flambda.v0.features $PATH_TO_OUT_FILE
+
+rm -r $SCRATCH_DIR

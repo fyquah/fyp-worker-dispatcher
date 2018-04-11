@@ -1,0 +1,26 @@
+#!/bin/bash
+#
+###################################
+#
+#  Usage:
+#     ./extract-features-from-one inlining_overrides_sexp_file experiment
+#  Arguments:
+#     - sexp: Absolute path to sexp file (Replaces in place)
+#     - bin_name: Name of binary
+#     - subdir: name of experiment subdirectory
+#
+###################################
+#
+
+
+set -euo pipefail
+
+EXPERIMENT=$1
+
+for file in $(find "/media/usb/home/fyquah/fyp/prod/processed-data/$EXPERIMENT" -name "decisions.sexp"); do
+  dir=$(dirname $file)
+  outfile="$dir/features-v0.sexp"
+  if [ ! -f "$outfile" ]; then
+    echo "./scripts/extract-features-from-one $EXPERIMENT $file $outfile"
+  fi
+done | parallel --jobs 12
