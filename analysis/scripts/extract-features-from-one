@@ -1,0 +1,46 @@
+#!/bin/bash
+#
+###################################
+#
+#  Usage:
+#     ./extract-features-from-one inlining_overrides_sexp_file experiment
+#  Arguments:
+#     - sexp: Absolute path to sexp file (Replaces in place)
+#     - bin_name: Name of binary
+#     - subdir: name of experiment subdirectory
+#
+###################################
+#
+
+
+set -euo pipefail
+
+PATH_TO_SEXP_FILE=$1
+EXPERIMENT=$2
+
+EXPERIMENT_SUB_DIR=$(python ../scripts/query_experiment_params.py --name $EXPERIMENT --subdir)
+EXPERIMENT_BIN_NAME=$(python ../scripts/query_experiment_params.py --name $EXPERIMENT --bin-name)
+EXPERIMENT_DIR="$HOME/fyp/experiments/$EXPERIMENT_SUB_DIR"
+SCRATCH_DIR=$(mktemp -d)
+
+if [ ! -d  "$EXPERIMENT_DIR/" ]; then
+  echo "$EXPERIMENT_DIR (experiment directory) is not a directory!"
+  exit 1
+fi
+
+echo "Running path patching in $SCRATCH_DIR for for $PATH_TO_SEXP_FILE"
+
+cd $SCRATCH_DIR
+cp $EXPERIMENT_DIR/* $SCRATCH_DIR/
+cp Makefile ./Makefile.bak
+cat Makefile.bak \
+  | grep -v "ifneq" \
+  | grep -v "inlining-overrides" \
+  | grep -v "endif" \
+  >Makefile
+sed -i'' -e 's#ocamlopt#~/fyp/ocaml/ocamlopt.opt -dump-features "V0" -inlining-overrides overrides.sexp#g' Makefile
+
+echo "Running make in $(pwd)"
+make clean
+cp $PATH_TO_SEXP_FILE ./overrides.sexp
+make all >out.log

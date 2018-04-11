@@ -64,7 +64,8 @@ class Node_id(Node_id_base):
 
 class Local_path(object):
     """
-    This is the path used in the fields of expanded nodes.
+    This is the path used in the fields of expanded nodes. Corresponds to
+    [Apply_id.Path] type
     """
     def __init__(self, path):
         self._path = path
