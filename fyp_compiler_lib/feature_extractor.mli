@@ -27,9 +27,13 @@ type wsb = {
     benefit_direct_call_of_indirect  : int;
 }
 
+type trace_item =
+  | Decl of Closure_origin.t
+  | Apply of Apply_id.t
+
+
 type t =
-  { (* Used by Flambda *)
-    apply_id                         : Apply_id.t;
+  { trace                            : trace_item list;
     flambda_wsb                      : wsb;
 
     (* callee features *)
@@ -89,7 +93,7 @@ val empty
   -> flambda_round: int
   -> flambda_tries: bool
   -> flambda_wsb: wsb
-  -> apply_id: Apply_id.t
+  -> trace: trace_item list
   -> only_use_of_function: bool
   -> t
 

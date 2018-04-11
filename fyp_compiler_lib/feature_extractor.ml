@@ -27,8 +27,13 @@ type wsb = {
     benefit_direct_call_of_indirect  : int;
 }
 
+type trace_item =
+  | Decl of Closure_origin.t
+  | Apply of Apply_id.t
+
+
 type t =
-  { apply_id                         : Apply_id.t;
+  { trace                            : trace_item list;
     flambda_wsb                      : wsb;
 
     (* callee features *)
@@ -81,7 +86,7 @@ let empty
     (* env information *)
     ~inlining_depth ~closure_depth ~in_recursive_function
     ~original_function_size ~original_bound_vars ~flambda_round
-    ~flambda_tries ~flambda_wsb ~apply_id ~only_use_of_function
+    ~flambda_tries ~flambda_wsb ~trace ~only_use_of_function
   =
   { (* callee features *)
     params                           ;
@@ -122,8 +127,7 @@ let empty
     flambda_tries                    ;
 
     flambda_wsb                      ;
-    apply_id                         ;
-
+    trace                            ;
   }
 
 let (mined_features : t list ref) = ref []

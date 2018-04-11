@@ -193,3 +193,20 @@ let inline ~caller ~inlined =
     let parents = Some (caller :: parents_of_inlined) in
     { inlined with parents }
 ;;
+
+let stamp_to_identifier stamp =
+  match stamp with
+  | Stub -> "Stub[None]"
+  | Plain_apply d -> Format.sprintf "Plain_apply[%d]" d
+  | Over_application d -> Format.sprintf "Over_application[%d]" d
+;;
+
+
+let to_identifier apply_id =
+  get_inlining_path apply_id
+  |> List.map (fun (cu, stamp) ->
+      Format.sprintf "%s__%s"
+        (Linkage_name.to_string (Compilation_unit.get_linkage_name cu))
+        (stamp_to_identifier stamp))
+  |> String.concat "/"
+;;
