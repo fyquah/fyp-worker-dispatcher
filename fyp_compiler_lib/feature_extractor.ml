@@ -12,8 +12,26 @@ type call_context =
   | Inlined_function
   | In_function_declaration
 
+type wsb = {
+    (* These are used by FLambda in WSB *)
+    round                            : int;
+    toplevel                         : bool;
+    branch_depth                     : int;
+    lifting                          : bool;
+    original_size                    : int;
+    new_size                         : int;
+    benefit_remove_call              : int;
+    benefit_remove_alloc             : int;
+    benefit_remove_prim              : int;
+    benefit_remove_branch            : int;
+    benefit_direct_call_of_indirect  : int;
+}
+
 type t =
-  { (* callee features *)
+  { apply_id                         : Apply_id.t;
+    flambda_wsb                      : wsb;
+
+    (* callee features *)
     params                           : int;
     bound_vars_to_symbol             : int;
     assign                           : int;
@@ -40,6 +58,7 @@ type t =
     call_context_stack               : call_context list;
     direct_call                      : bool;
     recursive_call                   : bool;
+    only_use_of_function             : bool;
 
     (* environment features -- this is same for all siblings *)
     inlining_depth                   : int;
@@ -62,7 +81,7 @@ let empty
     (* env information *)
     ~inlining_depth ~closure_depth ~in_recursive_function
     ~original_function_size ~original_bound_vars ~flambda_round
-    ~flambda_tries
+    ~flambda_tries ~flambda_wsb ~apply_id ~only_use_of_function
   =
   { (* callee features *)
     params                           ;
@@ -91,6 +110,7 @@ let empty
     call_context_stack               ;
     direct_call                      ;
     recursive_call                   ;
+    only_use_of_function;
 
     (* environment features -- this is same for all siblings *)
     inlining_depth                   ;
@@ -100,6 +120,10 @@ let empty
     original_bound_vars              ;
     flambda_round                    ;
     flambda_tries                    ;
+
+    flambda_wsb                      ;
+    apply_id                         ;
+
   }
 
 let (mined_features : t list ref) = ref []

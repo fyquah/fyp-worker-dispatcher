@@ -106,6 +106,10 @@ let of_string s =
 
 let previous_name_stamp = ref (-1)
 
+let reset_ctr () =
+  previous_name_stamp := -1
+;;
+
 let create ?current_compilation_unit name =
   let compilation_unit =
     match current_compilation_unit with
