@@ -1,7 +1,7 @@
 (jbuild_version 1)
 
 (executables
- ((names (now feature_extractor tree_tools data_cleaner))
+ ((names (now tree_tools data_cleaner))
   (preprocess (pps (ppx_jane  ppx_driver.runner)))
   (libraries
     (core
@@ -16,6 +16,5 @@
  ((section bin)
   (files
     ((now.exe as ocamlnow)
-     (feature_extractor.exe as feature_extractor)
      (tree_tools.exe as tree_tools)
      (data_cleaner.exe as data_cleaner)))))

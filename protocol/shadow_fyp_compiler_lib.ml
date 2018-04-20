@@ -199,3 +199,7 @@ module Call_site_offset = struct
 
   let compare a b = Int.compare (to_int a) (to_int b)
 end
+
+module Feature_extractor = struct
+  include Fyp_compiler_lib.Feature_extractor
+end
