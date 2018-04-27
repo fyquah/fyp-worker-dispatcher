@@ -98,7 +98,7 @@ let command_concat_features =
       fun () ->
         let open Deferred.Let_syntax in
         let stdin = Lazy.force Async.Reader.stdin in
-        let ref_features = ref [] in
+        let ref_features = ref Feature_extractor.Trace.Map.empty in
         let%bind () =
           loop_lines stdin ~f:(fun filename ->
             let (extracted_features : Feature_extractor.t list) =
@@ -107,12 +107,18 @@ let command_concat_features =
               Caml.close_in ic;
               value
             in
-            ref_features := extracted_features @ !ref_features;
+            Log.Global.info "Processed %s" filename;
+            List.iter extracted_features ~f:(fun feature_vector -> 
+              ref_features :=
+                Feature_extractor.Trace.Map.add !ref_features
+                  ~key:feature_vector.trace ~data:feature_vector);
             return ())
         in
+        let features = Feature_extractor.Trace.Map.data !ref_features in
         let oc = Caml.open_out output in
-        Caml.output_value oc !ref_features;
+        Caml.output_value oc features;
         Caml.close_out oc;
+        Log.Global.info "Extracted %d features" (List.length features);
         Deferred.unit]
 ;;
 
