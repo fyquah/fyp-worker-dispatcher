@@ -31,6 +31,8 @@ type trace_item =
   | Decl of Closure_origin.t
   | Apply of Apply_id.t
 
+val sexp_of_trace_item : trace_item -> Sexp.t
+val trace_item_of_sexp : Sexp.t -> trace_item
 
 type t =
   { trace                            : trace_item list;

@@ -31,6 +31,25 @@ type trace_item =
   | Decl of Closure_origin.t
   | Apply of Apply_id.t
 
+let sexp_of_trace_item ti =
+  let open Sexp in
+  match ti with
+  | Decl co ->
+    List [ Atom "Decl"; Closure_origin.sexp_of_t co; ]
+  | Apply app ->
+    List [ Atom "Apply"; Apply_id.sexp_of_t app; ]
+;;
+
+let trace_item_of_sexp sexp =
+  let open Sexp in
+  match sexp with
+  | List [ Atom "Decl"; co ] -> Decl (Closure_origin.t_of_sexp co)
+  | List [ Atom "Apply"; app ] -> Apply (Apply_id.t_of_sexp app)
+  | _ -> raise (Parse_error "Failed to parse trace item")
+;;
+
+
+
 
 type t =
   { trace                            : trace_item list;
