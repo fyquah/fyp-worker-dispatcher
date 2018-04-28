@@ -7,6 +7,47 @@ module Execution_stats = Execution_stats
 module Inlining_tree = Inlining_tree
 module Shadow_fyp_compiler_lib = Shadow_fyp_compiler_lib
 
+module Absolute_path = struct
+  open Shadow_fyp_compiler_lib
+
+  module T = struct
+    type item =
+      | Apply of Apply_id.Path.t
+      | Decl  of Closure_origin.t
+    [@@deriving sexp, compare]
+
+    type t = item list [@@deriving sexp, compare]
+
+    let of_trace (trace : Feature_extractor.trace_item list) =
+      List.map trace ~f:(fun item ->
+        match item with
+        | Feature_extractor.Apply app ->
+          Apply (Apply_id.to_path app)
+        | Feature_extractor.Decl  co ->
+          Decl co)
+    ;;
+
+    let compress path =
+      let last_seen : [ `Decl | `Apply ] ref  = ref `Decl in
+      List.filter_map (List.rev path) ~f:(fun p ->
+          match p with
+          | Decl  _ -> 
+            last_seen := `Decl;
+            Some p
+          | Apply _ -> 
+            match !last_seen with
+            | `Apply -> None
+            | `Decl -> 
+              last_seen := `Apply;
+              Some p)
+      |> List.rev
+    ;;
+  end
+
+  include T
+  include Comparable.Make(T)
+end
+
 module Compile_params = struct
   type t =
     { inline                 : float;  (* 10.0 *)
