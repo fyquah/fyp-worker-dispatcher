@@ -23,6 +23,6 @@ for file in $(find "/media/usb/home/fyquah/fyp/prod/processed-data/$EXPERIMENT" 
   if [ ! -f "$outfile" ]; then
     echo "./scripts/extract-features-from-one $EXPERIMENT $file $outfile"
   else
-    echo "skipping args due to preexistence --- $EXPERIMENT $file $outfile" >/dev/stderr
+    echo "skipping args due to preexistence --- $EXPERIMENT $file $outfile" >>/dev/stderr
   fi
 done | parallel --jobs 4
