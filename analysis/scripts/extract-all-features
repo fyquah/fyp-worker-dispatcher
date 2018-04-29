@@ -25,4 +25,4 @@ for file in $(find "/media/usb/home/fyquah/fyp/prod/processed-data/$EXPERIMENT" 
   else
     echo "skipping args due to preexistence --- $EXPERIMENT $file $outfile" >/dev/stderr
   fi
-done | parallel --jobs 12
+done | parallel --jobs 4
