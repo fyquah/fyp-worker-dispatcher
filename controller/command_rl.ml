@@ -28,7 +28,7 @@ module Async_MCTS = Async_mcts
 
 let command_run =
   let open Command.Let_syntax in
-  Command.async_or_error' ~summary:"Command"
+  Command.async_or_error ~summary:"Command"
     [%map_open
       let { Command_params.
         config_filename; controller_rundir; exp_dir; bin_name; bin_args;
@@ -172,7 +172,7 @@ let command_run =
                               None
                             else
                               Some (s, decision.action)))
-                |> List.sort ~cmp:(fun a b -> RL.S.compare (fst a) (fst b))
+                |> List.sort ~compare:(fun a b -> RL.S.compare (fst a) (fst b))
               in
               let pending_trajectory =
                 (fst partial_trajectory @ remaining_trajectory, RL.S.terminal)

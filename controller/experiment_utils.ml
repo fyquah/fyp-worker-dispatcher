@@ -316,9 +316,11 @@ let init_connection ~hostname ~worker_config =
         Worker_connection.Ssh { user; rundir; hostname; processor; })
     end
   | Protocol.Config.Rpc_worker rpc_config ->
+      
     lift_deferred (
       Tcp.connect
-        (Tcp.to_host_and_port hostname rpc_config.port)
+        (Tcp.Where_to_connect.of_host_and_port
+          (Host_and_port.create ~host:hostname ~port:rpc_config.port))
         ~timeout:(Time.Span.of_int_sec 1)
     )
     >>=? fun (socket, reader, writer) ->

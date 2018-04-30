@@ -253,8 +253,12 @@ def run(argv):
         for i in range(num_nodes):
             arr.append([
                 id_to_tree_path[i].to_sexp(),
-                str(w[2 * i]),
-                str(w[2 * i + 1])
+                inlining_tree.sexp_of_option(
+                    w[2 * i] if participation_count[2 * i] > 0 else None,
+                    f=str),
+                inlining_tree.sexp_of_option(
+                    w[2 * i + 1] if participation_count[2 * i + 1] > 0 else None,
+                    f=str)
             ])
         print sexpdata.dumps(arr)
 

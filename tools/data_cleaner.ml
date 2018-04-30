@@ -8,7 +8,7 @@ module Function_metadata = Data_collector.Function_metadata
 
 let command_path_patching =
   let open Command.Let_syntax in
-  Command.async' ~summary:"path patching"
+  Command.async ~summary:"path patching"
     [%map_open
       let reference = flag "-reference" (required string) ~doc:"Aa"
       and output_file = flag "-output" (optional_with_default "/dev/stdout" string) ~doc:"Aa"
@@ -43,7 +43,7 @@ let command_path_patching =
 
 let command_path_patching_on_decisions =
   let open Command.Let_syntax in
-  Command.async' ~summary:"path patching"
+  Command.async ~summary:"path patching"
     [%map_open
       let reference = flag "-reference" (required string) ~doc:"Aa"
       and output_file = flag "-output" (optional_with_default "/dev/stdout" string) ~doc:"Aa"
@@ -92,7 +92,7 @@ let loop_lines rdr ~f =
 
 let command_concat_features =
   let open Command.Let_syntax in
-  Command.async' ~summary:"Does work"
+  Command.async ~summary:"Does work"
     [%map_open
       let output = flag "-output" (required string) ~doc:"target file" in
       fun () ->
@@ -115,7 +115,7 @@ let command_concat_features =
               in
               let data = feature_vector in
               ref_features :=
-                Protocol.Absolute_path.Map.add !ref_features ~key ~data);
+                Protocol.Absolute_path.Map.update !ref_features key ~f:(fun _ -> data));
             return ())
         in
         let features = Protocol.Absolute_path.Map.data !ref_features in

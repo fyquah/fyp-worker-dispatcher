@@ -4,13 +4,19 @@ open Protocol.Shadow_fyp_compiler_lib
 
 module Absolute_path = Protocol.Absolute_path
 
+
+module Raw_reward = struct
+  type t = Protocol.Absolute_path.t * float option * float option
+  [@@deriving sexp]
+end
+
 module Reward = struct
   type t = Protocol.Absolute_path.t * float * float
   [@@deriving sexp]
 end
 
 module Linear_reward_model = struct
-  let do_analysis (examples: (Feature_extractor.t * (float * float)) list) =
+  let do_analysis (examples: (Feature_extractor.t * (float option * float option)) list) =
     let processed_features =
       List.map examples
         ~f:(fun (feature_vector, (reward_inline, reward_no_inline)) ->
@@ -80,12 +86,13 @@ module Linear_reward_model = struct
     in
     let num_features = num_int_features + num_bool_features in
     let module Mat = Owl.Mat in
+    let module Vec = Owl.Vec in
 
     let feature_means =
       Array.map ~f:fst4 processed_features
       |> Array.map ~f:(Array.map ~f:Float.of_int)
       |> Owl.Mat.of_arrays
-      |> Owl.Mat.average_rows
+      |> Owl.Mat.mean_rows
       |> Owl.Mat.to_array
     in
     let sqr x = x *. x in
@@ -93,7 +100,7 @@ module Linear_reward_model = struct
       Array.map ~f:fst4 processed_features
       |> Array.map ~f:(Array.mapi ~f:(fun j x -> sqr (Float.of_int x -. feature_means.(j))))
       |> Owl.Mat.of_arrays
-      |> Owl.Mat.average_rows
+      |> Owl.Mat.mean_rows
       |> Owl.Mat.sqrt
       |> Owl.Mat.to_array
     in
@@ -130,38 +137,47 @@ module Linear_reward_model = struct
     (* Populate target matrix *)
     for i = 0 to num_examples - 1 do
       let diff = 
-        third4 processed_features.(i) -. forth4 processed_features.(i)
+        if Option.is_some (third4 processed_features.(i)) &&
+           Option.is_some (forth4 processed_features.(i))
+        then
+          1.0
+        else
+          0.0
       in
       Mat.set target_matrix i 0 diff
     done;
-
+    printf "Target average = %.3f\n" (Mat.mean' target_matrix);
+    printf "Feature average = %.3f\n" (Mat.mean' feature_matrix);
     let obtained =
-      Owl.Regression.D.ridge ~i:true ~a:0.0 feature_matrix target_matrix
+      Owl.Regression.D.logistic ~i:true feature_matrix target_matrix
     in
     let weights = obtained.(0) in
     let intercept = obtained.(1) in
     let shape_to_string (a, b) = sprintf "(%d, %d)" a b in
+
+    let obtained_probabilities =
+      Mat.((feature_matrix *@ weights) + intercept)
+    in
+    let loss_fn a b =
+      Owl.Optimise.D.Loss.run Owl.Optimise.D.Loss.Cross_entropy a b
+    in
+    let obtained_guesses =
+      Vec.map (fun p ->
+          if p >. 0.0 then 1.0 else 0.0)
+        obtained_probabilities
+    in
     printf !"Output: %{shape_to_string} %{shape_to_string} %{shape_to_string}\n"
       (Mat.shape feature_matrix) (Mat.shape weights) (Mat.shape intercept);
-
-    let obtained_target =
-      let repeated_intercept =
-        Mat.repeat ~axis:0 intercept num_examples
-      in
-      printf !"Hello: %{shape_to_string}\n" (Mat.shape repeated_intercept);
-      Mat.(feature_matrix *@ weights + intercept - target_matrix)
-    in
-    let mse = Mat.(average (sqr (obtained_target - target_matrix))) in
-    printf "Mse: %.5f\n" mse;
-    printf "Average value: %.5f\n" (Mat.average target_matrix);
-    printf "Average absolute value: %.5f\n" (Mat.average (Mat.abs target_matrix));
-    printf "Maximum error: %.5f\n" (Mat.max (Mat.(abs (obtained_target - target_matrix))));
-    printf "Minimum error: %.5f\n" (Mat.min (Mat.(abs (obtained_target - target_matrix))));
+    printf "Average value: %.5f\n" (Mat.mean' target_matrix);
+    printf "Average absolute value: %.5f\n" (Mat.mean' (Mat.abs target_matrix));
+    printf "Maximum error: %.5f\n" (Mat.max' (Mat.(abs (obtained_probabilities - target_matrix))));
+    printf "Minimum error: %.5f\n" (Mat.min' (Mat.(abs (obtained_probabilities - target_matrix))));
     printf "Weights:\n";
 
     for i = 0 to num_features - 1 do
       printf " - (%d) %.5f\n" i (Mat.get weights i 0)
     done;
+
     Deferred.return ()
   ;;
     
@@ -172,7 +188,7 @@ module Linear_reward_model = struct
         let features_file =
           flag "-features" (required file) ~doc:"FILE features bin file"
         and rewards_file =
-          flag "-rewards" (required file) ~doc:"FILE rewards sexp file"
+          flag "-rewards" (required file) ~doc:"FILE raw rewards sexp file"
         in
         fun () ->
           let open Deferred.Let_syntax in
@@ -182,12 +198,12 @@ module Linear_reward_model = struct
               | `Eof -> failwith "Cannot read somethign like this"
               | `Ok value -> return value)
           in
-          let%bind (rewards : Reward.t list) =
-            Reader.load_sexp_exn rewards_file [%of_sexp: Reward.t list]
+          let%bind (raw_rewards : Raw_reward.t list) =
+            Reader.load_sexp_exn rewards_file [%of_sexp: Raw_reward.t list]
             >>| List.map ~f:(fun (trace, a, b) -> (Absolute_path.compress trace, a, b))
           in
           let reward_traces =
-            List.map rewards ~f:(fun (trace, _, _) -> trace)
+            List.map raw_rewards ~f:(fun (trace, _, _) -> trace)
           in
           let feature_traces =
             List.map features ~f:(fun feature ->
@@ -202,7 +218,7 @@ module Linear_reward_model = struct
               );
           in
           let rewards =
-            List.map rewards ~f:(fun (a, b, c) -> (Absolute_path.compress a, (b, c)))
+            List.map raw_rewards ~f:(fun (a, b, c) -> (Absolute_path.compress a, (b, c)))
             |> Protocol.Absolute_path.Map.of_alist_exn
           in
           Log.Global.info "Loaded %d reward entries" (Absolute_path.Map.length rewards);

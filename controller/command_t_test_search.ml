@@ -128,7 +128,7 @@ let command =
   end
   in
   let open Command.Let_syntax in
-  Command.async_or_error' ~summary:"Controller"
+  Command.async_or_error ~summary:"Controller"
     [%map_open
       let {
         Command_params.

@@ -16,7 +16,7 @@ module Perf_stats = struct
 
   let to_map (t : t) =
     List.fold t ~init:String.Map.empty ~f:(fun unchanged entry ->
-      String.Map.add unchanged ~key:entry.name ~data:entry)
+      String.Map.update unchanged entry.name ~f:(fun _ -> entry))
   ;;
 
   exception Parse_error
@@ -92,7 +92,7 @@ module Gc_stats = struct
           let line = Re2.Regex.replace_exn ~f:(fun _ -> "") re line in
           match String.split line ~on:':' with
           | key :: data :: [] ->
-            String.Map.add acc ~key ~data:(Int.of_string data)
+            String.Map.update acc key ~f:(fun _ -> Int.of_string data)
           | _ -> acc)
       in
       let g k = String.Map.find_exn map k in

@@ -132,8 +132,8 @@ let t_of_inlining_tree (top_level : Inlining_tree.V1.Top_level.t) =
               loop child_node ~trace:(
                 (apply_id, applied) :: inlining_trace))
         in
-        call_map := RL.S.Map.add !call_map ~key:id ~data:function_call;
-        tree_map := RL.S.Map.add !tree_map ~key:id ~data:children_ids;
+        call_map := RL.S.Map.update !call_map id ~f:(fun _ -> function_call);
+        tree_map := RL.S.Map.update !tree_map id ~f:(fun _ -> children_ids);
         id
       in
       match (tree_node : Inlining_tree.V1.t) with
@@ -158,7 +158,7 @@ let t_of_inlining_tree (top_level : Inlining_tree.V1.Top_level.t) =
     in
     let no_inline = backtrack in
     let data = { inline; no_inline; } in
-    let acc = RL.S.Map.add acc ~key:tree_node ~data in
+    let acc = RL.S.Map.update acc tree_node ~f:(fun _ -> data) in
     List.fold_left (zip_with_delay child_nodes) ~init:acc
       ~f:(fun acc (child, maybe_next) ->
           let backtrack =

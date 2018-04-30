@@ -13,8 +13,8 @@
 
      owl
     ))
-  (ocamlopt_flags
-    ((:standard -ccopt -llapack)))
+  ; (ocamlopt_flags
+  ;   ((:standard -ccopt "-llapack -lopenblas")))
   ))
 
 (install

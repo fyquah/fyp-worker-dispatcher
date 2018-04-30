@@ -120,7 +120,7 @@ let run_single_iteration ~iter_id
       metadata = execution_stats;
     }
   in
-  Log.Global.info !"Iteration %d (time: %{Time.Span}) (reward: %.3f)" \
+  Log.Global.info !"Iteration %d (time: %{Time.Span}) (reward: %.3f)"
     iter_id (gmean_exec_time execution_stats) reward;
   trajectory
 ;;
