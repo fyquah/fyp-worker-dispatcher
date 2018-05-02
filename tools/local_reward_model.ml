@@ -15,6 +15,18 @@ module Reward = struct
   [@@deriving sexp]
 end
 
+module Specification_file = struct
+  type entry =
+    { features_file : string;
+      rewards_file  : string;
+      name          : string;
+    }
+  [@@deriving sexp]
+
+  type t = entry list [@@deriving sexp]
+
+end
+
 module Linear_reward_model = struct
 
   module Neural = Owl.Neural.D
@@ -379,55 +391,69 @@ module Linear_reward_model = struct
     let open Command.Let_syntax in
     Command.async ~summary:"Linear reward model"
       [%map_open
-        let features_file =
-          flag "-features" (required file) ~doc:"FILE features bin file"
-        and rewards_file =
-          flag "-rewards" (required file) ~doc:"FILE raw rewards sexp file"
+        let specification_file =
+          flag "-spec" (required file) ~doc:"FILE specification file"
         in
         fun () ->
           let open Deferred.Let_syntax in
-          let%bind (features : Feature_extractor.t list) =
-            Reader.with_file features_file ~f:(fun rdr ->
-              Reader.read_marshal rdr >>= function
-              | `Eof -> failwith "Cannot read somethign like this"
-              | `Ok value -> return value)
+          let%bind specification =
+            Reader.load_sexp_exn specification_file
+              Specification_file.t_of_sexp
           in
-          let%bind (raw_rewards : Raw_reward.t list) =
-            Reader.load_sexp_exn rewards_file [%of_sexp: Raw_reward.t list]
-            >>| List.map ~f:(fun (trace, a, b) -> (Absolute_path.compress trace, a, b))
-          in
-          let reward_traces =
-            List.map raw_rewards ~f:(fun (trace, _, _) -> trace)
-          in
-          let feature_traces =
-            List.map features ~f:(fun feature ->
-                Absolute_path.compress (Absolute_path.of_trace feature.trace))
-          in
-          let print_traces buffer traces =
-            List.map ~f:Absolute_path.sexp_of_t traces
-            |> List.sort ~compare:Sexp.compare
-            |> List.iter ~f:(fun trace ->
-                bprintf buffer "%s\n" (Sexp.to_string_hum trace);
-                bprintf buffer  ">>>>>>>>>>>>>>>>>>\n";
-              );
-          in
-          let rewards =
-            List.map raw_rewards ~f:(fun (a, b, c) -> (Absolute_path.compress a, (b, c)))
-            |> Protocol.Absolute_path.Map.of_alist_exn
-          in
-          Log.Global.info "Loaded %d reward entries" (Absolute_path.Map.length rewards);
-          Log.Global.info "Loaded %d feature entries" (List.length features);
-          let examples =
-            List.filter_map features ~f:(fun feature_entry ->
-                let trace =
-                  Protocol.Absolute_path.of_trace feature_entry.trace
-                  |> Absolute_path.compress
+          let%bind examples =
+            Deferred.List.concat_map specification ~f:(fun specification_entry ->
+                let features_file = specification_entry.features_file in
+                let rewards_file = specification_entry.rewards_file in
+                let%bind (features : Feature_extractor.t list) =
+                  Reader.with_file features_file ~f:(fun rdr ->
+                    Reader.read_marshal rdr >>= function
+                    | `Eof -> failwith "Cannot read somethign like this"
+                    | `Ok value -> return value)
                 in
-                Option.map (Absolute_path.Map.find rewards trace)
-                  ~f:(fun r -> (feature_entry, r)))
+                let%map (raw_rewards : Raw_reward.t list) =
+                  Reader.load_sexp_exn rewards_file [%of_sexp: Raw_reward.t list]
+                  >>| List.map ~f:(fun (trace, a, b) -> (Absolute_path.compress trace, a, b))
+                in
+                let reward_traces =
+                  List.map raw_rewards ~f:(fun (trace, _, _) -> trace)
+                in
+                let feature_traces =
+                  List.map features ~f:(fun feature ->
+                      Absolute_path.compress (Absolute_path.of_trace feature.trace))
+                in
+                let print_traces buffer traces =
+                  List.map ~f:Absolute_path.sexp_of_t traces
+                  |> List.sort ~compare:Sexp.compare
+                  |> List.iter ~f:(fun trace ->
+                      bprintf buffer "%s\n" (Sexp.to_string_hum trace);
+                      bprintf buffer  ">>>>>>>>>>>>>>>>>>\n";
+                    );
+                in
+                let rewards =
+                  List.map raw_rewards ~f:(fun (a, b, c) -> (Absolute_path.compress a, (b, c)))
+                  |> Protocol.Absolute_path.Map.of_alist_exn
+                in
+                let examples =
+                  List.filter_map features ~f:(fun feature_entry ->
+                      let trace =
+                        Protocol.Absolute_path.of_trace feature_entry.trace
+                        |> Absolute_path.compress
+                      in
+                      Option.map (Absolute_path.Map.find rewards trace)
+                        ~f:(fun r -> (feature_entry, r)))
+                  in
+                Log.Global.info "%s | Loaded %d reward entries"
+                  specification_entry.name (Absolute_path.Map.length rewards);
+                Log.Global.info "%s | Loaded %d feature entries"
+                  specification_entry.name (List.length features);
+                Log.Global.info "%s | Loaded %d training examples"
+                  specification_entry.name (List.length examples);
+                examples)
           in
-          Log.Global.info "Loaded %d training examples" (List.length examples);
+          Log.Global.info "Loaded A total of %d training examples"
+            (List.length examples);
 
+          (*
           let _unused_debugging () =
             let%bind () =
               let buffer = Buffer.create 10 in
@@ -447,6 +473,7 @@ module Linear_reward_model = struct
             in
             Deferred.unit
           in
+          *)
 
           (* Real analysis begins here. *)
           do_analysis examples
