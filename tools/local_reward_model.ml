@@ -16,65 +16,121 @@ module Reward = struct
 end
 
 module Linear_reward_model = struct
-  let do_analysis (examples: (Feature_extractor.t * (float option * float option)) list) =
+
+  module Neural = Owl.Neural.D
+
+  type model = 
+    { network                          : Neural.Graph.network;
+      create_normalised_feature_vector : Feature_extractor.t -> Owl.Mat.mat;
+      create_label                     : (float option * float option) -> int;
+      num_classes                      : int;
+      training_feature_matrix          : Owl.Mat.mat;
+      training_targets                 : Owl.Mat.mat;
+    }
+
+  let fst4 (a, _, _, _) = a
+
+  let snd4 (_, a, _, _) = a
+
+  let third4 (_, _, a, _) = a
+
+  let forth4 (_, _, _, a) = a
+
+  let shape_to_string (a, b) = sprintf "(%d, %d)" a b
+
+  let discretise_int_feature ~lo ~hi x =
+    let ret = Array.create ~len:(hi - lo + 1 + 2) false in
+    assert (lo < hi);
+    if x < lo then
+      ret.(0) <- true
+    else if x > hi then
+      ret.(Array.length ret - 1) <- true
+    else
+      ret.(x - lo + 1) <- true;
+    ret
+  ;;
+
+  let guesses_of_probabilities probabilities =
+    let a = Owl.Mat.max_rows probabilities in
+    Array.map a ~f:(fun (_, _r, c) ->
+      assert (c = 0 || c = 1);
+      c)
+  ;;
+
+  let target_matrix_of_labels ~num_classes labels = 
+    let mat = Owl.Mat.create (Array.length labels) num_classes 0.0 in
+    for i = 0 to Array.length labels - 1 do
+      Owl.Mat.set mat i labels.(i) 1.0;
+    done;
+    mat
+  ;;
+
+  let is_small x = Float.(abs x <= 0.00001)
+
+  let create_model (examples: (Feature_extractor.t * (float option * float option)) list) =
+    let create_features (feature_vector : Feature_extractor.t) =
+      let int_features = [|
+        feature_vector.params;
+        feature_vector.params                           ;
+        feature_vector.bound_vars_to_symbol             ;
+        feature_vector.assign                           ;
+        feature_vector.bound_vars_to_mutable            ;
+        feature_vector.bound_vars                       ;
+        feature_vector.free_vars                        ;
+        feature_vector.free_symbols                     ;
+        feature_vector.set_of_closures                  ;
+        feature_vector.non_specialized_args             ;
+        feature_vector.specialized_args                 ;
+        feature_vector.size_before_simplify             ;
+        feature_vector.size_after_simplify              ;
+        feature_vector.underlying_direct_applications   ;
+        feature_vector.underlying_indirect_applications ;
+        feature_vector.if_then_else                     ;
+        feature_vector.switch                           ;
+        feature_vector.string_switch                    ;
+        feature_vector.inlining_depth;
+        feature_vector.closure_depth;
+
+        feature_vector.flambda_wsb.original_size;
+        feature_vector.flambda_wsb.new_size;
+        feature_vector.flambda_wsb.benefit_remove_call;
+        feature_vector.flambda_wsb.benefit_remove_alloc;
+        feature_vector.flambda_wsb.benefit_remove_prim;
+        feature_vector.flambda_wsb.benefit_remove_branch;
+        feature_vector.flambda_wsb.benefit_direct_call_of_indirect;
+      |]
+      in
+      let simple_boolean_features = [|
+        feature_vector.is_annonymous;
+        feature_vector.is_a_functor;
+        feature_vector.direct_call;
+        feature_vector.recursive_call;
+        feature_vector.is_recursive;
+        feature_vector.only_use_of_function;
+        feature_vector.in_recursive_function;
+        feature_vector.flambda_wsb.toplevel;
+        feature_vector.flambda_wsb.lifting;
+      |]
+      in
+      let boolean_features =
+        Array.concat [
+          simple_boolean_features;
+          discretise_int_feature ~lo:0 ~hi:8 feature_vector.flambda_wsb.branch_depth;
+          discretise_int_feature ~lo:0 ~hi:8 feature_vector.inlining_depth;
+          discretise_int_feature ~lo:0 ~hi:8 feature_vector.closure_depth;
+        ]
+      in
+      (int_features, boolean_features)
+    in
     let processed_features =
       List.map examples
         ~f:(fun (feature_vector, (reward_inline, reward_no_inline)) ->
-          (* feature_vector.expected_allocations             ; *)
-          let int_features = [
-            feature_vector.params;
-            feature_vector.params                           ;
-            feature_vector.bound_vars_to_symbol             ;
-            feature_vector.assign                           ;
-            feature_vector.bound_vars_to_mutable            ;
-            feature_vector.bound_vars                       ;
-            feature_vector.free_vars                        ;
-            feature_vector.free_symbols                     ;
-            feature_vector.set_of_closures                  ;
-            feature_vector.non_specialized_args             ;
-            feature_vector.specialized_args                 ;
-            feature_vector.size_before_simplify             ;
-            feature_vector.size_after_simplify              ;
-            feature_vector.underlying_direct_applications   ;
-            feature_vector.underlying_indirect_applications ;
-            feature_vector.if_then_else                     ;
-            feature_vector.switch                           ;
-            feature_vector.string_switch                    ;
-            feature_vector.inlining_depth;
-            feature_vector.closure_depth;
-
-            feature_vector.flambda_wsb.branch_depth;
-            feature_vector.flambda_wsb.original_size;
-            feature_vector.flambda_wsb.new_size;
-            feature_vector.flambda_wsb.benefit_remove_call;
-            feature_vector.flambda_wsb.benefit_remove_alloc;
-            feature_vector.flambda_wsb.benefit_remove_prim;
-            feature_vector.flambda_wsb.benefit_remove_branch;
-            feature_vector.flambda_wsb.benefit_direct_call_of_indirect;
-          ]
+          let int_features, boolean_features =
+            create_features feature_vector 
           in
-          let boolean_features = [
-            feature_vector.is_annonymous;
-            feature_vector.is_a_functor;
-            feature_vector.direct_call;
-            feature_vector.recursive_call;
-            feature_vector.is_recursive;
-            feature_vector.only_use_of_function;
-            feature_vector.in_recursive_function;
-            feature_vector.flambda_wsb.toplevel;
-            feature_vector.flambda_wsb.lifting;
-          ]
-          in
-          (Array.of_list int_features,
-           Array.of_list boolean_features,
-           reward_inline,
-           reward_no_inline))
+          (int_features, boolean_features, reward_inline, reward_no_inline))
       |> Array.of_list
     in
-    let fst4 (a, _, _, _) = a in
-    let snd4 (_, a, _, _) = a in
-    let third4 (_, _, a, _) = a in
-    let forth4 (_, _, _, a) = a in
     let num_examples = Array.length processed_features in
     let num_int_features =
       let (a, _, _, _) = processed_features.(0) in
@@ -86,104 +142,242 @@ module Linear_reward_model = struct
     in
     let num_features = num_int_features + num_bool_features in
     let module Mat = Owl.Mat in
-    let module Vec = Owl.Vec in
-
     let feature_means =
       Array.map ~f:fst4 processed_features
       |> Array.map ~f:(Array.map ~f:Float.of_int)
       |> Owl.Mat.of_arrays
-      |> Owl.Mat.mean_rows
+      |> (fun m ->
+          if Mat.col_num m > 0 then
+            Owl.Mat.mean_rows m
+          else
+            m)
       |> Owl.Mat.to_array
     in
     let sqr x = x *. x in
     let feature_std =
       Array.map ~f:fst4 processed_features
-      |> Array.map ~f:(Array.mapi ~f:(fun j x -> sqr (Float.of_int x -. feature_means.(j))))
+      |> Array.map ~f:(Array.mapi ~f:(fun j x ->
+          sqr (Float.of_int x -. feature_means.(j))))
       |> Owl.Mat.of_arrays
-      |> Owl.Mat.mean_rows
+      |> (fun m -> 
+          if Mat.col_num m > 0 then
+            Owl.Mat.mean_rows m
+          else
+            m)
       |> Owl.Mat.sqrt
       |> Owl.Mat.to_array
     in
     assert (Array.length feature_std   = num_int_features);
     assert (Array.length feature_means = num_int_features);
-    let feature_normalisation = Array.zip_exn feature_means feature_std in
-
-    let feature_matrix = Mat.create num_examples num_features 0.0 in
-    let target_matrix = Mat.create num_examples 1 0.0 in
-    let abs x = if x <. 0.0 then Float.neg x else x in
-    let too_small x = abs x <= 0.000001 in
-
-    (* Populate feature matrix *)
-    for i = 0 to num_examples - 1 do
-      for j = 0 to num_int_features - 1 do
-        let value =
-          (Float.of_int (fst4 processed_features.(i)).(j))
-        in
-        let value =
-          if too_small feature_std.(j) then
-            value
-          else
-            (value -. feature_means.(j)) /. feature_std.(j)
-        in
-        Mat.set feature_matrix i j value
+    let create_normalised_feature_vector =
+      fun feature_set ->
+        let (int_features, boolean_features) = create_features feature_set in
+        let feature_vector = Mat.create 1 num_features 0.0 in
+        for j = 0 to num_int_features - 1 do
+          let value = (Float.of_int int_features.(j)) in
+          let value =
+            if is_small feature_std.(j) then
+              value -. feature_means.(j)
+            else
+              (value -. feature_means.(j)) /. feature_std.(j)
+          in
+          Mat.set feature_vector 0 j value
+        done;
+        for j = 0 to num_bool_features - 1 do
+          let flag = boolean_features.(j) in
+          let value = if flag then 1.0 else 0.0 in
+          Mat.set feature_vector 0 (j + num_int_features) value
+        done;
+        feature_vector
+    in
+    let create_label ((a : float option), (b : float option)) =
+      if Option.is_some a && Option.is_some b then begin
+        1
+      end else begin
+        0
+      end
+    in
+    let num_classes = 2 in
+    let feature_matrix =
+      List.map examples ~f:fst
+      |> List.map ~f:create_normalised_feature_vector
+      |> List.to_array
+      |> Owl.Mat.concatenate ~axis:0
+    in
+    let labels =
+      let ret = Array.create ~len:num_examples 0 in
+      for i = 0 to num_examples - 1 do
+        ret.(i) <- create_label
+            (third4 processed_features.(i), forth4 processed_features.(i))
       done;
-      for j = 0 to num_bool_features - 1 do
-        let flag = (snd4 processed_features.(i)).(j) in
-        let value = if flag then 1.0 else 0.0 in
-        Mat.set feature_matrix i (j + num_int_features) value
-      done
-    done;
+      ret
+    in
+    let target_matrix = target_matrix_of_labels ~num_classes:2 labels in
+    let network =
+      let open Owl.Neural.D in
+      let open Owl.Neural.D.Graph in
+      input [| num_features |]
+      |> fully_connected 32 ~init_typ:Init.LecunNormal
+          ~act_typ:Activation.Relu
+      |> fully_connected 16 ~init_typ:Init.LecunNormal
+          ~act_typ:Activation.Relu
+      |> linear 2 ~init_typ:Init.LecunNormal
+          ~act_typ:Activation.Softmax
+      |> get_network
+    in
+    { network;
+      create_normalised_feature_vector;
+      create_label;
+      num_classes;
+      training_feature_matrix = feature_matrix;
+      training_targets = target_matrix;
+    }
+  ;;
 
-    (* Populate target matrix *)
-    for i = 0 to num_examples - 1 do
-      let diff = 
-        if Option.is_some (third4 processed_features.(i)) &&
-           Option.is_some (forth4 processed_features.(i))
-        then
-          1.0
-        else
-          0.0
+  let compute_accuracy ~labels guesses =
+    assert (Array.length labels = Array.length guesses);
+    let to_mat labels =
+      Owl.Mat.of_array (Array.map ~f:Float.of_int labels)
+        (Array.length labels) 1
+    in
+    Owl.Mat.(mean' (to_mat guesses =. to_mat labels))
+  ;;
+
+  let train_model ?state ~epochs model =
+    let params =
+      let open Owl.Optimise.D in
+      Owl.Optimise.D.Params.config
+        ~batch:Batch.Full
+        ~gradient:Gradient.GD
+        ~learning_rate:(Learning_Rate.Adagrad 0.01)
+        ~loss:Loss.Cross_entropy
+        ~verbosity:false
+        ~stopping:Stopping.None
+        (Float.of_int epochs)
+    in
+    let module Neural = Owl.Neural.D in
+    let network = model.network in
+    let feature_matrix = model.training_feature_matrix in
+    let target_matrix = model.training_targets in
+    let num_examples = Owl.Mat.row_num feature_matrix in
+    let checkpoint =
+      Neural.Graph.train ?state ~params network feature_matrix
+        model.training_targets
+    in
+    let model_fn = Owl.Neural.D.Graph.model network in
+    let open Owl.Optimise.D in
+    let probabilities = model_fn feature_matrix in
+    let loss =
+      let open Owl.Optimise.D in
+      Loss.run Loss.Cross_entropy (Arr target_matrix) (Arr probabilities) 
+      |> unpack_flt
+      |> fun x -> x /. (Float.of_int num_examples)
+    in
+    let guesses = guesses_of_probabilities probabilities in
+    let labels = guesses_of_probabilities target_matrix in
+    let accuracy = compute_accuracy ~labels guesses in
+    let baseline =
+      let to_mat labels =
+        Owl.Mat.of_array (Array.map ~f:Float.of_int labels)
+          num_examples 1
       in
-      Mat.set target_matrix i 0 diff
-    done;
-    printf "Target average = %.3f\n" (Mat.mean' target_matrix);
-    printf "Feature average = %.3f\n" (Mat.mean' feature_matrix);
-    let obtained =
-      Owl.Regression.D.logistic ~i:true feature_matrix target_matrix
+      Owl.Mat.mean' (to_mat labels)
     in
-    let weights = obtained.(0) in
-    let intercept = obtained.(1) in
-    let shape_to_string (a, b) = sprintf "(%d, %d)" a b in
+    Log.Global.info "Training baseline accuracy = %f" baseline;
+    Log.Global.info "training set loss = %f" loss;
+    Log.Global.info "training epochs = %f" checkpoint.epochs;
+    Log.Global.info "training stopped = %b" checkpoint.stop;
+    Log.Global.info "training set accuracy = %f" accuracy;
+    checkpoint
+  ;;
 
-    let obtained_probabilities =
-      Mat.((feature_matrix *@ weights) + intercept)
+  let do_analysis examples =
+    let training_examples, validation_examples, test_examples =
+      let num_training_examples =
+        Float.(to_int (0.7 *. of_int (List.length examples)))
+      in
+      let train, rest = List.split_n examples num_training_examples in
+      let validation, test = List.split_n rest ((List.length rest) / 2) in
+      (train, validation, test)
     in
-    let loss_fn a b =
-      Owl.Optimise.D.Loss.run Owl.Optimise.D.Loss.Cross_entropy a b
+    let model = create_model training_examples in
+    let%bind checkpoint =
+      let validation_features =
+        List.map ~f:fst validation_examples
+        |> List.map ~f:model.create_normalised_feature_vector
+        |> List.to_array
+        |> Owl.Mat.concatenate ~axis:0
+      in
+      let validation_labels =
+        List.map ~f:snd validation_examples
+        |> List.map ~f:model.create_label
+        |> List.to_array
+      in
+      let best_so_far = ref None in
+      let rec loop ~iter ~prev =
+        Log.Global.info ">>>>> Iteration %d <<<<<" iter;
+        let checkpoint =
+          let epochs = (iter + 1) * 100 in
+          train_model ?state:(Option.map ~f:fst prev) ~epochs model
+        in
+        let accuracy =
+          let validation_probabilities =
+            Neural.Graph.model model.network validation_features
+          in
+          let validation_guesses =
+            guesses_of_probabilities validation_probabilities
+          in
+          compute_accuracy ~labels:validation_labels validation_guesses
+        in
+        let () =
+          match !best_so_far with
+          | None -> 
+            best_so_far := Some (model, accuracy)
+          | Some (_, last_best_accuracy)->
+            if accuracy >. last_best_accuracy then begin
+              best_so_far := Some (model, accuracy)
+            end
+        in
+        Log.Global.info "validation accuracy = %f" accuracy;
+        match prev with
+        | Some (_checkpoint, prev_accuracy)
+          when (prev_accuracy > accuracy || iter < 200) && iter > 100 ->
+          Deferred.unit
+        | _ ->
+          Clock.after (Time.Span.of_sec 0.01) >>= fun () ->
+          loop ~prev:(Some (checkpoint, accuracy)) ~iter:(iter + 1)
+      in
+      let%bind() = loop ~prev:None ~iter:0 in
+      Deferred.return (Option.value_exn !best_so_far)
     in
-    let obtained_guesses =
-      Vec.map (fun p ->
-          if p >. 0.0 then 1.0 else 0.0)
-        obtained_probabilities
+    let model_fn = Neural.Graph.model model.network in
+    let test_features =
+      List.map ~f:fst test_examples
+      |> List.map ~f:model.create_normalised_feature_vector
+      |> List.to_array
+      |> Owl.Mat.concatenate ~axis:0
     in
-    printf !"Output: %{shape_to_string} %{shape_to_string} %{shape_to_string}\n"
-      (Mat.shape feature_matrix) (Mat.shape weights) (Mat.shape intercept);
-    printf "Average value: %.5f\n" (Mat.mean' target_matrix);
-    printf "Average absolute value: %.5f\n" (Mat.mean' (Mat.abs target_matrix));
-    printf "Maximum error: %.5f\n" (Mat.max' (Mat.(abs (obtained_probabilities - target_matrix))));
-    printf "Minimum error: %.5f\n" (Mat.min' (Mat.(abs (obtained_probabilities - target_matrix))));
-    printf "Weights:\n";
-
-    for i = 0 to num_features - 1 do
-      printf " - (%d) %.5f\n" i (Mat.get weights i 0)
-    done;
-
+    let test_probabilities = model_fn test_features in
+    let test_guesses = guesses_of_probabilities test_probabilities in
+    let test_labels =
+      List.map ~f:snd test_examples
+      |> List.map ~f:model.create_label
+      |> List.to_array
+    in
+    let test_accuracy =
+      let to_mat labels =
+        Owl.Mat.of_array (Array.map ~f:Float.of_int labels)
+          (Owl.Mat.row_num test_features) 1
+      in
+      Owl.Mat.(mean' (to_mat test_guesses =. to_mat test_labels))
+    in
+    Log.Global.info "Test accuracy: %f" test_accuracy;
     Deferred.return ()
   ;;
     
   let command =
     let open Command.Let_syntax in
-    Command.async' ~summary:"Linear reward model"
+    Command.async ~summary:"Linear reward model"
       [%map_open
         let features_file =
           flag "-features" (required file) ~doc:"FILE features bin file"
@@ -211,7 +405,7 @@ module Linear_reward_model = struct
           in
           let print_traces buffer traces =
             List.map ~f:Absolute_path.sexp_of_t traces
-            |> List.sort ~cmp:Sexp.compare
+            |> List.sort ~compare:Sexp.compare
             |> List.iter ~f:(fun trace ->
                 bprintf buffer "%s\n" (Sexp.to_string_hum trace);
                 bprintf buffer  ">>>>>>>>>>>>>>>>>>\n";
