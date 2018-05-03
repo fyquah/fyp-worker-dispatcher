@@ -12,6 +12,8 @@
      protocol
 
      owl
+     tensorflow
+     tensorflow.fnn
     ))
   ; (ocamlopt_flags
   ;   ((:standard -ccopt "-llapack -lopenblas")))

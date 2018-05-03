@@ -159,6 +159,21 @@ module Familiarity_model = struct
     let num_features = Owl.Mat.col_num feature_matrix in
     let labels = Array.map raw_targets ~f:create_label_from_target in
     let target_matrix = target_matrix_of_labels ~num_classes:2 labels in
+    let do_tf_analysis () =
+      let open Tensorflow_fnn in
+      let input, input_id = Fnn.input ~shape:(D1 num_features) in
+      let model =
+        input
+        |> Fnn.dense 32
+        |> Fnn.relu
+        |> Fnn.dense 16
+        |> Fnn.relu
+        |> Fnn.dense 2
+        |> Fnn.softmax
+        |> Fnn.Model.create Float
+      in
+      ()
+    in
     let network =
       let open Owl.Neural.D in
       let open Owl.Neural.D.Graph in
