@@ -13,6 +13,7 @@
 
      owl
      tensorflow
+     tensorflow.core
      tensorflow.fnn
     ))
   ; (ocamlopt_flags

@@ -1,6 +1,7 @@
 open Core
 open Async
 open Protocol.Shadow_fyp_compiler_lib
+open Mat_utils
 
 let wait sec = Clock.after (Time.Span.of_sec sec)
 
@@ -96,6 +97,8 @@ let shape_to_string (a, b) = sprintf "(%d, %d)" a b
 
 module Familiarity_model = struct
 
+  open Tensorflow_fnn
+
   module Neural = Owl.Neural.D
 
   module Classification_data = struct
@@ -106,8 +109,13 @@ module Familiarity_model = struct
       }
   end
 
+  type tf_model = 
+    { model : (Tensorflow_fnn.Fnn._1d, [ `float ], Tensorflow_core.Tensor.float32_elt) Tensorflow_fnn.Fnn.Model.t;
+      input_id: Tensorflow_fnn.Fnn.Input_id.t
+    }
+
   type model = 
-    { network                          : Neural.Graph.network;
+    { tf_model                         : tf_model;
       create_normalised_feature_vector : Feature_extractor.t -> Owl.Mat.mat;
       num_classes                      : int;
       training                         : Classification_data.t;
@@ -159,34 +167,22 @@ module Familiarity_model = struct
     let num_features = Owl.Mat.col_num feature_matrix in
     let labels = Array.map raw_targets ~f:create_label_from_target in
     let target_matrix = target_matrix_of_labels ~num_classes:2 labels in
-    let do_tf_analysis () =
+    let tf_model =
       let open Tensorflow_fnn in
       let input, input_id = Fnn.input ~shape:(D1 num_features) in
       let model =
         input
-        |> Fnn.dense 32
+        |> Fnn.dense 32 ~w_init:(`normal 0.1)
         |> Fnn.relu
-        |> Fnn.dense 16
+        |> Fnn.dense 16 ~w_init:(`normal 0.1)
         |> Fnn.relu
-        |> Fnn.dense 2
+        |> Fnn.dense 2 ~w_init:(`normal 0.1)
         |> Fnn.softmax
         |> Fnn.Model.create Float
       in
-      ()
+      { input_id; model; }
     in
-    let network =
-      let open Owl.Neural.D in
-      let open Owl.Neural.D.Graph in
-      input [| num_features |]
-      |> fully_connected 32 ~init_typ:Init.LecunNormal
-          ~act_typ:Activation.Relu
-      |> fully_connected 16 ~init_typ:Init.LecunNormal
-          ~act_typ:Activation.Relu
-      |> linear 2 ~init_typ:Init.LecunNormal
-          ~act_typ:Activation.Softmax
-      |> get_network
-    in
-    { network;
+    { tf_model;
       create_normalised_feature_vector;
       num_classes;
       training = {
@@ -211,10 +207,18 @@ module Familiarity_model = struct
       let num_examples = Owl.Mat.row_num target_matrix in
       Loss.run Loss.Cross_entropy (Arr target_matrix) (Arr probabilities) 
       |> unpack_flt
-      |> fun x -> x /. (Float.of_int num_examples)
+      |> fun x -> x /. (Float.of_int num_examples) /. 2.0
     in
-    let probabilities = 
-      Neural.Graph.model model.network data.features
+    let probabilities =
+      let tf_model = model.tf_model in
+      let tensor =
+        Tensorflow_core.Tensor.of_float_array2
+          (Owl.Mat.to_arrays data.features) Bigarray.Float32
+      in
+      Fnn.Model.predict model.tf_model.model
+        [(tf_model.input_id, tensor)]
+      |> Tensorflow_core.Tensor.to_float_array2
+      |> Owl.Mat.of_arrays
     in
     let loss = loss_fn data.targets probabilities in
     let accuracy =
@@ -225,6 +229,7 @@ module Familiarity_model = struct
   ;;
 
   let train_model model
+      ~epochs
       ~(test_data: Classification_data.t)
       ~(validation_data: Classification_data.t) =
     let chkpt =
@@ -251,24 +256,17 @@ module Familiarity_model = struct
         end;
         prev_accuracy := validation_snapshot.accuracy
     in
-    let params =
-      let open Owl.Optimise.D in
-      Owl.Optimise.D.Params.config
-        ~batch:Batch.Full
-        ~gradient:Gradient.GD
-        ~learning_rate:(Learning_Rate.Adagrad 0.01)
-        ~loss:Loss.Cross_entropy
-        ~verbosity:false
-        ~stopping:Stopping.None
-        ~checkpoint:(Checkpoint.Custom chkpt)
-        5000.0
-    in
     let module Neural = Owl.Neural.D in
-    let network = model.network in
     let checkpoint =
       let feature_matrix = model.training.features in
       let target_matrix = model.training.targets in
-      Neural.Graph.train ~params network feature_matrix target_matrix
+      Fnn.Model.fit model.tf_model.model
+        ~loss:(Fnn.Loss.cross_entropy `mean)
+        ~optimizer:(Fnn.Optimizer.adam ~learning_rate:0.0001 ~beta1:0.001 ~beta2:0.0001 ())
+        ~epochs
+        ~input_id:model.tf_model.input_id
+        ~xs:(tensor_of_mat feature_matrix)
+        ~ys:(tensor_of_mat target_matrix);
     in
     let baseline =
       let to_mat labels =
@@ -277,16 +275,17 @@ module Familiarity_model = struct
       in
       Owl.Mat.mean' (to_mat model.training.labels)
     in
-    let training_ss = gen_snapshot_entry model model.training in
-    Log.Global.info "Training baseline accuracy = %f" baseline;
-    Log.Global.info "training set loss = %f" training_ss.loss;
-    Log.Global.info "training epochs = %f" checkpoint.epochs;
-    Log.Global.info "training stopped = %b" checkpoint.stop;
-    Log.Global.info "training set accuracy = %f" training_ss.accuracy;
+    let ss =
+      let training = Some (gen_snapshot_entry model model.training) in
+      let validation = Some (gen_snapshot_entry model validation_data) in
+      let test = Some (gen_snapshot_entry model test_data) in
+      { Epoch_snapshot. epoch = epochs; training; validation; test; }
+    in
+    Log.Global.sexp ~level:`Info (Epoch_snapshot.sexp_of_t ss);
     checkpoint
   ;;
 
-  let do_analysis (examples : example list) =
+  let do_analysis ~epochs (examples : example list) =
     let training_examples, validation_examples, test_examples =
       let num_training_examples =
         Float.(to_int (0.7 *. of_int (List.length examples)))
@@ -315,10 +314,10 @@ module Familiarity_model = struct
     let validation_data =
       generate_features_and_labels validation_examples
     in
-    let _checkpoint = train_model ~validation_data ~test_data model in
+    let _checkpoint =
+      train_model ~epochs ~validation_data ~test_data model
+    in
     let test_ss = gen_snapshot_entry model test_data in
-    Log.Global.info "Test accuracy: accuracy = %f loss = %f"
-      test_ss.accuracy test_ss.loss;
     Deferred.return ()
   ;;
     
@@ -328,6 +327,8 @@ module Familiarity_model = struct
       [%map_open
         let specification_file =
           flag "-spec" (required file) ~doc:"FILE specification file"
+        and epochs =
+          flag "-epochs" (required int) ~doc:"INT epochs"
         in
         fun () ->
           let open Deferred.Let_syntax in
@@ -339,7 +340,7 @@ module Familiarity_model = struct
           let%bind () = wait 0.1 in
 
           (* Real analysis begins here. *)
-          do_analysis examples
+          do_analysis ~epochs examples
       ]
   ;;
 end
