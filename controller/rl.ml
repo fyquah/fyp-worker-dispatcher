@@ -142,7 +142,7 @@ module MCTS = struct
             { total_reward = total_reward +. reward; visits = visits + 1; }
           in
           let entry = update_entry entry in
-          let updated = SA_pair.Map.add acc ~key:hd ~data:entry in
+          let updated = SA_pair.Map.update acc hd ~f:(fun _ -> entry) in
           loop tl ~acc:updated
         end
       | [] -> acc
@@ -162,7 +162,7 @@ module MCTS = struct
         | None ->
           let key = hd in
           let data = { total_reward = 0.0; visits = 0 } in
-          SA_pair.Map.add q_values ~key ~data
+          SA_pair.Map.update q_values key ~f:(fun _ -> data)
         | Some _ -> loop tl
         end
       | [] -> q_values

@@ -77,15 +77,13 @@ end
  * functions here.
  *)
 module Multiversion_overrides : sig
-  type t =
-    | V0 of V0.t list
-    | V1 of V1.Overrides.t
-    | V_simple of Simple_overrides.t
-    | Don't
+  type t
 
   type query = V0.Query.t * V1.Overrides.query
 
   val find_decision : t -> query -> V1.Action.t option
 
   val load_from_clflags : unit -> t
+
+  val don't : t
 end

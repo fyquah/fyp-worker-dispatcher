@@ -47,6 +47,12 @@ class Apply_stamp(Apply_stamp_base):
     def id(self):
         return "%s[%s]" % (str(self.kind), str(self.stamp))
 
+    def to_sexp(self):
+        if self.kind == "Stub":
+            return ["Stub"]
+        else:
+            return [self.kind, str(self.stamp)]
+
     def __str__(self):
         return self.id()
 
@@ -60,11 +66,14 @@ class Node_id(Node_id_base):
     def id(self):
         return "%s__%s"% (self.compilation_unit.linkage_name, self.stamp.id())
 
+    def to_sexp(self):
+        return [self.compilation_unit.to_sexp(), self.stamp.to_sexp()]
 
 
 class Local_path(object):
     """
-    This is the path used in the fields of expanded nodes.
+    This is the path used in the fields of expanded nodes. Corresponds to
+    [Apply_id.Path] type
     """
     def __init__(self, path):
         self._path = path
@@ -76,6 +85,9 @@ class Local_path(object):
     def id(self):
         return "/".join(p.id() for p in self._path)
 
+    def to_sexp(self):
+        return [p.to_sexp() for p in self._path]
+
 
 class Compilation_unit(Compilation_unit_base):
 
@@ -86,8 +98,14 @@ class Compilation_unit(Compilation_unit_base):
     def __str__(self):
         return "%s/%s" % (self.linkage_name, self.ident)
 
+    def to_sexp(self):
+        return [self.ident, self.linkage_name]
+
 
 class Variable(Variable_base):
+
+    def to_sexp(self):
+        return sexp_of_variable(self)
 
     def __str__(self):
         return "%s/%s/%s" % (
@@ -420,6 +438,18 @@ class Absolute_path(object):
             else:
                 raise RuntimeError("Unknown item[0] %s" % item[0])
         return "/".join(ret)
+
+    def to_sexp(self):
+        ret = []
+        for item in self._trace:
+            if item[0] == "function":
+                ret.append(["Apply", item[1].to_sexp()])
+            elif item[0] == "declaration":
+                ret.append(["Decl", item[1].closure_origin.to_sexp()])
+            else:
+                assert False
+        return ret
+
 
     def __str__(self):
         ret = []

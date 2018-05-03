@@ -47,7 +47,7 @@ module V0 = struct
           Closure_id.print non_inlined_function.applied
     in
     let open Command.Let_syntax in
-    Command.async' ~summary:"diff_tree"
+    Command.async ~summary:"diff_tree"
       [%map_open
        let file_a = anon ("filename" %: string)
        and file_b = anon ("filename" %: string) in
@@ -82,7 +82,7 @@ module V0 = struct
 
   let command_pp_tree =
     let open Command.Let_syntax in
-    Command.async' ~summary:"pp"
+    Command.async ~summary:"pp"
       [%map_open
        let file = anon ("filename" %: string) in
        fun () ->
@@ -138,7 +138,7 @@ module V1 = struct
 
   let command_pp_decisions =
     let open Command.Let_syntax in
-    Command.async' ~summary:"pprint decisions"
+    Command.async ~summary:"pprint decisions"
       [%map_open
         let file = anon("filename" %: string) in
         fun () ->
@@ -195,7 +195,7 @@ module V1 = struct
 
   let command_pp_tree_from_decisions =
     let open Command.Let_syntax in
-    Command.async' ~summary:"pp"
+    Command.async ~summary:"pp"
       [%map_open
        let file = anon ("filename" %: string) in
        fun () ->
@@ -213,7 +213,7 @@ module V1 = struct
 
   let command_pp_tree =
     let open Command.Let_syntax in
-    Command.async' ~summary:"pp"
+    Command.async ~summary:"pp"
       [%map_open
        let file = anon ("filename" %: string) in
        fun () ->
@@ -244,7 +244,7 @@ module V1 = struct
 
   let command_pp_expanded =
     let open Command.Let_syntax in
-    Command.async' ~summary:"pp"
+    Command.async ~summary:"pp"
       [%map_open
        let file = anon ("filename" %: string) in
        fun () ->
@@ -261,7 +261,7 @@ module V1 = struct
 
   let command_diff_tree =
     let open Command.Let_syntax in
-    Command.async' ~summary:"diff_tree"
+    Command.async ~summary:"diff_tree"
       [%map_open
        let file_a = anon ("filename" %: string)
        and file_b = anon ("filename" %: string)
@@ -315,7 +315,7 @@ module V1 = struct
 
   let command_decisions_to_tree =
     let open Command.Let_syntax in
-    Command.async' ~summary:"convert compiler decisions to tree"
+    Command.async ~summary:"convert compiler decisions to tree"
       [%map_open
         let input_file = anon ("filename" %: string)
         and output_file =  flag "-output" (required string) ~doc:"STRING"
@@ -340,7 +340,7 @@ module V1 = struct
 
   let command_check_soundness =
     let open Command.Let_syntax in
-    Command.async_or_error' ~summary:"convert compiler decisions to tree"
+    Command.async_or_error ~summary:"convert compiler decisions to tree"
       [%map_open
         let compiled = anon ("candidate" %: string)
         and reference =  flag "-reference" (required string) ~doc:"STRING"
@@ -385,7 +385,7 @@ module V1 = struct
   
   let command_expanded_to_decisions =
     let open Command.Let_syntax in
-    Command.async' ~summary:"bla" [%map_open
+    Command.async ~summary:"bla" [%map_open
       let input = anon ("filename" %: string)
       and output  = flag "-output"  (required string) ~doc:"output" in
       fun () ->

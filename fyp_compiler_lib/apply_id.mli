@@ -57,3 +57,5 @@ val equal_accounting_deprecation : t -> t -> bool
 val get_inlining_path : t -> (Compilation_unit.t * stamp) list
 
 val inline : caller: t -> inlined: t -> t
+
+val to_identifier : t -> string

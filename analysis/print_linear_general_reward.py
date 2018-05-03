@@ -37,6 +37,9 @@ group1.add_argument(
 group1.add_argument(
         "--inspect-rewards", action="store_true",
         help="Inspect values learnt for nodes in the inlining tree.")
+group1.add_argument(
+        "--dump-rewards", action="store_true",
+        help="Inspect values learnt for nodes in the inlining tree.")
 
 
 def choose_left(a, b):
@@ -241,6 +244,23 @@ def run(argv):
 
         obtained = np.matmul(A, w)
         target = target_benefit
+
+    elif args.dump_rewards:
+        tree_path_to_ids = problem.properties.tree_path_to_ids
+        id_to_tree_path = {v: k for k, v in tree_path_to_ids.iteritems()}
+        A = problem_matrices.benefit_relations
+        arr = []
+        for i in range(num_nodes):
+            arr.append([
+                id_to_tree_path[i].to_sexp(),
+                inlining_tree.sexp_of_option(
+                    w[2 * i] if participation_count[2 * i] > 0 else None,
+                    f=str),
+                inlining_tree.sexp_of_option(
+                    w[2 * i + 1] if participation_count[2 * i + 1] > 0 else None,
+                    f=str)
+            ])
+        print sexpdata.dumps(arr)
 
     elif args.inspect_rewards:
         A = problem_matrices.benefit_relations

@@ -1,6 +1,17 @@
 All the linear algebra and mathematical geneius lives in this directory.
 There are a few different kinds of experiments that are carried out.
 
+## Dumping Rewards from Node Reward Assignment Model
+
+
+```bash
+exp="almabench"
+python ./print_linear_general_reward.py \
+  --experiment-dir out/$exp/linear-general-reward-without-normalisation/decay-0.300000-ridge-0.003000-benefit-sigmoid_speedup_over_mean/ \
+  --problem-dir out/$exp/ --dump-rewards >$exp-rewards.sexp
+```
+
+
 ## Directory Structure
 
 Files used to collect data from our large messy set of execution statistics:

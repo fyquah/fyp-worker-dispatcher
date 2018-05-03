@@ -281,6 +281,12 @@ module V1 = struct
         Apply_id.equal a.apply_id b.apply_id
 
       | _ -> false
+    ;;
+
+    let get_apply_id_exn = function
+      | Enter_decl _ -> Misc.fatal_error "no"
+      | At_call_site a -> a.apply_id
+    ;;
   end
 
   (* What we decided to do at the call site, using this rather than a
@@ -398,6 +404,325 @@ module V1 = struct
     ;;
 
     let of_decisions t = t
+
+    exception Tree_error
+
+    type node =
+      | Decl of {
+        declared : Function_metadata.t;
+        children : node list
+      }
+      | Apply of Apply_id.t
+      | Inlined of {
+        apply_id : Apply_id.t;
+        children : node list
+      }
+    ;;
+
+    type root = node list
+
+    let equal_node_and_trace_item (node : node) (trace_item : Trace_item.t) =
+      match (node, trace_item) with
+      | (Decl decl, Enter_decl enter_decl) ->
+        Closure_origin.equal decl.declared.closure_origin
+          enter_decl.declared.closure_origin
+
+      | (Inlined inlined, At_call_site at_call_site) ->
+        Apply_id.equal inlined.apply_id at_call_site.apply_id
+
+      | (Apply apply_id, At_call_site at_call_site) ->
+        Apply_id.equal apply_id at_call_site.apply_id
+
+      | _, _ -> false
+    ;;
+
+
+    (* Only on short lists! *)
+    let rec find_and_replace ~f ~default l =
+      match l with
+      | [] -> [ default () ]
+      | hd :: tl ->
+        match f hd with
+        | Some a -> a :: tl
+        | None -> hd :: (find_and_replace ~f ~default tl)
+    ;;
+
+    let add (top_level_tree : root) (collected : Decision.t) =
+
+      let rec add__generic (tree : node) (call_stack : Trace_item.t list) =
+        match call_stack with
+        | [] -> assert false
+        | hd :: tl ->
+          match hd with
+          | At_call_site at_call_site ->
+            add__call_site tree at_call_site tl
+          | Enter_decl enter_decl ->
+            add__declaration tree enter_decl tl
+
+      and add__declaration
+          (tree : node)
+          (enter_decl : Trace_item.enter_decl)
+          (call_stack : Trace_item.t list) =
+        match call_stack with
+        | [] -> raise Tree_error
+        | otherwise ->
+          let finder haystack =
+            let default () =
+              let declaration =
+                Decl { children = []; declared = enter_decl.declared; }
+              in
+              add__generic declaration otherwise
+            in
+            let f (child : node) =
+              if equal_node_and_trace_item child
+                  (Trace_item.Enter_decl enter_decl)
+              then Some (add__generic child otherwise)
+              else None
+            in
+            find_and_replace haystack ~default ~f
+          in
+          match tree with
+          | Decl decl ->
+            let children = finder decl.children in
+            Decl { decl with children }
+
+          | Inlined inlined_function ->
+            let children = finder inlined_function.children in
+            Inlined { inlined_function with children }
+
+          | Apply _ ->
+            tree
+            (* It is possible, due to the nature of the [inline] function. It
+             * inlines the contents of the function body before trying to
+             * deciding to inline the function itself.
+             *
+             * In cases as such, the parent takes higher priority (which should
+             * contain an equally pessimistic or more pessimistic decision).
+             *)
+
+      and add__call_site
+          (tree : node)
+          (call_site : Trace_item.at_call_site)
+          (call_stack : Trace_item.t list) =
+        let finder haystack =
+          match call_stack with
+          | [] ->
+            find_and_replace haystack
+              ~default:(fun () ->
+                match collected.action with
+                | Action.Specialise -> assert false
+                | Action.Inline ->
+                  Inlined {
+                    children = [];
+                    apply_id = call_site.apply_id;
+                  }
+                | Action.Apply -> Apply call_site.apply_id)
+              ~f:(fun (child : node) ->
+                if equal_node_and_trace_item child
+                  (Trace_item.At_call_site call_site)
+                then Some child
+                else None)
+          | otherwise ->
+            find_and_replace haystack
+              ~default:(fun () ->
+                let record =
+                  Inlined {
+                    children = []; apply_id   = call_site.apply_id;
+                  }
+                in
+                add__generic record otherwise)
+              ~f:(fun (child : node) ->
+                if equal_node_and_trace_item child
+                  (Trace_item.At_call_site call_site)
+                then Some (add__generic child otherwise)
+                else None)
+        in
+        match tree with
+        | Decl decl ->
+          let children = finder decl.children in
+          Decl { decl with children }
+
+        | Inlined inlined_function ->
+          let children = finder inlined_function.children in
+          Inlined { inlined_function with children }
+
+        | Apply _ ->
+          tree
+      in
+      let declared =
+        let closure_origin = Closure_origin.unknown in
+        { Function_metadata.
+          closure_id = None;
+          set_of_closures_id = None;
+          closure_origin;
+          opt_closure_origin = None;
+          specialised_for = None;
+        }
+      in
+      let children = top_level_tree in
+      let call_site = Decl { declared ; children } in
+      match
+        add__generic call_site (List.rev collected.trace)
+      with
+      | Decl { declared = _; children } -> children
+      | _ -> assert false
+    ;;
+
+    let rec recursively_reverse children =
+      let reverse_node node =
+        match node with
+        | Decl decl ->
+          Decl { decl with children = recursively_reverse decl.children }
+        | Inlined inlined ->
+          Inlined {
+            inlined with children = recursively_reverse inlined.children
+          }
+        | Apply _ -> node
+      in
+      List.rev_map reverse_node children
+    ;;
+
+    let build_tree (decisions : Decision.t list) =
+      let init = [] in
+      List.fold_left add init decisions
+      |> recursively_reverse
+    ;;
+
+    let rec check_prefix ~equal ~prefix path =
+      match prefix, path with
+      | [], _ -> true
+      | _, [] -> false
+      | (prefix_hd :: prefix_tl), (path_hd :: path_tl) ->
+        equal prefix_hd path_hd
+        && check_prefix ~equal ~prefix:prefix_tl path_tl
+    ;;
+
+    let is_decl = function
+      | Decl _ -> true
+      | _ -> false
+    ;;
+
+    let get_apply_id_exn = function
+      | Decl _ -> Misc.fatal_error "Cannot [get_apply_id_exn] on decl"
+      | Inlined { apply_id; _ }
+      | Apply apply_id -> apply_id
+    ;;
+
+    (* TODO(fyq14): This _assumes_ that the tree does not contain any stubs. *)
+    let find_in_tree =
+      let remove_stub_components path =
+        List.filter (fun (_cu, a) ->
+            match a with
+            | Apply_id.Stub -> false
+            | _ -> true)
+          path
+      in
+      let try_to_match (trace_item : Trace_item.t) (node : node) =
+        match (node, trace_item) with
+        | (Decl decl, Enter_decl enter_decl) ->
+          Closure_origin.equal decl.declared.closure_origin
+            enter_decl.declared.closure_origin
+
+        | (Inlined { apply_id; _ }, At_call_site at_call_site)
+        | (Apply apply_id, At_call_site at_call_site) ->
+          let reference_path = Apply_id.get_inlining_path apply_id in
+          let call_site_path =
+            Apply_id.get_inlining_path at_call_site.apply_id
+          in
+          let equal (cu_a, s_a) (cu_b, s_b) =
+            Compilation_unit.equal cu_a cu_b &&
+            (Apply_id.compare_stamp s_a s_b = 0)
+          in
+          check_prefix ~equal ~prefix:(remove_stub_components reference_path)
+            (remove_stub_components call_site_path)
+
+        | _, _ -> false
+      in
+      let rec find ~subtree query =
+        match query with
+        | [] -> Misc.fatal_error "Empty query makes no sense"
+        | hd :: tl ->
+          begin match List.find_opt (try_to_match hd) subtree with
+          | None -> None
+          | Some found ->
+            let subtree =
+              match found with
+              | Inlined { children; _ } -> children
+              | Decl { children; _ } -> children
+              | Apply _ -> []
+            in
+            let move_forward () =
+              begin match tl with
+              | [] ->
+                begin match found with
+                | Inlined _ -> Some Action.Inline
+                | Apply _ -> Some Action.Apply
+                | _ -> None
+                end
+              | otherwise -> find ~subtree otherwise
+              end
+            in
+            if is_decl found then
+              move_forward ()
+            else begin
+              let forward_path =
+                Apply_id.get_inlining_path (get_apply_id_exn found)
+              in
+              let trace_item_path =
+                Apply_id.get_inlining_path (Trace_item.get_apply_id_exn hd)
+              in
+              if List.length forward_path = List.length trace_item_path then
+                move_forward ()
+              else if List.length forward_path < List.length trace_item_path then
+                find ~subtree query
+              else
+                assert false
+            end
+          end
+      in
+      fun tree query ->
+        (* Query uses [list] as a stack *)
+        let trace =
+          List.filter (fun item ->
+              match item with
+              | Trace_item.Enter_decl _ -> true
+              | Trace_item.At_call_site acs ->
+                match acs.apply_id.stamp with
+                | Apply_id.Stub -> false
+                | _ -> true)
+            query.trace
+        in
+        find ~subtree:tree (List.rev trace)
+    ;;
+
+    let print_node ppf node =
+      match node with
+      | Decl decl -> 
+        Format.fprintf ppf "Decl(%a)"
+          Closure_origin.print decl.declared.closure_origin
+      | Inlined inlined ->
+        Format.fprintf ppf "Inlined[%a]" Apply_id.print inlined.apply_id
+      | Apply apply_id ->
+        Format.fprintf ppf "Apply[%a]" Apply_id.print apply_id
+    ;;
+
+    let get_children = function
+      | Decl { children; _ }
+      | Inlined { children; _ } -> children
+      | Apply _ -> []
+    ;;
+
+    let print_tree ppf  =
+      let rec loop ~depth tree =
+        let space = String.make (depth * 2) ' ' in
+        List.iter (fun child ->
+            Format.fprintf ppf "%s%a\n" space print_node child;
+            loop ~depth:(depth + 1) (get_children child))
+          tree
+      in
+      fun tree ->
+        loop ~depth:0 tree
+    ;;
   end
 end
 
@@ -604,8 +929,11 @@ module Multiversion_overrides = struct
   type t =
     | V0 of V0.t list
     | V1 of V1.Overrides.t
+    | V1_tree of V1.Overrides.root
     | V_simple of Simple_overrides.t
     | Don't
+
+  let don't = Don't
 
   type query = V0.Query.t * V1.Overrides.query
 
@@ -628,6 +956,10 @@ module Multiversion_overrides = struct
     | V_simple overrides ->
       let _, query = query in
       Simple_overrides.find_decision overrides query
+
+    | V1_tree tree ->
+      let _, query = query in
+      V1.Overrides.find_in_tree tree query
   ;;
 
   let load_from_clflags () =
@@ -650,7 +982,15 @@ module Multiversion_overrides = struct
           let len = List.length chosen in
           Format.printf "Loadded V1 overrides (len = %d) from %s\n"
             len filename;
-          V1 chosen
+          begin try
+            let ret = V1.Overrides.build_tree chosen in
+            Format.printf "Using the following search tree:\n";
+            Format.printf "%a" V1.Overrides.print_tree ret;
+            V1_tree ret
+          with
+          | V1.Overrides.Tree_error ->
+            V1 chosen
+          end
         with
         | Sexp.Parse_error _  ->
           let res =

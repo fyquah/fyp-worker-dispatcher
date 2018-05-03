@@ -1,0 +1,47 @@
+#!/bin/bash
+#
+###################################
+#
+#  Usage:
+#     ./extract-features-from-one EXP OVERRIDE_SEXP_FILE PATH_TO_FEATURES_BIN
+#
+###################################
+#
+
+
+set -euo pipefail
+
+EXPERIMENT=$1
+PATH_TO_SEXP_FILE=$2
+PATH_TO_OUT_FILE=$3
+
+EXPERIMENT_SUB_DIR=$(python ../scripts/query_experiment_params.py --name $EXPERIMENT --subdir)
+EXPERIMENT_BIN_NAME=$(python ../scripts/query_experiment_params.py --name $EXPERIMENT --bin-name)
+EXPERIMENT_DIR="$HOME/fyp/experiments/$EXPERIMENT_SUB_DIR"
+SCRATCH_DIR=$(mktemp -d)
+
+if [ ! -d  "$EXPERIMENT_DIR/" ]; then
+  echo "$EXPERIMENT_DIR (experiment directory) is not a directory!"
+  exit 1
+fi
+
+echo "Running features extraction in $SCRATCH_DIR for override file $PATH_TO_SEXP_FILE in experiment $EXPERIMENT"
+
+cd $SCRATCH_DIR
+cp $EXPERIMENT_DIR/* $SCRATCH_DIR/
+cp Makefile ./Makefile.bak
+cat Makefile.bak \
+  | grep -v "ifneq" \
+  | grep -v "inlining-overrides" \
+  | grep -v "endif" \
+  >Makefile
+sed -i'' -e 's#ocamlopt#~/fyp/ocaml/ocamlopt.opt -dump-features "V0" -inlining-overrides overrides.sexp#g' Makefile
+cp $PATH_TO_SEXP_FILE overrides.sexp
+
+echo "Running make in $(pwd)"
+rm -f *.native *.cm*
+make all >out.log
+
+cp $EXPERIMENT_BIN_NAME.flambda.v0.features $PATH_TO_OUT_FILE
+
+rm -r $SCRATCH_DIR

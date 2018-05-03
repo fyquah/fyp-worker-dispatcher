@@ -12,8 +12,33 @@ type call_context =
   | Inlined_function
   | In_function_declaration
 
+type wsb = {
+    (* These are used by FLambda in WSB *)
+    round                            : int;
+    toplevel                         : bool;
+    branch_depth                     : int;
+    lifting                          : bool;
+    original_size                    : int;
+    new_size                         : int;
+    benefit_remove_call              : int;
+    benefit_remove_alloc             : int;
+    benefit_remove_prim              : int;
+    benefit_remove_branch            : int;
+    benefit_direct_call_of_indirect  : int;
+}
+
+type trace_item =
+  | Decl of Closure_origin.t
+  | Apply of Apply_id.t
+
+val sexp_of_trace_item : trace_item -> Sexp.t
+val trace_item_of_sexp : Sexp.t -> trace_item
+
 type t =
-  { (* callee features *)
+  { trace                            : trace_item list;
+    flambda_wsb                      : wsb;
+
+    (* callee features *)
     params                           : int;
     bound_vars_to_symbol             : int;
     assign                           : int;
@@ -40,6 +65,7 @@ type t =
     call_context_stack               : call_context list;
     direct_call                      : bool;
     recursive_call                   : bool;
+    only_use_of_function             : bool;
 
     (* environment features -- this is same for all siblings *)
     inlining_depth                   : int;
@@ -68,6 +94,9 @@ val empty
   -> original_bound_vars: int option
   -> flambda_round: int
   -> flambda_tries: bool
+  -> flambda_wsb: wsb
+  -> trace: trace_item list
+  -> only_use_of_function: bool
   -> t
 
 val mined_features : t list ref

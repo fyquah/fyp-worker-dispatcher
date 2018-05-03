@@ -187,7 +187,7 @@ end
 
 let command_run =
   let open Command.Let_syntax in
-  Command.async_or_error' ~summary:"Command"
+  Command.async_or_error ~summary:"Command"
     [%map_open
       let {
         Command_params.
@@ -327,7 +327,7 @@ let command_run =
 module Command_plot = struct
   let command_v0 =
     let open Command.Let_syntax in
-    Command.async' ~summary:"Display"
+    Command.async ~summary:"Display"
       [%map_open
        let steps = flag "-steps" (required int) ~doc:"INT"
        and common_prefix = flag "-prefix" (required string) ~doc:"STRING"
@@ -432,7 +432,7 @@ module Command_plot = struct
 
   let command_v1 =
     let open Command.Let_syntax in
-    Command.async' ~summary:"Plots runtime vs various stats"
+    Command.async ~summary:"Plots runtime vs various stats"
       [%map_open
        let common_prefix = anon ("directory" %: string) in
        fun () ->

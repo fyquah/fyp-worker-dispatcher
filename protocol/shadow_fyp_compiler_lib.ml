@@ -199,3 +199,31 @@ module Call_site_offset = struct
 
   let compare a b = Int.compare (to_int a) (to_int b)
 end
+
+module Feature_extractor = struct
+  include Fyp_compiler_lib.Feature_extractor
+
+  let sexp_of_trace_item t = core_sexp_of_comp_sexp (sexp_of_trace_item t)
+  let trace_item_of_sexp sexp = trace_item_of_sexp (comp_sexp_of_core_sexp sexp)
+
+  module Trace = struct
+    module T = struct
+      type t = trace_item list [@@deriving sexp]
+  
+      let trace_item_compare a b =
+        match a, b with
+        | Decl a, Decl b   -> Closure_origin.compare a b
+        | Decl _, Apply _ -> 1
+        | Apply a, Apply b -> Apply_id.compare a b
+        | Apply _, Decl _ -> -1
+      ;;
+  
+      let compare = List.compare trace_item_compare
+  
+    end
+  
+    include T
+    include Comparable.Make(T)
+  end
+
+end

@@ -31,7 +31,6 @@ def main():
 
     print "Inlining tree depth =", problem.properties.depth
     print "Number of unique node identifiers =", num_vertices
-    print "Number of edges =", num_runs
     print "Number of apply nodes =", len(apply_nodes)
     print "Number of runs =", num_runs
     print "Number of unique edges =", len(edges)

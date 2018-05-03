@@ -18,7 +18,7 @@ let pertubate_tree (tree : Inlining_tree.Top_level.t) =
 
 let command_run =
   let open Command.Let_syntax in
-  Command.async_or_error' ~summary:"Run random sampling for things."
+  Command.async_or_error ~summary:"Run random sampling for things."
     [%map_open
       let {
         Command_params.
@@ -92,7 +92,7 @@ let command_run =
               Log.Global.info "[Step %d] Dispatching to worker" step;
               execute_tree ~step:(`Step step) ~sub_id:`Current tree
               >>=? fun exc_stats ->
-              cache := (Inlining_tree.Top_level.Map.add !cache tree exc_stats);
+              cache := (Inlining_tree.Top_level.Map.update !cache tree ~f:(fun _ -> exc_stats));
               Deferred.Or_error.return exc_stats
           end
           >>= function

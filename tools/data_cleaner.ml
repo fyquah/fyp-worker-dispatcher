@@ -8,7 +8,7 @@ module Function_metadata = Data_collector.Function_metadata
 
 let command_path_patching =
   let open Command.Let_syntax in
-  Command.async' ~summary:"path patching"
+  Command.async ~summary:"path patching"
     [%map_open
       let reference = flag "-reference" (required string) ~doc:"Aa"
       and output_file = flag "-output" (optional_with_default "/dev/stdout" string) ~doc:"Aa"
@@ -39,10 +39,11 @@ let command_path_patching =
         let%bind wrt = Writer.open_file output_file in
         Writer.write wrt (Sexp.to_string sexp);
         Deferred.unit]
+;;
 
 let command_path_patching_on_decisions =
   let open Command.Let_syntax in
-  Command.async' ~summary:"path patching"
+  Command.async ~summary:"path patching"
     [%map_open
       let reference = flag "-reference" (required string) ~doc:"Aa"
       and output_file = flag "-output" (optional_with_default "/dev/stdout" string) ~doc:"Aa"
@@ -82,12 +83,55 @@ let command_path_patching_on_decisions =
         Deferred.unit]
 ;;
 
+let loop_lines rdr ~f =
+  Deferred.repeat_until_finished () (fun () ->
+      match%bind Async.Reader.read_line rdr with
+      | `Eof -> return (`Finished ())
+      | `Ok line -> f line >>| fun () -> (`Repeat ()))
+;;
+
+let command_concat_features =
+  let open Command.Let_syntax in
+  Command.async ~summary:"Does work"
+    [%map_open
+      let output = flag "-output" (required string) ~doc:"target file" in
+      fun () ->
+        let open Deferred.Let_syntax in
+        let stdin = Lazy.force Async.Reader.stdin in
+        let ref_features =
+          ref Protocol.Absolute_path.Map.empty
+        in
+        let%bind () =
+          loop_lines stdin ~f:(fun filename ->
+            let (extracted_features : Feature_extractor.t list) =
+              let ic = Caml.open_in filename in
+              let value = Caml.input_value ic in
+              Caml.close_in ic;
+              value
+            in
+            List.iter extracted_features ~f:(fun feature_vector -> 
+              let key =
+                Protocol.Absolute_path.of_trace feature_vector.trace
+              in
+              let data = feature_vector in
+              ref_features :=
+                Protocol.Absolute_path.Map.update !ref_features key ~f:(fun _ -> data));
+            return ())
+        in
+        let features = Protocol.Absolute_path.Map.data !ref_features in
+        let oc = Caml.open_out output in
+        Caml.output_value oc features;
+        Caml.close_out oc;
+        Log.Global.info "Extracted %d features" (List.length features);
+        Deferred.unit]
+;;
+
 
 let () =
   Command.group ~summary:"Data cleaner" [
     ("path-patching", command_path_patching);
-    ("path-patching-on-decisions", command_path_patching_on_decisions)
+    ("path-patching-on-decisions", command_path_patching_on_decisions);
+    ("concat-features", command_concat_features);
   ]
   |> Command.run
 ;;
-

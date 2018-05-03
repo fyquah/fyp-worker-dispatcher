@@ -7,7 +7,7 @@ module EU = Experiment_utils
 
 let command_run =
   let open Command.Let_syntax in
-  Command.async_or_error' ~summary:"Command"
+  Command.async_or_error ~summary:"Command"
     [%map_open
       let {
         Command_params.
