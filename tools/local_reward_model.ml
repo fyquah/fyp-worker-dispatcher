@@ -235,7 +235,7 @@ module Familiarity_model = struct
         ~verbosity:false
         ~stopping:Stopping.None
         ~checkpoint:(Checkpoint.Custom chkpt)
-        1000.0
+        5000.0
     in
     let module Neural = Owl.Neural.D in
     let network = model.network in
