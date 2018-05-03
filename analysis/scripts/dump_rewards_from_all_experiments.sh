@@ -1,6 +1,8 @@
 #!/bin/bash
 
-cd $(dirname $0)
+set -euo pipefail
+
+cd $(dirname $0)/..
 for exp in $(python ../scripts/query_experiment_params.py --all); do
   mkdir -p ../w/$exp
   python ./print_linear_general_reward.py \

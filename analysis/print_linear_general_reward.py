@@ -89,7 +89,11 @@ def print_tree(tree, depth=0):
         print_tree(child, depth=depth + 1)
 
 
-def build_optimal_tree(tree, hyperparams, normalise_with_num_children):
+def build_optimal_tree(
+        tree,
+        hyperparams,
+        normalise_with_num_children,
+        record_path_long_term_rewards):
     """
     args:
         tree<name: path, value: (float * float)>
@@ -108,7 +112,8 @@ def build_optimal_tree(tree, hyperparams, normalise_with_num_children):
 
         for child in tree.children:
             acc.append(build_optimal_tree(
-                child, hyperparams, normalise_with_num_children))
+                child, hyperparams, normalise_with_num_children,
+                record_path_long_term_rewards=record_path_long_term_rewards))
             value_acc += acc[-1][1]
             optimal_children.append(acc[-1][0])
 
@@ -126,6 +131,11 @@ def build_optimal_tree(tree, hyperparams, normalise_with_num_children):
     lhs_value = neg_inf_if_none(tree.value[0]) + children_value
     rhs_value = neg_inf_if_none(tree.value[1])
 
+    assert isinstance(tree.name, inlining_tree.Absolute_path)
+    if tree.value[0] is None:
+        record_path_long_term_rewards[tree.name] = None
+    else:
+        record_path_long_term_rewards[tree.name] = lhs_value
 
     if len(tree.name.trace) == 0:
         tree = inlining_tree.Node(
@@ -246,19 +256,45 @@ def run(argv):
         target = target_benefit
 
     elif args.dump_rewards:
+        A = problem_matrices.benefit_relations
+        adjacency_list = inlining_tree.adjacency_list_from_edge_lists(
+                num_nodes=num_nodes,
+                edge_lists=problem.edges_lists)
         tree_path_to_ids = problem.properties.tree_path_to_ids
         id_to_tree_path = {v: k for k, v in tree_path_to_ids.iteritems()}
-        A = problem_matrices.benefit_relations
+        root = tree_path_to_ids[inlining_tree.Absolute_path([])]
+        tree = inlining_tree.build_from_adjacency_list(
+                [None] * num_nodes, root, adjacency_list)
+        tree = tree.map(f=fill_node_values) 
+        tree = tree.map(f=rename_id_to_path)
+        record_path_long_term_rewards = {}
+        (optimal_tree, value) = build_optimal_tree(
+                tree, hyperparams, normalise_with_num_children,
+                record_path_long_term_rewards=record_path_long_term_rewards)
+
         arr = []
         for i in range(num_nodes):
+            if participation_count[2 * i] > 0:
+                long_term = record_path_long_term_rewards[id_to_tree_path[i]]
+                inline_reward = [[
+                        ["immediate", w[2 * i]],
+                        ["long_term", long_term]
+                ]]
+            else:
+                inline_reward = []
+
+            if participation_count[2 * i + 1] > 0:
+                no_inline_reward = w[2 * i + 1]
+            else:
+                no_inline_reward = None
+
+            no_inline_reward = inlining_tree.sexp_of_option(
+                    no_inline_reward, f=str)
+
             arr.append([
-                id_to_tree_path[i].to_sexp(),
-                inlining_tree.sexp_of_option(
-                    w[2 * i] if participation_count[2 * i] > 0 else None,
-                    f=str),
-                inlining_tree.sexp_of_option(
-                    w[2 * i + 1] if participation_count[2 * i + 1] > 0 else None,
-                    f=str)
+                ["path", id_to_tree_path[i].to_sexp()],
+                ["inline_reward", inline_reward],
+                ["no_inline_reward", no_inline_reward],
             ])
         print sexpdata.dumps(arr)
 
@@ -289,7 +325,8 @@ def run(argv):
         tree = tree.map(f=fill_node_values)
         tree = tree.map(f=rename_id_to_path)
         (optimal_tree, value) = build_optimal_tree(
-                tree, hyperparams, normalise_with_num_children)
+                tree, hyperparams, normalise_with_num_children,
+                record_path_long_term_rewards={})
         sexp_optimal_tree = inlining_tree.sexp_of_top_level(
                 optimal_tree)
         logging.info("Optimal decision has a value of %f" % value)

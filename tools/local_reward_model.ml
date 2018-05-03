@@ -7,13 +7,18 @@ let wait sec = Clock.after (Time.Span.of_sec sec)
 module Absolute_path = Protocol.Absolute_path
 
 module Raw_reward = struct
-  type t = Protocol.Absolute_path.t * float option * float option
+  type dual_reward =
+    { immediate : float;
+      long_term : float;
+    }
   [@@deriving sexp]
-end
 
-module Reward = struct
-  type t = Protocol.Absolute_path.t * float * float
-  [@@deriving sexp]
+  type t =
+    { path             : Protocol.Absolute_path.t;
+      inline_reward    : dual_reward option;
+      no_inline_reward : float option
+    }
+  [@@deriving sexp, fields]
 end
 
 module Specification_file = struct
@@ -56,10 +61,13 @@ let load_call_site_examples (specification: Specification_file.t) =
       in
       let%map (raw_rewards : Raw_reward.t list) =
         Reader.load_sexp_exn rewards_file [%of_sexp: Raw_reward.t list]
-        >>| List.map ~f:(fun (trace, a, b) -> (Absolute_path.compress trace, a, b))
+        >>| List.map ~f:(fun (reward : Raw_reward.t) ->
+            { reward with path = Absolute_path.compress reward.path })
       in
       let rewards =
-        List.map raw_rewards ~f:(fun (a, b, c) -> (Absolute_path.compress a, (b, c)))
+        List.map raw_rewards ~f:(fun entry ->
+          (Raw_reward.path entry,
+          (Raw_reward.inline_reward entry, Raw_reward.no_inline_reward entry)))
         |> Protocol.Absolute_path.Map.of_alist_exn
       in
       let examples =
@@ -122,7 +130,10 @@ module Familiarity_model = struct
 
   let is_small x = Float.(abs x <= 0.00001)
 
-  let create_label_from_target ((a : float option), (b : float option)) =
+  type target = (Raw_reward.dual_reward option * float option)
+  type example = (Feature_extractor.t * target)
+
+  let create_label_from_target ((a, b) : target) =
     if Option.is_some a && Option.is_some b then begin
       1
     end else begin
@@ -130,7 +141,7 @@ module Familiarity_model = struct
     end
   ;;
 
-  let create_model (examples: (Feature_extractor.t * (float option * float option)) list) =
+  let create_model (examples: example list) =
     let raw_features = Array.of_list_map examples ~f:fst in
     let raw_targets  = Array.of_list_map examples ~f:snd in
     let create_normalised_feature_vector =
@@ -260,7 +271,7 @@ module Familiarity_model = struct
     checkpoint
   ;;
 
-  let do_analysis examples =
+  let do_analysis (examples : example list) =
     let training_examples, validation_examples, test_examples =
       let num_training_examples =
         Float.(to_int (0.7 *. of_int (List.length examples)))
@@ -320,7 +331,7 @@ end
 
 let () =
   Command.group ~summary:"Local reward model" [
-    ("linear", Familiarity_model.command)
+    ("famliarity-model", Familiarity_model.command)
   ]
   |> Command.run
 ;;
