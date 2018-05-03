@@ -2,7 +2,7 @@ import argparse
 import collections
 
 import matplotlib.pyplot as plt
-import sexpdata
+from matplotlib.backends import backend_pdf
 
 import sexp_parser
 import inlining_tree
@@ -37,6 +37,7 @@ def parse_line(s):
 
 parser = argparse.ArgumentParser(description="Parse")
 parser.add_argument("filename", type=str, help="shit")
+parser.add_argument("--pdf", type=str, help="shit")
 
 
 def main():
@@ -52,16 +53,38 @@ def main():
     training_loss = []
     validation_loss = []
     test_loss = []
+    training_accuracy = []
+    validation_accuracy = []
+    test_accuracy = []
     for ss in arr:
         epochs.append(ss.epoch)
         training_loss.append(ss.training.loss)
         validation_loss.append(ss.validation.loss)
         test_loss.append(ss.test.loss)
-    plt.plot(epochs, training_loss)
-    plt.plot(epochs, validation_loss)
-    plt.plot(epochs, test_loss)
-    plt.show()
+        training_accuracy.append(ss.training.accuracy)
+        validation_accuracy.append(ss.validation.accuracy)
+        test_accuracy.append(ss.test.accuracy)
 
+    h = []
+    plt.suptitle(args.filename)
+
+    plt.subplot(1, 2, 1)
+    h.extend(plt.plot(epochs, training_loss, label="training"))
+    h.extend(plt.plot(epochs, validation_loss, label="validation"))
+    h.extend(plt.plot(epochs, test_loss, label="test"))
+    plt.legend(handles=h)
+
+    plt.subplot(1, 2, 2)
+    h = []
+    h.extend(plt.plot(epochs, training_accuracy, label="training"))
+    h.extend(plt.plot(epochs, validation_accuracy, label="validation"))
+    h.extend(plt.plot(epochs, test_accuracy, label="test"))
+    plt.legend(handles=h)
+    plt.grid()
+
+    pp = backend_pdf.PdfPages(args.pdf)
+    pp.savefig()
+    pp.close()
 
 if __name__ == "__main__":
     main()
