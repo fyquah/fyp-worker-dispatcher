@@ -233,7 +233,7 @@ module Familiarity_model = struct
       loss : float;
     }
 
-  let predict (tf_model : tf_model)
+  let predict (tf_model : tf_model) ~session
       ~(target_matrix : Owl.Mat.mat) (feature_matrix : Owl.Mat.mat) =
     let open Tensorflow in
     let feature_matrix = tensor_of_mat feature_matrix in
@@ -244,7 +244,7 @@ module Familiarity_model = struct
     ]
     in
     let probabilities, loss =
-      Session.run ~inputs:session_inputs
+      Session.run ~session ~inputs:session_inputs
         (Session.Output.(both
           (float tf_model.output) (scalar_float tf_model.loss)))
     in
@@ -261,11 +261,11 @@ module Familiarity_model = struct
     Owl.Mat.(mean' (to_mat guesses =. to_mat labels))
   ;;
 
-  let gen_snapshot_entry model (data: Classification_data.t) =
+  let gen_snapshot_entry ~session model (data: Classification_data.t) =
     let probabilities, loss =
       let tf_model = model.tf_model in
       let { probabilities; loss } =
-        predict tf_model ~target_matrix:data.targets data.features
+        predict tf_model ~session ~target_matrix:data.targets data.features
       in
       (probabilities, loss)
     in
@@ -280,11 +280,23 @@ module Familiarity_model = struct
       ~epochs:total_epochs
       ~(test_data: Classification_data.t)
       ~(validation_data: Classification_data.t) =
+    let session =
+      let options =
+        let config =
+          Tensorflow_core.Protobuf.read_file "tf_config.pb"
+        in
+        let open Tensorflow.Session.Options in
+        add_config empty config
+      in
+      Tensorflow.Session.create ~options ()
+    in
     let check_stopping_cond =
       let streak = ref 0 in
       let prev_loss = ref 0.0 in
       fun () ->
-        let validation_snapshot = gen_snapshot_entry model validation_data in
+        let validation_snapshot =
+          gen_snapshot_entry ~session model validation_data
+        in
         if validation_snapshot.loss <. !prev_loss then begin
           streak := !streak + 1
         end else begin
@@ -297,11 +309,11 @@ module Familiarity_model = struct
           `Continue
         end
     in
-    let gen_snapshot model epoch =
+    let gen_snapshot ~session model epoch =
       let ss =
-        let training = Some (gen_snapshot_entry model model.training) in
-        let validation = Some (gen_snapshot_entry model validation_data) in
-        let test = Some (gen_snapshot_entry model test_data) in
+        let training = Some (gen_snapshot_entry ~session model model.training) in
+        let validation = Some (gen_snapshot_entry ~session model validation_data) in
+        let test = Some (gen_snapshot_entry ~session model test_data) in
         { Epoch_snapshot. epoch; training; validation; test; }
       in
       ss
@@ -316,7 +328,7 @@ module Familiarity_model = struct
       let target_matrix  = tensor_of_mat model.training.targets in
 
       Deferred.repeat_until_finished 0 (fun current_epoch ->
-        Session.run ~targets:tf_model.gd ~inputs:Session.Input.[
+        Session.run ~session ~targets:tf_model.gd ~inputs:Session.Input.[
           float tf_model.input_placeholder feature_matrix;
           float tf_model.target_placeholder target_matrix;
         ] Session.Output.empty;
@@ -331,7 +343,7 @@ module Familiarity_model = struct
           end
         in
         (* prepare for the next epoch *)
-        print_snapshot (gen_snapshot model current_epoch);
+        print_snapshot (gen_snapshot ~session model current_epoch);
         Writer.flushed (Lazy.force Writer.stderr)
         >>= fun () ->
 
@@ -345,10 +357,10 @@ module Familiarity_model = struct
         Owl.Mat.of_array (Array.map ~f:Float.of_int labels)
           (Array.length labels) 1
       in
-      Owl.Mat.mean' (to_mat model.training.labels)
+      Owl.Mat.mean' (to_mat test_data.labels)
     in
     let baseline_accuracy = Float.max baseline (1.0 -. baseline) in
-    Log.Global.info "Baseline accuracy = %f" baseline_accuracy;
+    Log.Global.info "Baseline test accuracy = %f" baseline_accuracy;
     Deferred.unit
   ;;
 
