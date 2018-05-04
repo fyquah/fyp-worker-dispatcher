@@ -123,23 +123,32 @@ module Familiarity_model = struct
   type placeholder = [`float] O.Placeholder.t
 
   type tf_model = 
-    { input_placeholder  : placeholder;
-      target_placeholder : placeholder;
-      output             : node;
-      vars               : node list;
-      loss               : node;
-      gd                 : Tensorflow.Node.p list;
+    { input_placeholder       : placeholder;
+      target_placeholder      : placeholder;
+      is_training_placeholder : [ `int32 ] O.Placeholder.t;
+      output                  : node;
+      vars                    : node list;
+      loss                    : node;
+      gd                      : Tensorflow.Node.p list;
     }
 
-  let construct_tf_model num_features =
+  type hyperparams =
+    { l2_reg  : float sexp_option;
+      dropout_keep_prob : float sexp_option;
+    }
+  [@@deriving sexp]
+
+  let construct_tf_model ~hyperparams num_features =
     let open Tensorflow in
     let vars = ref [] in
+    let weights = ref [] in
     let linear num_in num_out input =
       let hi = (1.0 /. Float.(sqrt (of_int num_in * of_int num_out))) in
       let lo = -.hi in
       let w = Var.uniformf ~lo ~hi [ num_in; num_out ] in
       let b = Var.f [ num_out ] 0. in
       vars := (w :: b :: !vars);
+      weights := (w :: !weights);
       O.(input *^ w + b)
     in
     let input_placeholder   =
@@ -148,20 +157,50 @@ module Familiarity_model = struct
     let target_placeholder =
       O.placeholder [ -1; 2; ] ~type_:Float
     in
+    let is_training_placeholder = O.placeholder [] ~type_:Int32 in
+    let is_training =
+      O.notEqual (O.const_int ~shape:[] ~type_:Int32 [0])
+        (O.Placeholder.to_node is_training_placeholder)
+    in
+    let dropout_prob p =
+      O.cond is_training ~if_true:(O.f p) ~if_false:(O.f 1.0)
+    in
+    let maybe_dropout node =
+      match hyperparams.dropout_keep_prob with
+      | None -> node
+      | Some p -> O.dropout ~keep_prob:(dropout_prob p) node
+    in
     let output =
       O.Placeholder.to_node input_placeholder
-      |> linear num_features 16
+      |> linear num_features 32
       |> O.relu
+      |> maybe_dropout
+      |> linear 32 16
+      |> O.relu
+      |> maybe_dropout
       |> linear 16 2
       |> O.softmax
     in
     let loss =
-      O.cross_entropy ~ys:(O.Placeholder.to_node target_placeholder)
-        ~y_hats:output `mean
+      let ce =
+        O.cross_entropy ~ys:(O.Placeholder.to_node target_placeholder)
+          ~y_hats:output `mean
+      in
+      let l2_reg_term =
+        let weights_squared =
+          List.map ~f:(fun a -> O.reduce_sum (O.mul a a)) !weights
+          |> List.fold ~f:O.add ~init:(O.f 0.0)
+        in
+        match hyperparams.l2_reg with
+        | Some lambda -> O.(f lambda * weights_squared)
+        | None -> O.f 0.0
+      in
+      O.add ce l2_reg_term
     in
     let vars = !vars in
     let gd = Optimizers.adam_minimizer ~learning_rate:(O.f 0.01) loss in
-    { input_placeholder; target_placeholder; output; vars; loss; gd; }
+    { is_training_placeholder;
+      input_placeholder; target_placeholder; output; vars; loss; gd; }
   ;;
 
   type model = 
@@ -199,7 +238,7 @@ module Familiarity_model = struct
     end
   ;;
 
-  let create_model (examples: example list) =
+  let create_model ~hyperparams (examples: example list) =
     let raw_features = Array.of_list_map examples ~f:fst in
     let raw_targets  = Array.of_list_map examples ~f:snd in
     let create_normalised_feature_vector =
@@ -217,7 +256,7 @@ module Familiarity_model = struct
     let num_features = Owl.Mat.col_num feature_matrix in
     let labels = Array.map raw_targets ~f:create_label_from_target in
     let target_matrix = target_matrix_of_labels ~num_classes:2 labels in
-    let tf_model = construct_tf_model num_features in
+    let tf_model = construct_tf_model ~hyperparams num_features in
     { tf_model;
       create_normalised_feature_vector;
       num_classes;
@@ -241,6 +280,7 @@ module Familiarity_model = struct
     let session_inputs = Session.Input.[
       float tf_model.input_placeholder feature_matrix;
       float tf_model.target_placeholder target_matrix;
+      int32 tf_model.is_training_placeholder (tensor_scalar_int32 0);
     ]
     in
     let probabilities, loss =
@@ -331,6 +371,7 @@ module Familiarity_model = struct
         Session.run ~session ~targets:tf_model.gd ~inputs:Session.Input.[
           float tf_model.input_placeholder feature_matrix;
           float tf_model.target_placeholder target_matrix;
+          int32 tf_model.is_training_placeholder (tensor_scalar_int32 1);
         ] Session.Output.empty;
 
         (* Check if it is time to stop *)
@@ -364,7 +405,7 @@ module Familiarity_model = struct
     Deferred.unit
   ;;
 
-  let do_analysis ~epochs ~(test_examples : example list) 
+  let do_analysis ~hyperparams ~epochs ~(test_examples : example list) 
       (examples : example list) =
     let training_examples, validation_examples =
       let num_training_examples =
@@ -372,7 +413,7 @@ module Familiarity_model = struct
       in
       List.split_n examples num_training_examples
     in
-    let model = create_model training_examples in
+    let model = create_model ~hyperparams training_examples in
     let generate_features_and_labels examples =
       let features =
         List.map ~f:fst examples
@@ -406,12 +447,17 @@ module Familiarity_model = struct
           flag "-spec" (required file) ~doc:"FILE specification file"
         and epochs =
           flag "-epochs" (required int) ~doc:"INT epochs"
+        and hyperparams_file =
+          flag "-hyperparams" (required file) ~doc:"FILE hyperparams file"
         in
         fun () ->
           let open Deferred.Let_syntax in
           let%bind specification =
             Reader.load_sexp_exn specification_file
               Specification_file.t_of_sexp
+          in
+          let%bind hyperparams =
+            Reader.load_sexp_exn hyperparams_file [%of_sexp: hyperparams]
           in
           let%bind training_examples, test_examples =
             match specification with
@@ -432,10 +478,11 @@ module Familiarity_model = struct
               let n = List.length examples * 7 / 10 in
               List.split_n examples n
           in
+          Log.Global.sexp ~level:`Info [%message (hyperparams: hyperparams)];
           let%bind () = wait 0.1 in
 
           (* Real analysis begins here. *)
-          do_analysis ~epochs ~test_examples training_examples
+          do_analysis ~hyperparams ~epochs ~test_examples training_examples
       ]
   ;;
 end
