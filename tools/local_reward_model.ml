@@ -30,7 +30,16 @@ module Specification_file = struct
     }
   [@@deriving sexp]
 
-  type t = entry list [@@deriving sexp]
+  type segmented = 
+    { training : entry list;
+      test     : entry list;
+    }
+  [@@deriving sexp]
+
+  type t =
+    | Segmented of segmented     (* To provide true out-of-sample testing *)
+    | Unsegmented of entry list
+  [@@deriving sexp]
 end
 
 module Epoch_snapshot = struct
@@ -50,8 +59,9 @@ module Epoch_snapshot = struct
 end
 
 
-let load_call_site_examples (specification: Specification_file.t) =
-  Deferred.List.concat_map specification ~f:(fun specification_entry ->
+let load_call_site_examples
+    (specification_entries: Specification_file.entry list) =
+  Deferred.List.concat_map specification_entries ~f:(fun specification_entry ->
       let features_file = specification_entry.features_file in
       let rewards_file = specification_entry.rewards_file in
       let%bind (features : Feature_extractor.t list) =
@@ -140,9 +150,7 @@ module Familiarity_model = struct
     in
     let output =
       O.Placeholder.to_node input_placeholder
-      |> linear num_features 32
-      |> O.relu
-      |> linear 32 16
+      |> linear num_features 16
       |> O.relu
       |> linear 16 2
       |> O.softmax
@@ -283,7 +291,7 @@ module Familiarity_model = struct
           streak := 0
         end;
         prev_loss := validation_snapshot.loss;
-        if !streak > 5 then begin
+        if !streak > 20 then begin
           `Stop
         end else begin
           `Continue
@@ -324,7 +332,8 @@ module Familiarity_model = struct
         in
         (* prepare for the next epoch *)
         print_snapshot (gen_snapshot model current_epoch);
-        Writer.flushed (Lazy.force Writer.stderr);
+        Writer.flushed (Lazy.force Writer.stderr)
+        >>= fun () ->
 
         if continue && current_epoch < total_epochs then
           Deferred.return (`Repeat (current_epoch + 1))
@@ -343,14 +352,13 @@ module Familiarity_model = struct
     Deferred.unit
   ;;
 
-  let do_analysis ~epochs (examples : example list) =
-    let training_examples, validation_examples, test_examples =
+  let do_analysis ~epochs ~(test_examples : example list) 
+      (examples : example list) =
+    let training_examples, validation_examples =
       let num_training_examples =
-        Float.(to_int (0.7 *. of_int (List.length examples)))
+        Float.(to_int (0.8 *. of_int (List.length examples)))
       in
-      let train, rest = List.split_n examples num_training_examples in
-      let validation, test = List.split_n rest ((List.length rest) / 2) in
-      (train, validation, test)
+      List.split_n examples num_training_examples
     in
     let model = create_model training_examples in
     let generate_features_and_labels examples =
@@ -393,11 +401,29 @@ module Familiarity_model = struct
             Reader.load_sexp_exn specification_file
               Specification_file.t_of_sexp
           in
-          let%bind examples = load_call_site_examples specification in
+          let%bind training_examples, test_examples =
+            match specification with
+            | Specification_file.Segmented { training; test; } -> 
+              Deferred.both
+                (load_call_site_examples training)
+                (load_call_site_examples test)
+              >>= fun (training, test) ->
+              Log.Global.info
+                "Loaded %d IN-SAMPLE training examples and \
+                 %d OUT-OF-SAMPLE test examples"
+                (List.length training)
+                (List.length test);
+              return (training, test)
+            | Specification_file.Unsegmented entries -> 
+              load_call_site_examples entries
+              >>| fun examples ->
+              let n = List.length examples * 7 / 10 in
+              List.split_n examples n
+          in
           let%bind () = wait 0.1 in
 
           (* Real analysis begins here. *)
-          do_analysis ~epochs examples
+          do_analysis ~epochs ~test_examples training_examples
       ]
   ;;
 end
