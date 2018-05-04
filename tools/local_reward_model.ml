@@ -99,8 +99,6 @@ module Familiarity_model = struct
 
   open Tensorflow_fnn
 
-  module Neural = Owl.Neural.D
-
   module Classification_data = struct
     type t =
       { features : Owl.Mat.mat;
@@ -109,10 +107,54 @@ module Familiarity_model = struct
       }
   end
 
+  module O = Tensorflow.Ops
+
+  type node = [ `float ] Tensorflow.Node.t
+  type placeholder = [`float] O.Placeholder.t
+
   type tf_model = 
-    { model : (Tensorflow_fnn.Fnn._1d, [ `float ], Tensorflow_core.Tensor.float32_elt) Tensorflow_fnn.Fnn.Model.t;
-      input_id: Tensorflow_fnn.Fnn.Input_id.t
+    { input_placeholder  : placeholder;
+      target_placeholder : placeholder;
+      output             : node;
+      vars               : node list;
+      loss               : node;
+      gd                 : Tensorflow.Node.p list;
     }
+
+  let construct_tf_model num_features =
+    let open Tensorflow in
+    let vars = ref [] in
+    let linear num_in num_out input =
+      let hi = (1.0 /. Float.(sqrt (of_int num_in * of_int num_out))) in
+      let lo = -.hi in
+      let w = Var.uniformf ~lo ~hi [ num_in; num_out ] in
+      let b = Var.f [ num_out ] 0. in
+      vars := (w :: b :: !vars);
+      O.(input *^ w + b)
+    in
+    let input_placeholder   =
+      O.placeholder [ -1; num_features; ] ~type_:Float
+    in
+    let target_placeholder =
+      O.placeholder [ -1; 2; ] ~type_:Float
+    in
+    let output =
+      O.Placeholder.to_node input_placeholder
+      |> linear num_features 32
+      |> O.relu
+      |> linear 32 16
+      |> O.relu
+      |> linear 16 2
+      |> O.softmax
+    in
+    let loss =
+      O.cross_entropy ~ys:(O.Placeholder.to_node target_placeholder)
+        ~y_hats:output `mean
+    in
+    let vars = !vars in
+    let gd = Optimizers.adam_minimizer ~learning_rate:(O.f 0.01) loss in
+    { input_placeholder; target_placeholder; output; vars; loss; gd; }
+  ;;
 
   type model = 
     { tf_model                         : tf_model;
@@ -167,21 +209,7 @@ module Familiarity_model = struct
     let num_features = Owl.Mat.col_num feature_matrix in
     let labels = Array.map raw_targets ~f:create_label_from_target in
     let target_matrix = target_matrix_of_labels ~num_classes:2 labels in
-    let tf_model =
-      let open Tensorflow_fnn in
-      let input, input_id = Fnn.input ~shape:(D1 num_features) in
-      let model =
-        input
-        |> Fnn.dense 32 ~w_init:(`normal 0.1)
-        |> Fnn.relu
-        |> Fnn.dense 16 ~w_init:(`normal 0.1)
-        |> Fnn.relu
-        |> Fnn.dense 2 ~w_init:(`normal 0.1)
-        |> Fnn.softmax
-        |> Fnn.Model.create Float
-      in
-      { input_id; model; }
-    in
+    let tf_model = construct_tf_model num_features in
     { tf_model;
       create_normalised_feature_vector;
       num_classes;
@@ -190,6 +218,30 @@ module Familiarity_model = struct
         features = feature_matrix; labels; targets = target_matrix
       };
     }
+  ;;
+
+  type prediction =
+    { probabilities: Owl.Mat.mat;
+      loss : float;
+    }
+
+  let predict (tf_model : tf_model)
+      ~(target_matrix : Owl.Mat.mat) (feature_matrix : Owl.Mat.mat) =
+    let open Tensorflow in
+    let feature_matrix = tensor_of_mat feature_matrix in
+    let target_matrix = tensor_of_mat target_matrix in
+    let session_inputs = Session.Input.[
+      float tf_model.input_placeholder feature_matrix;
+      float tf_model.target_placeholder target_matrix;
+    ]
+    in
+    let probabilities, loss =
+      Session.run ~inputs:session_inputs
+        (Session.Output.(both
+          (float tf_model.output) (scalar_float tf_model.loss)))
+    in
+    let probabilities = tensor_to_mat probabilities in
+    { probabilities; loss; }
   ;;
 
   let compute_accuracy ~labels guesses =
@@ -202,25 +254,13 @@ module Familiarity_model = struct
   ;;
 
   let gen_snapshot_entry model (data: Classification_data.t) =
-    let loss_fn target_matrix probabilities =
-      let open Owl.Optimise.D in
-      let num_examples = Owl.Mat.row_num target_matrix in
-      Loss.run Loss.Cross_entropy (Arr target_matrix) (Arr probabilities) 
-      |> unpack_flt
-      |> fun x -> x /. (Float.of_int num_examples) /. 2.0
-    in
-    let probabilities =
+    let probabilities, loss =
       let tf_model = model.tf_model in
-      let tensor =
-        Tensorflow_core.Tensor.of_float_array2
-          (Owl.Mat.to_arrays data.features) Bigarray.Float32
+      let { probabilities; loss } =
+        predict tf_model ~target_matrix:data.targets data.features
       in
-      Fnn.Model.predict model.tf_model.model
-        [(tf_model.input_id, tensor)]
-      |> Tensorflow_core.Tensor.to_float_array2
-      |> Owl.Mat.of_arrays
+      (probabilities, loss)
     in
-    let loss = loss_fn data.targets probabilities in
     let accuracy =
       guesses_of_probabilities probabilities
       |> compute_accuracy ~labels:data.labels
@@ -229,44 +269,67 @@ module Familiarity_model = struct
   ;;
 
   let train_model model
-      ~epochs
+      ~epochs:total_epochs
       ~(test_data: Classification_data.t)
       ~(validation_data: Classification_data.t) =
-    let chkpt =
+    let check_stopping_cond =
       let streak = ref 0 in
-      let prev_accuracy = ref 0.0 in
-      fun (state : Owl.Optimise.D.Checkpoint.state) ->
-        let epoch = state.current_batch / state.batches_per_epoch in
+      let prev_loss = ref 0.0 in
+      fun () ->
         let validation_snapshot = gen_snapshot_entry model validation_data in
-        let msg =
-          let validation = Some validation_snapshot in
-          let training = Some (gen_snapshot_entry model model.training) in
-          let test = Some (gen_snapshot_entry model test_data) in
-          { Epoch_snapshot. epoch; training; validation; test; }
-          |> Epoch_snapshot.sexp_of_t
-        in
-        Owl_log.info "%s" (Sexp.to_string_mach msg);
-        if validation_snapshot.accuracy <. !prev_accuracy then begin
+        if validation_snapshot.loss <. !prev_loss then begin
           streak := !streak + 1
         end else begin
           streak := 0
         end;
+        prev_loss := validation_snapshot.loss;
         if !streak > 5 then begin
-          state.stop <- true
-        end;
-        prev_accuracy := validation_snapshot.accuracy
+          `Stop
+        end else begin
+          `Continue
+        end
     in
-    let module Neural = Owl.Neural.D in
-    let checkpoint =
-      let feature_matrix = model.training.features in
-      let target_matrix = model.training.targets in
-      Fnn.Model.fit model.tf_model.model
-        ~loss:(Fnn.Loss.cross_entropy `mean)
-        ~optimizer:(Fnn.Optimizer.adam ~learning_rate:0.0001 ~beta1:0.001 ~beta2:0.0001 ())
-        ~epochs
-        ~input_id:model.tf_model.input_id
-        ~xs:(tensor_of_mat feature_matrix)
-        ~ys:(tensor_of_mat target_matrix);
+    let gen_snapshot model epoch =
+      let ss =
+        let training = Some (gen_snapshot_entry model model.training) in
+        let validation = Some (gen_snapshot_entry model validation_data) in
+        let test = Some (gen_snapshot_entry model test_data) in
+        { Epoch_snapshot. epoch; training; validation; test; }
+      in
+      ss
+    in
+    let print_snapshot ss =
+      Log.Global.sexp ~level:`Info (Epoch_snapshot.sexp_of_t ss);
+    in
+    let%bind () =
+      let open Tensorflow in
+      let tf_model = model.tf_model in
+      let feature_matrix = tensor_of_mat model.training.features in
+      let target_matrix  = tensor_of_mat model.training.targets in
+
+      Deferred.repeat_until_finished 0 (fun current_epoch ->
+        Session.run ~targets:tf_model.gd ~inputs:Session.Input.[
+          float tf_model.input_placeholder feature_matrix;
+          float tf_model.target_placeholder target_matrix;
+        ] Session.Output.empty;
+
+        (* Check if it is time to stop *)
+        let continue =
+          if current_epoch < 100 || not (current_epoch mod 10 = 0) then
+            true
+          else begin match check_stopping_cond () with
+          | `Stop -> false
+          | `Continue -> true
+          end
+        in
+        (* prepare for the next epoch *)
+        print_snapshot (gen_snapshot model current_epoch);
+        Writer.flushed (Lazy.force Writer.stderr);
+
+        if continue && current_epoch < total_epochs then
+          Deferred.return (`Repeat (current_epoch + 1))
+        else
+          Deferred.return (`Finished ()))
     in
     let baseline =
       let to_mat labels =
@@ -275,14 +338,9 @@ module Familiarity_model = struct
       in
       Owl.Mat.mean' (to_mat model.training.labels)
     in
-    let ss =
-      let training = Some (gen_snapshot_entry model model.training) in
-      let validation = Some (gen_snapshot_entry model validation_data) in
-      let test = Some (gen_snapshot_entry model test_data) in
-      { Epoch_snapshot. epoch = epochs; training; validation; test; }
-    in
-    Log.Global.sexp ~level:`Info (Epoch_snapshot.sexp_of_t ss);
-    checkpoint
+    let baseline_accuracy = Float.max baseline (1.0 -. baseline) in
+    Log.Global.info "Baseline accuracy = %f" baseline_accuracy;
+    Deferred.unit
   ;;
 
   let do_analysis ~epochs (examples : example list) =
@@ -314,10 +372,9 @@ module Familiarity_model = struct
     let validation_data =
       generate_features_and_labels validation_examples
     in
-    let _checkpoint =
+    let%bind () =
       train_model ~epochs ~validation_data ~test_data model
     in
-    let test_ss = gen_snapshot_entry model test_data in
     Deferred.return ()
   ;;
     
@@ -347,7 +404,7 @@ end
 
 let () =
   Command.group ~summary:"Local reward model" [
-    ("famliarity-model", Familiarity_model.command)
+    ("familiarity-model", Familiarity_model.command)
   ]
   |> Command.run
 ;;
