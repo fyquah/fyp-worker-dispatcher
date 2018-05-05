@@ -104,6 +104,9 @@ module Specification_file = struct
 end
 
 
+type target = (Raw_reward.dual_reward option * float option)
+type example = (Feature_extractor.t * target)
+
 let load_call_site_examples
     (specification_entries: Specification_file.entry list) =
   Deferred.List.concat_map specification_entries ~f:(fun specification_entry ->
@@ -146,4 +149,24 @@ let load_call_site_examples
   Log.Global.info "Loaded a total of %d training examples"
     (List.length examples);
   List.permute examples
+;;
+
+let load_from_specification specification =
+  match specification with
+  | Specification_file.Segmented { training; test; } -> 
+    Deferred.both
+      (load_call_site_examples training)
+      (load_call_site_examples test)
+    >>= fun (training, test) ->
+    Log.Global.info
+      "Loaded %d IN-SAMPLE training examples and \
+       %d OUT-OF-SAMPLE test examples"
+      (List.length training)
+      (List.length test);
+    return (training, test)
+  | Specification_file.Unsegmented entries -> 
+    load_call_site_examples entries
+    >>| fun examples ->
+    let n = List.length examples * 7 / 10 in
+    List.split_n examples n
 ;;

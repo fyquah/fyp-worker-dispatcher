@@ -3,24 +3,6 @@ open Async
 open Protocol.Shadow_fyp_compiler_lib
 open Mat_utils
 
-let wait sec = Clock.after (Time.Span.of_sec sec)
-
-module Epoch_snapshot = struct
-  type entry = {
-    accuracy : float;
-    loss     : float;
-  }
-  [@@deriving sexp]
-
-  type t = {
-    epoch      : int;
-    training   : entry option;
-    validation : entry option;
-    test       : entry option;
-  }
-  [@@deriving sexp]
-end
-
 let () =
   Command.group ~summary:"Local reward model" [
     ("familiarity-model", Familiarity_model.command)
