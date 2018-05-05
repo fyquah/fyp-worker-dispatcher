@@ -77,7 +77,7 @@ let construct_tf_model ~(hyperparams : Tf_helper.hyperparams) num_features =
   }
 ;;
 
-let create_label_from_target ((a, b) : target) =
+let create_label_from_target ((a, b) : Raw_data.target) =
   if Option.is_some a && Option.is_some b then begin
     1
   end else begin
@@ -95,7 +95,7 @@ let target_matrix_of_labels ~num_classes labels =
 ;;
 
 
-let create_model ~hyperparams (examples: example list) =
+let create_model ~hyperparams (examples: Raw_data.example list) =
   let raw_features = Array.of_list_map examples ~f:fst in
   let raw_targets  = Array.of_list_map examples ~f:snd in
   let create_normalised_feature_vector =
@@ -124,8 +124,8 @@ let create_model ~hyperparams (examples: example list) =
   }
 ;;
 
-let do_analysis ~hyperparams ~epochs ~(test_examples : example list) 
-    (examples : example list) =
+let do_analysis (examples : Raw_data.example list)
+    ~hyperparams ~epochs ~(test_examples : Raw_data.example list) =
   let training_examples, validation_examples =
     let num_training_examples =
       Float.(to_int (0.8 *. of_int (List.length examples)))

@@ -4,8 +4,8 @@ open Tensorflow
 open Protocol.Shadow_fyp_compiler_lib
 open Async
 
+module Absolute_path = Protocol.Absolute_path
 module O = Ops
-
 
 let shape_to_string (a, b) = sprintf "(%d, %d)" a b
 
@@ -66,23 +66,6 @@ let const_bool
     ~output_idx:None
 
 
-module Absolute_path = Protocol.Absolute_path
-
-module Raw_reward = struct
-  type dual_reward =
-    { immediate : float;
-      long_term : float;
-    }
-  [@@deriving sexp]
-
-  type t =
-    { path             : Protocol.Absolute_path.t;
-      inline_reward    : dual_reward option;
-      no_inline_reward : float option
-    }
-  [@@deriving sexp, fields]
-end
-
 module Specification_file = struct
   type entry =
     { features_file : string;
@@ -103,10 +86,6 @@ module Specification_file = struct
   [@@deriving sexp]
 end
 
-
-type target = (Raw_reward.dual_reward option * float option)
-type example = (Feature_extractor.t * target)
-
 let load_call_site_examples
     (specification_entries: Specification_file.entry list) =
   Deferred.List.concat_map specification_entries ~f:(fun specification_entry ->
@@ -118,15 +97,15 @@ let load_call_site_examples
           | `Eof -> failwith "Cannot read somethign like this"
           | `Ok value -> return value)
       in
-      let%map (raw_rewards : Raw_reward.t list) =
-        Reader.load_sexp_exn rewards_file [%of_sexp: Raw_reward.t list]
-        >>| List.map ~f:(fun (reward : Raw_reward.t) ->
+      let%map (raw_rewards : Raw_data.Reward.t list) =
+        Reader.load_sexp_exn rewards_file [%of_sexp: Raw_data.Reward.t list]
+        >>| List.map ~f:(fun (reward : Raw_data.Reward.t) ->
             { reward with path = Absolute_path.compress reward.path })
       in
       let rewards =
         List.map raw_rewards ~f:(fun entry ->
-          (Raw_reward.path entry,
-          (Raw_reward.inline_reward entry, Raw_reward.no_inline_reward entry)))
+          (Raw_data.Reward.path entry,
+          (Raw_data.Reward.inline_reward entry, Raw_data.Reward.no_inline_reward entry)))
         |> Protocol.Absolute_path.Map.of_alist_exn
       in
       let examples =
