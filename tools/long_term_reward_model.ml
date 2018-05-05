@@ -45,13 +45,14 @@ let construct_tf_model ~(hyperparams : Tf_helper.hyperparams) num_features =
     |> linear 32 16
     |> O.relu
     |> maybe_dropout
-    |> linear 16 2
-    |> O.softmax
+    |> linear 16 1
+    |> O.sigmoid
   in
   let loss =
     let ce =
-      O.cross_entropy ~ys:(O.Placeholder.to_node target_placeholder)
-        ~y_hats:output `mean
+      let x = O.(Placeholder.to_node target_placeholder - output) in
+      let x = O.square x in
+      O.reduce_mean x
     in
     let l2_reg_term =
       let weights_squared =
@@ -77,25 +78,19 @@ let construct_tf_model ~(hyperparams : Tf_helper.hyperparams) num_features =
   }
 ;;
 
-let create_label_from_target ((a, b) : Raw_data.target) =
-  if Option.is_some a && Option.is_some b then begin
-    1
-  end else begin
-    0
-  end
+
+let filter_eligible_examples examples =
+  List.filter_map examples
+    ~f:(fun (feature, (opt_dual_reward, no_inline)) ->
+      match opt_dual_reward with
+      | None -> None
+      | Some dual_reward ->
+        Some (feature, dual_reward.Raw_data.Reward.long_term))
 ;;
 
+type example = (Feature_extractor.t * float)
 
-let target_matrix_of_labels ~num_classes labels = 
-  let mat = Owl.Mat.create (Array.length labels) num_classes 0.0 in
-  for i = 0 to Array.length labels - 1 do
-    Owl.Mat.set mat i labels.(i) 1.0;
-  done;
-  mat
-;;
-
-
-let create_model ~hyperparams (examples: Raw_data.example list) =
+let create_model ~hyperparams (examples: example list) =
   let raw_features = Array.of_list_map examples ~f:fst in
   let raw_targets  = Array.of_list_map examples ~f:snd in
   let create_normalised_feature_vector =
@@ -110,21 +105,22 @@ let create_model ~hyperparams (examples: Raw_data.example list) =
     |> Owl.Mat.concatenate ~axis:0
   in
   let num_features = Owl.Mat.col_num feature_matrix in
-  let labels = Array.map raw_targets ~f:create_label_from_target in
-  let target_matrix = target_matrix_of_labels ~num_classes:2 labels in
+  let target_matrix =
+    Owl.Mat.of_array raw_targets (Array.length raw_targets) 1
+  in
   let tf_model = construct_tf_model ~hyperparams num_features in
   let training =
     let features = feature_matrix in
     let targets  = target_matrix in
-    Tf_helper.Data.Classification { features; labels; targets; }
+    Tf_helper.Data.Regression { features; targets; }
   in
   { Tf_helper.
     tf_model; create_normalised_feature_vector; training;
   }
 ;;
 
-let do_analysis (examples : Raw_data.example list)
-    ~hyperparams ~epochs ~(test_examples : Raw_data.example list) =
+let do_analysis (examples : example list)
+    ~hyperparams ~epochs ~(test_examples : example list) =
   let training_examples, validation_examples =
     let num_training_examples =
       Float.(to_int (0.8 *. of_int (List.length examples)))
@@ -132,24 +128,22 @@ let do_analysis (examples : Raw_data.example list)
     List.split_n examples num_training_examples
   in
   let model = create_model ~hyperparams training_examples in
-  let generate_features_and_labels examples =
+  let generate_features_and_targets examples =
     let features =
       List.map ~f:fst examples
       |> List.map ~f:model.create_normalised_feature_vector
       |> List.to_array
       |> Owl.Mat.concatenate ~axis:0
     in
-    let labels =
-      List.map ~f:snd examples
-      |> List.map ~f:create_label_from_target
-      |> List.to_array
+    let targets =
+      let raw_targets = Array.of_list_map examples ~f:snd in
+      Owl.Mat.of_array raw_targets (Array.length raw_targets) 1
     in
-    let targets = target_matrix_of_labels ~num_classes:2 labels in
-    Tf_helper.Data.Classification { features; labels; targets; }
+    Tf_helper.Data.Regression { features; targets; }
   in
-  let test_data = generate_features_and_labels test_examples in
+  let test_data = generate_features_and_targets test_examples in
   let validation_data =
-    generate_features_and_labels validation_examples
+    generate_features_and_targets validation_examples
   in
   let%bind () =
     Tf_helper.train_model ~epochs ~validation_data ~test_data ~model
@@ -159,7 +153,8 @@ let do_analysis (examples : Raw_data.example list)
   
 let command =
   let open Command.Let_syntax in
-  Command.async ~summary:"Linear reward model"
+  Command.async
+    ~summary:"Model for predicting long term rewards of an inlining decision"
     [%map_open
       let specification_file =
         flag "-spec" (required file) ~doc:"FILE specification file"
@@ -180,6 +175,8 @@ let command =
         let%bind training_examples, test_examples =
           load_from_specification specification
         in
+        let training_examples = filter_eligible_examples training_examples in
+        let test_examples = filter_eligible_examples test_examples in
         let wait sec = Clock.after (Time.Span.of_sec sec) in
         Log.Global.sexp ~level:`Info [%message (hyperparams: Tf_helper.hyperparams)];
         let%bind () = wait 0.1 in

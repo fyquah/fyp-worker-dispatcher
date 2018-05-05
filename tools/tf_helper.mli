@@ -64,7 +64,6 @@ type tf_model =
 type 'a model = 
   { tf_model                         : tf_model;
     create_normalised_feature_vector : Feature_extractor.t -> Owl.Mat.mat;
-    num_classes                      : int;
     training                         : 'a Data.t;
   }
 
