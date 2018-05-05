@@ -23,6 +23,7 @@ module Data :
     val features : _ t -> Owl.Mat.mat
     val targets  : _ t -> Owl.Mat.mat
     val labels   : [ `classification ] t -> int array
+    val num_classes   : [ `classification ] t -> int
   end
 
 
@@ -91,3 +92,6 @@ val train_model
   -> test_data: 'a Data.t
   -> validation_data: 'a Data.t
   -> unit Deferred.t
+
+
+val target_matrix_of_labels : num_classes: int -> int array -> Owl.Mat.mat
