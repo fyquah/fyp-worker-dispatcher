@@ -8,6 +8,7 @@ let () =
     ("familiarity-model", Familiarity_model.command);
     ("policy-model", Policy_model.command);
     ("long-term-model", Long_term_reward_model.command);
+    ("short-term-model", Short_term_reward_model.command);
   ]
   |> Command.run
 ;;

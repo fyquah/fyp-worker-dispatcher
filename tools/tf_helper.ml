@@ -245,7 +245,7 @@ let train_model (type a)
       let continue =
         if current_epoch < 100 || not (current_epoch mod 10 = 0) then
           true
-        else begin match check_stopping_cond () with
+        else begin match `Continue with
         | `Stop -> false
         | `Continue -> true
         end
