@@ -14,7 +14,9 @@ Snapshot = collections.namedtuple("Snapshot", ["epoch", "training", "validation"
 
 def ss_entry_of_sexp(sexp):
     m = inlining_tree.sexp_to_map(sexp)
-    accuracy = float(m["accuracy"])
+    accuracy = m.get("accuracy", None)
+    if accuracy is not None:
+        accuracy = float(accuracy)
     loss = float(m["loss"])
     return Entry(loss=loss, accuracy=accuracy)
 
@@ -60,6 +62,10 @@ parser.add_argument("filename", type=str, help="shit")
 parser.add_argument("--pdf", type=str, help="shit")
 
 
+def remove_nones(arr):
+    return [x for x in arr if x is not None]
+
+
 def main():
     args = parser.parse_args()
     arr = []
@@ -89,22 +95,32 @@ def main():
 
     h = []
     plt.suptitle(args.filename)
+    training_accuracy = remove_nones(training_accuracy)
+    validation_accuracy = remove_nones(validation_accuracy)
+    test_accuracy = remove_nones(test_accuracy)
 
-    plt.subplot(1, 2, 1)
+    is_classification = True
+    if len(training_accuracy) == 0:
+        is_classification = False
+
+    if is_classification:
+        plt.subplot(1, 2, 1)
+
     h.extend(plt.plot(epochs, training_loss, label="training"))
     h.extend(plt.plot(epochs, validation_loss, label="validation"))
     h.extend(plt.plot(epochs, test_loss, label="test"))
     plt.grid()
     plt.legend(handles=h)
 
-    plt.subplot(1, 2, 2)
-    h = []
-    h.extend(plt.plot(epochs, training_accuracy, label="training"))
-    h.extend(plt.plot(epochs, validation_accuracy, label="validation"))
-    h.extend(plt.plot(epochs, test_accuracy, label="test"))
-    h.append(plt.axhline(y=baseline, color='r', linestyle='--', label="baseline"))
-    plt.legend(handles=h)
-    plt.grid()
+    if is_classification:
+        plt.subplot(1, 2, 2)
+        h = []
+        h.extend(plt.plot(epochs, training_accuracy, label="training"))
+        h.extend(plt.plot(epochs, validation_accuracy, label="validation"))
+        h.extend(plt.plot(epochs, test_accuracy, label="test"))
+        h.append(plt.axhline(y=baseline, color='r', linestyle='--', label="baseline"))
+        plt.legend(handles=h)
+        plt.grid()
 
     if args.pdf is None:
         plt.show()
