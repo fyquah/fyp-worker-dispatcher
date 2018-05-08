@@ -10,6 +10,9 @@ let () =
     ("policy-model", Policy_model.command);
     ("long-term-model", Long_term_reward_model.command);
     ("short-term-model", Short_term_reward_model.command);
+
+    (* For Plotting *)
+    ("plots", Plots.command);
   ]
   |> Command.run
 ;;
