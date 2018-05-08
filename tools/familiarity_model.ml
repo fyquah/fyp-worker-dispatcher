@@ -104,7 +104,6 @@ let create_model ~hyperparams (examples: Raw_data.example list) =
         (Array.to_list raw_features)
     )
   in
-  let num_classes = 2 in
   let feature_matrix =
     List.map examples ~f:fst
     |> Array.of_list_map ~f:create_normalised_feature_vector
@@ -120,7 +119,7 @@ let create_model ~hyperparams (examples: Raw_data.example list) =
     Tf_helper.Data.Classification { features; labels; targets; }
   in
   { Tf_helper.
-    tf_model; create_normalised_feature_vector; num_classes; training;
+    tf_model; create_normalised_feature_vector; training;
   }
 ;;
 

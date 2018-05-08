@@ -5,7 +5,14 @@ open Mat_utils
 
 let () =
   Command.group ~summary:"Local reward model" [
-    ("familiarity-model", Familiarity_model.command)
+    ("familiarity-model", Familiarity_model.command);
+    ("decision-model", Decision_model.command);
+    ("policy-model", Policy_model.command);
+    ("long-term-model", Long_term_reward_model.command);
+    ("short-term-model", Short_term_reward_model.command);
+
+    (* For Plotting *)
+    ("plots", Plots.command);
   ]
   |> Command.run
 ;;

@@ -23,6 +23,7 @@ module Data :
     val features : _ t -> Owl.Mat.mat
     val targets  : _ t -> Owl.Mat.mat
     val labels   : [ `classification ] t -> int array
+    val num_classes   : [ `classification ] t -> int
   end
 
 
@@ -64,7 +65,6 @@ type tf_model =
 type 'a model = 
   { tf_model                         : tf_model;
     create_normalised_feature_vector : Feature_extractor.t -> Owl.Mat.mat;
-    num_classes                      : int;
     training                         : 'a Data.t;
   }
 
@@ -92,3 +92,6 @@ val train_model
   -> test_data: 'a Data.t
   -> validation_data: 'a Data.t
   -> unit Deferred.t
+
+
+val target_matrix_of_labels : num_classes: int -> int array -> Owl.Mat.mat
