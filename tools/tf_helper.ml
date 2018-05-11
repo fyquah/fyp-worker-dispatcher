@@ -24,7 +24,8 @@ module Data : sig
 
   val features : _ t -> Owl.Mat.mat
   val targets  : _ t -> Owl.Mat.mat
-  val labels   : [ `classification ] t -> int array
+  val labels      : [ `classification ] t -> int array
+  val num_classes : [ `classification ] t -> int
 
 end = struct
   type classification =
@@ -57,6 +58,10 @@ end = struct
   let labels (t : [ `classification ] t) =
     match t with
     | Classification { labels; _ } -> labels
+
+  let num_classes (t : [ `classification ] t) =
+    match t with
+    | Classification { targets; _ } -> Owl.Mat.col_num targets
 end
 
 module Epoch_snapshot = struct
@@ -100,7 +105,6 @@ type hyperparams =
 type 'a model = 
   { tf_model                         : tf_model;
     create_normalised_feature_vector : Feature_extractor.t -> Owl.Mat.mat;
-    num_classes                      : int;
     training                         : 'a Data.t;
   }
 
@@ -241,7 +245,7 @@ let train_model (type a)
       let continue =
         if current_epoch < 100 || not (current_epoch mod 10 = 0) then
           true
-        else begin match check_stopping_cond () with
+        else begin match `Continue with
         | `Stop -> false
         | `Continue -> true
         end
@@ -259,14 +263,17 @@ let train_model (type a)
   let () =
     match test_data with
     | (Data.Classification _) as test_data ->
+      let num_classes = Data.num_classes test_data in
+      let arr = Array.create ~len:num_classes 0 in
+      let labels = Data.labels test_data in
+      Array.iter labels ~f:(fun lbl -> arr.(lbl) <- arr.(lbl) + 1);
       let baseline =
-        let to_mat labels =
-          Owl.Mat.of_array (Array.map ~f:Float.of_int labels)
-            (Array.length labels) 1
-        in
-        Owl.Mat.mean' (to_mat (Data.labels test_data))
+        Array.max_elt arr ~compare:Int.compare
+        |> Option.value_exn
       in
-      let baseline_accuracy = Float.max baseline (1.0 -. baseline) in
+      let baseline_accuracy =
+        Float.(of_int baseline / of_int (Array.length labels))
+      in
       Log.Global.info "Baseline test accuracy = %f" baseline_accuracy;
     | (Data.Regression _) as test_data ->
       let baseline_guesses =
@@ -282,3 +289,10 @@ let train_model (type a)
   Deferred.unit
 ;;
 
+let target_matrix_of_labels ~num_classes labels = 
+  let mat = Owl.Mat.create (Array.length labels) num_classes 0.0 in
+  for i = 0 to Array.length labels - 1 do
+    Owl.Mat.set mat i labels.(i) 1.0;
+  done;
+  mat
+;;
