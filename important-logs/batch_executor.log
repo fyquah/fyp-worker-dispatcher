@@ -193,3 +193,12 @@
 ./experiment-scripts/random-walk-lexifi-g2pp_benchmark,/home/fyquah/fyp/prod/rundir/2018-03-26T11_53_58.465942Z
 ./experiment-scripts/random-walk-lexifi-g2pp_benchmark,/home/fyquah/fyp/prod/rundir/2018-03-26T11_54_00.190644Z
 ./experiment-scripts/random-walk-lexifi-g2pp_benchmark,/home/fyquah/fyp/prod/rundir/2018-03-26T11_54_01.925982Z
+./experiment-scripts/simulated-annealing-generic fyq-stdlib-int-sets,/home/fyquah/fyp/prod/rundir/2018-05-07T16_48_10.177191Z
+./experiment-scripts/simulated-annealing-generic fyq-stdlib-int-sets,/home/fyquah/fyp/prod/rundir/2018-05-07T16_48_12.078742Z
+./experiment-scripts/simulated-annealing-generic fyq-stdlib-int-sets,/home/fyquah/fyp/prod/rundir/2018-05-07T16_48_13.895913Z
+./experiment-scripts/simulated-annealing-generic fyq-stdlib-functor-record-sets,/home/fyquah/fyp/prod/rundir/2018-05-07T19_50_19.693036Z
+./experiment-scripts/simulated-annealing-generic fyq-stdlib-functor-record-sets,/home/fyquah/fyp/prod/rundir/2018-05-07T19_50_21.571830Z
+./experiment-scripts/simulated-annealing-generic fyq-stdlib-functor-record-sets,/home/fyquah/fyp/prod/rundir/2018-05-07T19_50_23.439611Z
+./experiment-scripts/simulated-annealing-generic fyq-rev-list,/home/fyquah/fyp/prod/rundir/2018-05-08T00_09_39.938168Z
+./experiment-scripts/simulated-annealing-generic fyq-rev-list,/home/fyquah/fyp/prod/rundir/2018-05-08T00_09_41.783585Z
+./experiment-scripts/simulated-annealing-generic fyq-rev-list,/home/fyquah/fyp/prod/rundir/2018-05-08T00_09_43.661403Z
