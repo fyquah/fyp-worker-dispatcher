@@ -1,0 +1,25 @@
+#!/bin/bash
+
+set -euo pipefail
+
+cd "$(dirname "$0")"
+cd ../
+
+EXP_NAME="$1"
+
+export EXPERIMENT_DIR=$(python ./scripts/query_experiment_params.py --name $EXP_NAME --subdir)
+export EXPERIMENT_BIN_NAME=$(python ./scripts/query_experiment_params.py --name $EXP_NAME --bin-name)
+export EXPERIMENT_BIN_ARGS=$(python ./scripts/query_experiment_params.py --name $EXP_NAME --bin-args)
+
+echo "EXPERIMENT_DIR = $EXPERIMENT_DIR"
+echo "EXPERIMENT_BIN_NAME = $EXPERIMENT_BIN_NAME"
+echo "EXPERIMENT_BIN_ARGS = $EXPERIMENT_BIN_ARGS"
+
+if [ "$2" = "dev" ]; then
+  scripts/run_dev.sh simulated-annealing
+elif [ "$2" = "prod" ]; then
+  scripts/run_prod.sh simulated-annealing
+else
+  echo "Unknown execution mode"
+  exit 1
+fi

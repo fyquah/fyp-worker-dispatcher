@@ -84,5 +84,26 @@ EXPERIMENT_TO_PARAMETERS = {
         "sequence-cps": ExperimentParameters(
             bin_name="sequence_cps_benchmark",
             subdir="normal/sequence_cps_benchmark",
-            bin_args="120000")
+            bin_args="120000"),
+
+        "fyq-stdlib-int-sets": ExperimentParameters(
+            bin_name="main",
+            subdir="fyq/stdlib-int-sets",
+            bin_args=""),
+
+        "fyq-stdlib-functor-record-sets": ExperimentParameters(
+            bin_name="main",
+            subdir="fyq/stdlib-functor-record-sets",
+            bin_args=""),
+
+        "fyq-rev-list": ExperimentParameters(
+            bin_name="main",
+            subdir="fyq/rev-list",
+            bin_args="400000000"),
+
+        "fyq-symbolic-maths": ExperimentParameters(
+            bin_name="main",
+            subdir="fyq/symbolic-maths",
+            bin_args="44"),
+
 }
