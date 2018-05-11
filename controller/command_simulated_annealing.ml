@@ -199,6 +199,10 @@ let command_run =
        } = Command_params.params
      and from_empty = flag "-from-empty" no_arg ~doc:"FLAG from empty" in
       fun () ->
+        Log.Global.sexp ~level:`Info [%message
+           (exp_dir  : string)
+           (bin_name : string)
+           (bin_args : string)];
         Reader.load_sexp config_filename [%of_sexp: Config.t]
         >>=? fun config ->
         Deferred.Or_error.List.map config.worker_configs ~how:`Parallel
@@ -275,12 +279,12 @@ let command_run =
           Experiment_utils.compile_binary
             ~dir:exp_dir
             ~bin_name:bin_name
-            ~write_overrides:(fun exp_dir ->
+            ~write_overrides:(fun output_filename ->
               let overrides =
                 initial_tree_state
                 |> Inlining_tree.V1.Top_level.to_override_rules
               in
-              Writer.save_sexp (exp_dir ^/ "overrides.sexp")
+              Writer.save_sexp output_filename
                 ([%sexp_of: Data_collector.V1.Overrides.t] overrides)
               >>| fun () -> Or_error.return ())
             ~dump_directory:(
