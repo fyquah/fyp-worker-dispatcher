@@ -243,6 +243,53 @@ let command_run =
         in
         lift_deferred (Utils.Scheduler.create worker_connections ~process)
         >>=? fun scheduler ->
+        let initial_tree_state =
+          let tree = Inlining_tree.V1.build initial_state.v1_decisions in
+          let tree =
+            let rec undo_inlining tree =
+              List.map tree ~f:(fun node ->
+                match node with
+                | Inlining_tree.V1.Declaration decl ->
+                  Inlining_tree.V1.Declaration
+                    { decl with children = undo_inlining decl.children }
+                | Apply_inlined_function inlined ->
+                  Apply_non_inlined_function
+                    { applied = inlined.applied;
+                      apply_id = inlined.apply_id;
+                    }
+                | Apply_non_inlined_function _ ->
+                  node)
+            in
+            if from_empty then begin
+              Log.Global.info
+                "Starting Simulated Annealing from an empty completely empty tree";
+              undo_inlining tree
+            end
+            else tree
+          in
+          tree
+        in
+        begin if not from_empty then begin
+          Deferred.Or_error.return (initial_state.path_to_bin)
+        end else begin
+          Experiment_utils.compile_binary
+            ~dir:exp_dir
+            ~bin_name:bin_name
+            ~write_overrides:(fun exp_dir ->
+              let overrides =
+                initial_tree_state
+                |> Inlining_tree.V1.Top_level.to_override_rules
+              in
+              Writer.save_sexp (exp_dir ^/ "overrides.sexp")
+                ([%sexp_of: Data_collector.V1.Overrides.t] overrides)
+              >>| fun () -> Or_error.return ())
+            ~dump_directory:(
+              Experiment_utils.Dump_utils.execution_dump_directory
+                ~step:`Initial ~sub_id:`Current)
+        end
+        end
+
+        >>=? fun initial_binary ->
         (* We run this 3 more times than the others to gurantee
          * stability of the distribution of initial execution times.
          *)
@@ -252,7 +299,7 @@ let command_run =
           Deferred.Or_error.List.init (List.length config.worker_configs)
             ~how:`Parallel
             ~f:(fun j ->
-              let path_to_bin = initial_state.path_to_bin in
+              let path_to_bin = initial_binary in
               let work_unit =
                 { Work_unit.
                   path_to_bin; step = `Initial;
@@ -300,31 +347,9 @@ let command_run =
           let scheduler = scheduler
         end)
         in
-        let state =
-          let tree = Inlining_tree.V1.build initial_state.v1_decisions in
-          let tree =
-            let rec undo_inlining tree =
-              List.map tree ~f:(fun node ->
-                match node with
-                | Inlining_tree.V1.Declaration decl ->
-                  Inlining_tree.V1.Declaration
-                    { decl with children = undo_inlining decl.children }
-                | Apply_inlined_function inlined ->
-                  Apply_non_inlined_function
-                    { applied = inlined.applied;
-                      apply_id = inlined.apply_id;
-                    }
-                | Apply_non_inlined_function _ ->
-                  node)
-            in
-            if from_empty then begin
-              Log.Global.info
-                "Starting Simulated Annealing from an empty completely empty tree";
-              undo_inlining tree
-            end
-            else tree
-          in
-          let path_to_bin = initial_state.path_to_bin in
+        let simulated_annealing_initial_state =
+          let tree = initial_tree_state in
+          let path_to_bin = initial_binary in
           let work_unit =
             { Work_unit. path_to_bin; step = `Step 0; sub_id = `Current; }
           in
@@ -336,15 +361,14 @@ let command_run =
           in
           Annealer.empty ~config initial initial_execution_stats
         in
-        Deferred.repeat_until_finished state (fun state ->
-          Annealer.step state
-          >>| fun ((_ : Annealer.Step.t), next) ->
-          if next.step >= next.config.steps then
-            `Finished (Ok ())
-          else
-            `Repeat next
-        )
-    ]
+        Deferred.repeat_until_finished simulated_annealing_initial_state
+          (fun state ->
+            Annealer.step state
+            >>| fun ((_ : Annealer.Step.t), next) ->
+            if next.step >= next.config.steps then
+              `Finished (Ok ())
+            else
+              `Repeat next)]
 
 module Command_plot = struct
   let command_v0 =
