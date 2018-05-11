@@ -197,7 +197,7 @@ let command_run =
         bin_name;
         bin_args;
        } = Command_params.params
-      in
+     and from_empty = flag "-from-empty" no_arg ~doc:"FLAG from empty" in
       fun () ->
         Reader.load_sexp config_filename [%of_sexp: Config.t]
         >>=? fun config ->
@@ -302,6 +302,28 @@ let command_run =
         in
         let state =
           let tree = Inlining_tree.V1.build initial_state.v1_decisions in
+          let tree =
+            let rec undo_inlining tree =
+              List.map tree ~f:(fun node ->
+                match node with
+                | Inlining_tree.V1.Declaration decl ->
+                  Inlining_tree.V1.Declaration
+                    { decl with children = undo_inlining decl.children }
+                | Apply_inlined_function inlined ->
+                  Apply_non_inlined_function
+                    { applied = inlined.applied;
+                      apply_id = inlined.apply_id;
+                    }
+                | Apply_non_inlined_function _ ->
+                  node)
+            in
+            if from_empty then begin
+              Log.Global.info
+                "Starting Simulated Annealing from an empty completely empty tree";
+              undo_inlining tree
+            end
+            else tree
+          in
           let path_to_bin = initial_state.path_to_bin in
           let work_unit =
             { Work_unit. path_to_bin; step = `Step 0; sub_id = `Current; }
