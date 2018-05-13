@@ -82,6 +82,8 @@ module Make_annealer(M: sig
 
   val exp_dir : string
 
+  val module_paths : string list
+
   val bin_name : string
 
 end) = struct
@@ -125,11 +127,7 @@ end) = struct
       >>=? fun () ->
       shell ~dir:M.exp_dir "chmod" [ "755"; filename ]
       >>=? fun () ->
-      let data_collector_file =
-        M.exp_dir ^/ (M.bin_name ^ ".0.data_collector.v1.sexp")
-      in
-      Reader.load_sexp data_collector_file
-        [%of_sexp: Data_collector.V1.Decision.t list]
+      (Utils.read_decisions ~module_paths:M.module_paths ~exp_dir:M.exp_dir >>|? snd)
       >>=? fun executed_decisions ->
       Experiment_utils.copy_compilation_artifacts
         ~exp_dir:M.exp_dir ~abs_path_to_binary:filename
@@ -196,6 +194,7 @@ let command_run =
         exp_dir;
         bin_name;
         bin_args;
+        module_paths;
        } = Command_params.params
      and from_empty = flag "-from-empty" no_arg ~doc:"FLAG from empty" in
       fun () ->
@@ -211,7 +210,8 @@ let command_run =
             Experiment_utils.init_connection ~hostname ~worker_config)
         >>=? fun worker_connections ->
         Log.Global.sexp ~level:`Info [%message "building initial state" ];
-        Utils.get_initial_state ~bin_name ~exp_dir ~base_overrides:[] ()
+        Utils.get_initial_state
+          ~bin_name ~exp_dir ~base_overrides:[] ~module_paths ()
         >>=? fun initial_state ->
         let initial_state = Option.value_exn initial_state in
         Deferred.Or_error.return ()
@@ -345,6 +345,7 @@ let command_run =
         printf !"Initial Execution Time = %{Time.Span}\n"
           initial_execution_time;
         let module Annealer = Make_annealer(struct
+          let module_paths = module_paths
           let bin_name = bin_name
           let exp_dir = exp_dir
           let initial_execution_time = initial_execution_time

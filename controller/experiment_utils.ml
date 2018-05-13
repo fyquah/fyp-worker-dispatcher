@@ -90,37 +90,54 @@ module Initial_state = struct
     }
 end
 
-let get_initial_state ?(env = []) ~bin_name ~exp_dir ~base_overrides () =
+let read_decisions ~exp_dir ~module_paths =
+  let open Deferred.Or_error.Let_syntax in
+  let%bind v0_decisions =
+    List.map module_paths ~f:(fun filename ->
+      exp_dir ^/ (filename ^ ".0.data_collector.v0.sexp"))
+    |> Deferred.Or_error.List.concat_map ~f:(fun filename ->
+        Reader.load_sexp filename [%of_sexp: Data_collector.V0.t list])
+  in
+  let%bind v1_decisions =
+    List.map module_paths ~f:(fun filename ->
+      exp_dir ^/ (filename ^ ".0.data_collector.v1.sexp"))
+    |> Deferred.Or_error.List.concat_map ~f:(fun filename ->
+        Reader.load_sexp filename
+          [%of_sexp: Data_collector.V1.Decision.t list])
+  in
+  return (v0_decisions, v1_decisions)
+;;
+
+let get_initial_state ?(env = []) ~module_paths ~bin_name ~exp_dir ~base_overrides () =
+  let open Deferred.Or_error.Let_syntax in
   Log.Global.info "Compiling first version of source tree.";
-  shell ~dir:exp_dir "make" [ "clean" ] >>=? fun () ->
-  lift_deferred (
-    Writer.save_sexp (exp_dir ^/ "overrides.sexp")
-      ([%sexp_of: Data_collector.V0.t list] base_overrides)
-  )
-  >>=? fun () ->
-  shell ~env:env ~dir:exp_dir "make" [ "all" ] >>=? fun () ->
-
-  let filename = exp_dir ^/ (bin_name ^ ".0.data_collector.v0.sexp") in
-  Reader.load_sexp filename [%of_sexp: Data_collector.V0.t list]
-  >>=? fun v0_decisions ->
-
-  Reader.load_sexp
-    (exp_dir ^/ (bin_name ^ ".0.data_collector.v1.sexp"))
-    [%of_sexp: Data_collector.V1.Decision.t list]
-  >>=? fun v1_decisions ->
-
-  let filename = Filename.temp_file "fyp-" ("-" ^ bin_name) in
-  shell ~dir:exp_dir
-    "cp" [ (bin_name ^ ".native"); filename ]
-  >>=? fun () ->
-  shell ~dir:exp_dir "chmod" [ "755"; filename ]
-  >>|? fun () ->
+  let%bind () =
+    shell ~dir:exp_dir "make" [ "clean" ] >>=? fun () ->
+    lift_deferred (
+      Writer.save_sexp (exp_dir ^/ "overrides.sexp")
+        ([%sexp_of: Data_collector.V0.t list] base_overrides)
+    )
+    >>=? fun () ->
+    shell ~env:env ~dir:exp_dir "make" [ "all" ]
+  in
+  let%bind (v0_decisions, v1_decisions) =
+    read_decisions ~exp_dir ~module_paths
+  in
+  let path_to_bin =
+    Filename.temp_file "fyp-" ("-" ^ bin_name)
+  in
+  let%map () =
+    shell ~dir:exp_dir
+      "cp" [ (bin_name ^ ".native"); path_to_bin ]
+    >>= fun () ->
+    shell ~dir:exp_dir "chmod" [ "755"; path_to_bin ]
+  in
   let v0_decisions = filter_v0_decisions v0_decisions in
   Some {
     Initial_state.
     v0_decisions;
     v1_decisions;
-    path_to_bin = filename;
+    path_to_bin;
   }
 ;;
 

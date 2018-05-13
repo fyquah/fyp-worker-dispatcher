@@ -6,6 +6,7 @@ type params =
     exp_dir           : string;
     bin_name          : string;
     bin_args          : string;
+    module_paths      : string list;
   }
 
 let params =
@@ -22,7 +23,10 @@ let params =
          ~doc:"STRING binary name (without the .ml extension!)"
      and bin_args =
        flag "-args" (required string) ~doc:"STRING arguments"
-     and debug = flag "-debug" no_arg ~doc:"debug" in
+     and debug = flag "-debug" no_arg ~doc:"debug"
+     and module_paths =
+       flag "-module-paths" (required string) ~doc:"STRING comma separated list of modules"
+     in
      if Filename.check_suffix bin_name ".ml" then begin
        failwith "Binary name should not contain .ml suffix!"
      end;
@@ -35,4 +39,6 @@ let params =
         |> Float.to_int
      );
      Experiment_utils.Dump_utils.set_controller_rundir controller_rundir;
-     { config_filename; controller_rundir; exp_dir; bin_name; bin_args }]
+     let module_paths = String.split ~on:',' module_paths in
+     { config_filename; controller_rundir; exp_dir; bin_name; bin_args;
+       module_paths; }]
