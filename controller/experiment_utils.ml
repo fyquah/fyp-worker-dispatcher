@@ -95,6 +95,7 @@ let read_decisions ~exp_dir ~module_paths =
   let%bind v0_decisions =
     List.map module_paths ~f:(fun filename ->
       exp_dir ^/ (filename ^ ".0.data_collector.v0.sexp"))
+    |> List.rev
     |> Deferred.Or_error.List.concat_map ~f:(fun filename ->
         Reader.load_sexp filename [%of_sexp: Data_collector.V0.t list])
   in
