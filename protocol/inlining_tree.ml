@@ -6,6 +6,8 @@ open Shadow_fyp_compiler_lib
 
 exception Build_error
 
+let ignore_round = -1
+
 module V0 = struct
 
   type t =
@@ -835,7 +837,7 @@ module V1 = struct
           in
           let call_stack = trace in
           let metadata = applied in
-          let round = 0 in  (* TODO(fyq14): Support other rounds? *)
+          let round = ignore_round in  (* TODO(fyq14): Support other rounds? *)
           let hd = { Decision. round; trace; action; metadata; apply_id } in
           hd :: List.concat_no_order (
             List.map inlined.children ~f:(fun node ->
@@ -848,7 +850,7 @@ module V1 = struct
           let trace =
             Trace_item.At_call_site { source; apply_id; applied } :: call_stack
           in
-          let round = 0 in
+          let round = ignore_round in
           let metadata = applied in
           let action = Action.Apply in
           [{ Decision. round; trace; apply_id; action; metadata; }]
@@ -1204,7 +1206,7 @@ module V1 = struct
           let metadata = applied in
           let acs = Trace_item.At_call_site acs in
           let trace = acs :: old_trace in
-          let round = 0 in
+          let round = ignore_round in
           let decisions =
             { Decision.
               round; trace = acs :: old_trace;
