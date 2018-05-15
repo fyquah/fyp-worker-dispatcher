@@ -19,7 +19,7 @@ wait_for_completion() {
     fi
     sleep 5.0
   done
-  echo "[BATCH EXECUTOR] `cat tmp/controller.pid` done!"
+  echo "[BATCH EXECUTOR] $PROCESS_PID done!"
 }
 
 mkdir -p important-logs/
