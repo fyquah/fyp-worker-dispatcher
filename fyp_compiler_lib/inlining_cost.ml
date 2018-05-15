@@ -16,12 +16,23 @@
 
 [@@@ocaml.warning "+a-4-9-30-40-41-42"]
 
-module Closure_stack = struct
-  type t = node list
+module Threshold = struct
 
-  and node =
-    | Closure of Closure_id.t * Debuginfo.t
-    | Call of Closure_id.t * Debuginfo.t
-    | Inlined
-    | Specialised of Closure_id.Set.t
+  type t =
+    | Never_inline
+    | Can_inline_if_no_larger_than of int
+end
+
+
+module Benefit = struct
+  type t = {
+    remove_call : int;
+    remove_alloc : int;
+    remove_prim : int;
+    remove_branch : int;
+    (* CR-someday pchambart: branch_benefit : t list; *)
+    direct_call_of_indirect : int;
+    requested_inline : int;
+    (* Benefit to compensate the size of functions marked for inlining *)
+  }
 end
