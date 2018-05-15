@@ -109,57 +109,11 @@ module Project_var : sig
       table such that later the access to the field x of g and selection of
       g in the closure can be substituted.
    *)
-  type t
+  type t =
+    { vars_within_closure : Var_within_closure.t Var_within_closure.Map.t;
+      closure_id : Closure_id.t Closure_id.Map.t }
 
-  (* The freshening that does nothing. *)
   val empty : t
-
-  (** Composition of two freshenings. *)
-  val compose : earlier:t -> later:t -> t
-
-  (** Freshen a closure ID based on the given renaming.  The same ID is
-      returned if the renaming does not affect it.
-      If dealing with approximations, you probably want to use
-      [Simple_value_approx.freshen_and_check_closure_id] instead of this
-      function.
-  *)
-  val apply_closure_id : t -> Closure_id.t -> Closure_id.t
-
-  (** Like [apply_closure_id], but for variables within closures. *)
-  val apply_var_within_closure
-     : t
-    -> Var_within_closure.t
-    -> Var_within_closure.t
 
   val print : Format.formatter -> t -> unit
 end
-
-(* CR-soon mshinwell for mshinwell: add comment *)
-val apply_function_decls_and_free_vars
-   : t
-  -> (Flambda.specialised_to * 'a) Variable.Map.t
-  -> Flambda.function_declarations
-  -> only_freshen_parameters:bool
-  -> (Flambda.specialised_to * 'a) Variable.Map.t
-    * Flambda.function_declarations
-    * t
-    * Project_var.t
-
-val does_not_freshen : t -> Variable.t list -> bool
-
-val print : Format.formatter -> t -> unit
-
-(** N.B. This does not freshen the domain of the supplied map, only the
-    range. *)
-(* CR-someday mshinwell: consider fixing that *)
-val freshen_projection_relation
-   : Flambda.specialised_to Variable.Map.t
-  -> freshening:t
-  -> closure_freshening:Project_var.t
-  -> Flambda.specialised_to Variable.Map.t
-
-val freshen_projection_relation'
-   : (Flambda.specialised_to * 'a) Variable.Map.t
-  -> freshening:t
-  -> closure_freshening:Project_var.t
-  -> (Flambda.specialised_to * 'a) Variable.Map.t
