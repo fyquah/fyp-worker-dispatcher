@@ -17,6 +17,8 @@ cp $OCAML_DIR/middle_end/data_collector_intf.ml ./
 cp $OCAML_DIR/middle_end/backend_intf.ml* ./
 cp $OCAML_DIR/middle_end/parameter.ml* ./
 cp $OCAML_DIR/middle_end/freshening.ml* ./
+cp $OCAML_DIR/middle_end/flambda_iterators.ml* ./
+cp $OCAML_DIR/middle_end/flambda.ml* ./
 cp $OCAML_DIR/middle_end/base_types/apply_id.ml* ./
 cp $OCAML_DIR/middle_end/base_types/call_site.ml* ./
 cp $OCAML_DIR/middle_end/base_types/closure_id.ml* ./

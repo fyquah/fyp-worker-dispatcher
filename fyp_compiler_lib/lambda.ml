@@ -189,3 +189,9 @@ let raise_count = ref 0
 let next_raise_count () =
   incr raise_count ;
   !raise_count
+
+
+let raise_kind = function
+  | Raise_regular -> "raise"
+  | Raise_reraise -> "reraise"
+  | Raise_notrace -> "raise_notrace"
