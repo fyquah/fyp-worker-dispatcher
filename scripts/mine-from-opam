@@ -1,0 +1,27 @@
+#!/bin/bash
+
+export OPAMROOT=$HOME/fyp/opam-root/
+export OCAML_MINE_QUERIES=1
+
+cd "$(dirname "$0")/../../ocaml/"
+mkdir -p ../ocaml-tarballs
+git archive --format tar --prefix ocaml/ HEAD | gzip >../ocaml-tarballs/tarball.tar.gz
+
+if [ "$1" = "reinstall" ]; then
+  opam init -n
+  opam repo add opam-repo-dev $HOME/fyp/opam-repo-dev
+  opam switch system
+  opam switch remove -y 4.05.0+fyp
+  
+  echo "Installing compiler ...."
+  opam switch install 4.05.0+fyp
+  opam switch 4.05.0+fyp
+else
+  echo "Using installed compiler"
+  opam switch 4.05.0+fyp
+  eval `opam config env`
+fi
+
+echo "ocamlopt location = `which ocamlopt`"
+echo "Installing opam packages ...."
+opam install -y $(cat ~/fyp/worker-dispatcher/package_list.txt)
