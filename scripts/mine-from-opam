@@ -22,6 +22,6 @@ else
   eval `opam config env`
 fi
 
-
+echo "ocamlopt location = `which ocamlopt`"
 echo "Installing opam packages ...."
 opam install -y $(cat ~/fyp/worker-dispatcher/package_list.txt)

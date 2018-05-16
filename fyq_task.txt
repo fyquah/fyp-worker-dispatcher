@@ -1,9 +1,3 @@
-./experiment-scripts/simulated-annealing-generic lens
-./experiment-scripts/simulated-annealing-generic sequence
-./experiment-scripts/simulated-annealing-generic fyq-stdlib-functor-record-sets
-./experiment-scripts/simulated-annealing-generic kb
-./experiment-scripts/simulated-annealing-generic fyq-stdlib-int-sets
-./experiment-scripts/simulated-annealing-generic bdd
 ./experiment-scripts/simulated-annealing-generic lexifi
 ./experiment-scripts/simulated-annealing-generic fyq-symbolic-maths
 ./experiment-scripts/simulated-annealing-generic floats-in-functor
@@ -14,3 +8,9 @@
 ./experiment-scripts/simulated-annealing-generic fyq-rev-list
 ./experiment-scripts/simulated-annealing-generic fft
 ./experiment-scripts/simulated-annealing-generic sequence-cps
+./experiment-scripts/simulated-annealing-generic lens
+./experiment-scripts/simulated-annealing-generic sequence
+./experiment-scripts/simulated-annealing-generic fyq-stdlib-functor-record-sets
+./experiment-scripts/simulated-annealing-generic kb
+./experiment-scripts/simulated-annealing-generic fyq-stdlib-int-sets
+./experiment-scripts/simulated-annealing-generic bdd

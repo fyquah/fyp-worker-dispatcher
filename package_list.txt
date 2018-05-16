@@ -119,7 +119,6 @@ tyxml
 bisect_ppx 
 ANSITerminal 
 js_of_ocaml 
-extlib 
 ppx_deriving_yojson 
 ssl 
 js_of_ocaml-compiler 
@@ -131,7 +130,6 @@ core_extended
 hex 
 sawja 
 async_rpc_kernel 
-extlib-compat 
 bos 
 cstruct-lwt 
 javalib 
@@ -323,7 +321,6 @@ flowtype
 shared-memory-ring 
 github 
 mirage-types-lwt 
-amqp-client 
 spotlib 
 mirage-console-lwt 
 jupyter-archimedes 
@@ -347,9 +344,6 @@ command_rpc
 mirage-xen 
 xmlplaylist 
 mirage-clock-unix 
-async_graphics 
 mirage-channel 
 mlgmpidl 
-rpc 
 ppx_test 
-delimited_parsing 
