@@ -227,3 +227,5 @@ module Feature_extractor = struct
   end
 
 end
+
+module Inlining_query = Fyp_compiler_lib.Inlining_query
