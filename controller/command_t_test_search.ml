@@ -29,7 +29,7 @@ type work_unit =
  *)
 let slide_over_decisions
     ~config ~worker_connections ~bin_name ~exp_dir ~results_dir
-    ~base_overrides ~new_overrides ~bin_args =
+    ~base_overrides ~new_overrides ~bin_args ~module_paths =
   let sliding_window = build_sliding_window ~n:2 new_overrides in
   let hostnames =
     List.map ~f:Protocol.Config.hostname config.Config.worker_configs
@@ -57,8 +57,7 @@ let slide_over_decisions
         >>=? fun () ->
         shell ~echo:true ~dir:exp_dir "chmod" [ "755"; filename ]
         >>=? fun () ->
-        Reader.load_sexp (exp_dir ^/ (bin_name ^ ".0.data_collector.v0.sexp"))
-          [%of_sexp: Data_collector.V0.t list]
+        (Experiment_utils.read_decisions ~exp_dir ~module_paths >>|? fst)
         >>=? fun executed_decisions ->
         let path_to_bin = filename in
         let overrides = flipped_decisions in
@@ -136,6 +135,7 @@ let command =
         controller_rundir;
         exp_dir;
         bin_name;
+        module_paths;
         bin_args } = Command_params.params in
      fun () ->
        (* There is daylight saving now, so UTC timezone == G time zone :D *)
@@ -160,7 +160,7 @@ let command =
            print_sexp ([%sexp_of: Data_collector.V0.t list] generation.base_overrides);
            begin
              let base_overrides = generation.base_overrides in
-             Experiment_utils.get_initial_state
+             Experiment_utils.get_initial_state ~module_paths
                ~bin_name ~exp_dir ~base_overrides ()
              >>=? fun state ->
              let { Experiment_utils.Initial_state.
@@ -191,7 +191,7 @@ let command =
              print_sexp ([%sexp_of: Data_collector.V0.t list] new_overrides);
 
              slide_over_decisions ~bin_name ~config ~worker_connections
-               ~base_overrides:generation.base_overrides
+               ~base_overrides:generation.base_overrides ~module_paths
                ~exp_dir ~results_dir ~new_overrides ~bin_args
            end
            >>| function

@@ -75,9 +75,14 @@ module Scheduler : sig
   val terminate : ('a, 'b, 'c) t -> unit
 end
 
+val read_decisions
+   : exp_dir: string
+  -> module_paths: string list
+  -> (Data_collector.V0.t list * Data_collector.V1.Decision.t list) Deferred.Or_error.t
 
 val get_initial_state
    : ?env:(string * string) list
+  -> module_paths: string list
   -> bin_name:string
   -> exp_dir:string
   -> base_overrides: Data_collector.V0.t list

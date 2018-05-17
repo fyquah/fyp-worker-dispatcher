@@ -32,6 +32,7 @@ let command_run =
     [%map_open
       let { Command_params.
         config_filename; controller_rundir; exp_dir; bin_name; bin_args;
+        module_paths;
       } = Command_params.params
       and log_rewards =
         flag "-log-rewards" (required bool) ~doc:"BOOL logarithmic speedups as reward"
@@ -55,7 +56,7 @@ let command_run =
           "Initializing Worker connections!"
             (config: Config.t)];
         Experiment_utils.get_initial_state ~env ~bin_name ~exp_dir
-            ~base_overrides:[] ()
+            ~module_paths ~base_overrides:[] ()
         >>=? fun initial_state ->
 
         let initial_state = Option.value_exn initial_state in
@@ -136,9 +137,8 @@ let command_run =
               EU.compile_binary ~dir:exp_dir ~bin_name:bin_name ~write_overrides
                 ~dump_directory:dump_directory_for_compilation
               >>= fun filename ->
-              let filename = Or_error.ok_exn filename in
-              Reader.load_sexp (exp_dir ^/ (bin_name ^ ".0.data_collector.v1.sexp"))
-                [%of_sexp: Data_collector.V1.Decision.t list]
+              let filename = ok_exn filename in
+              (EU.read_decisions ~exp_dir ~module_paths >>|? snd)
               >>= fun decisions ->
               let decisions = Or_error.ok_exn decisions in
               let visited_states =
@@ -178,7 +178,7 @@ let command_run =
                 (fst partial_trajectory @ remaining_trajectory, RL.S.terminal)
               in
               Deferred.return (filename, pending_trajectory))
-            >>| fun (a : (string * ((RL.S.t * Rl.A.t) Base__List.t * RL.S.t))) ->
+            >>| fun (a : (string * ((RL.S.t * Rl.A.t) list * RL.S.t))) ->
             Or_error.return a
         in
         let execute_work_unit work_unit =

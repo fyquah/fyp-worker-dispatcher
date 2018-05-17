@@ -9,6 +9,7 @@ group1.add_argument("--subdir", action="store_true")
 group1.add_argument("--bin-args", action="store_true")
 group1.add_argument("--all", action="store_true")
 group1.add_argument("--methods", action="store_true")
+group1.add_argument("--module-paths", action="store_true")
 
 def main():
     args = parser.parse_args()
@@ -26,6 +27,9 @@ def main():
         subkey = "subdir"
     elif args.bin_args:
         subkey = "bin_args"
+    elif args.module_paths:
+        print ",".join(d.module_paths)
+        return
     else:
         assert False
 

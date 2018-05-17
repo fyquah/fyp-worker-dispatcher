@@ -39,5 +39,6 @@ jbuilder exec controller -- \
   -rundir "$RUNDIR" \
   -exp-dir "$EXPERIMENTS_REPO/$EXPERIMENT_DIR" \
   -bin-name "$EXPERIMENT_BIN_NAME" \
+  -module-paths "$EXPERIMENT_MODULE_PATHS" \
   -args "$EXPERIMENT_BIN_ARGS" \
   $ADDITIONAL_CONTROLLER_ARGS

@@ -15,6 +15,8 @@ let pertubate_tree (tree : Inlining_tree.Top_level.t) =
   Inlining_tree.Top_level.uniform_random_mutation tree
 ;;
 
+type tree = Inlining_tree.Top_level.t
+
 
 let command_run =
   let open Command.Let_syntax in
@@ -27,6 +29,7 @@ let command_run =
         exp_dir;
         bin_name;
         bin_args;
+        module_paths;
        } = Command_params.params
       in
       fun () ->
@@ -39,7 +42,7 @@ let command_run =
         >>=? fun worker_connections ->
 
         (* TODO(fyq14): get initial state from a different sample instead? *)
-        EU.get_initial_state ~bin_name ~exp_dir ~base_overrides:[] ()
+        EU.get_initial_state ~bin_name ~exp_dir ~base_overrides:[] () ~module_paths
         >>=? fun initial_state ->
         let initial_state = Option.value_exn initial_state in
         Deferred.Or_error.return ()
@@ -73,33 +76,44 @@ let command_run =
           Experiment_utils.compile_binary ~dir:exp_dir ~bin_name
             ~dump_directory ~write_overrides
           >>=? fun path_to_bin ->
+          Experiment_utils.read_decisions ~exp_dir ~module_paths
+          >>=? fun (_, v1_decisions) ->
+          let new_tree = Inlining_tree.build v1_decisions in
           let work_unit = { EU.Work_unit. step; sub_id; path_to_bin; } in
           Experiment_utils.Scheduler.dispatch scheduler work_unit
+          >>|? fun stats ->
+          (new_tree, stats)
         in
         let initial_tree = Inlining_tree.build initial_state.v1_decisions in
-        let cache = ref (
-          Inlining_tree.Top_level.Map.of_alist_exn []
-        )
-        in
+        let cache = ref Inlining_tree.Top_level.Map.empty in
         Deferred.repeat_until_finished (0, initial_tree) (fun (step, previous_tree) ->
-          let tree = pertubate_tree previous_tree in
-          begin
-            match Inlining_tree.Top_level.Map.find !cache tree with
-            | Some exc_stats ->
-              Log.Global.info "[Step %d] Load tree from cache" step;
-              Deferred.Or_error.return exc_stats
-            | None ->
-              Log.Global.info "[Step %d] Dispatching to worker" step;
-              execute_tree ~step:(`Step step) ~sub_id:`Current tree
-              >>=? fun exc_stats ->
-              cache := (Inlining_tree.Top_level.Map.update !cache tree ~f:(fun _ -> exc_stats));
-              Deferred.Or_error.return exc_stats
+          let pertubated_tree = pertubate_tree previous_tree in
+          begin match
+            Inlining_tree.Top_level.Map.find !cache pertubated_tree
+          with
+          | Some (new_tree, exc_stats) ->
+            Log.Global.info "[Step %d] Load tree from cache" step;
+            Deferred.Or_error.return (new_tree, exc_stats)
+          | None ->
+            Log.Global.info "[Step %d] Dispatching to worker" step;
+            execute_tree ~step:(`Step step) ~sub_id:`Current pertubated_tree
+            >>=? fun (new_tree, exc_stats) ->
+            cache := (
+              !cache
+              |> (fun m ->
+                  Inlining_tree.Top_level.Map.update m new_tree
+                    ~f:(fun _ -> (new_tree, exc_stats)))
+              |> (fun m ->
+                  Inlining_tree.Top_level.Map.update m pertubated_tree
+                    ~f:(fun _ -> (new_tree, exc_stats)))
+            );
+            Deferred.Or_error.return (new_tree, exc_stats)
           end
           >>= function
-          | Ok (_ : Execution_stats.t) ->
+          | Ok ((new_tree : tree), (_ : Execution_stats.t)) ->
             begin
             if step < total_steps then
-              Deferred.return (`Repeat (step + 1, tree))
+              Deferred.return (`Repeat (step + 1, new_tree))
             else
               Deferred.return (`Finished (Ok ()))
             end
