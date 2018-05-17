@@ -4,5 +4,5 @@
 (ocamllex (sexp_lexer))
 
 (library
-  ((name    fyp_compiler_lib))
-  )
+  ((name    fyp_compiler_lib)
+   (modules_without_implementation (backend_intf))))
