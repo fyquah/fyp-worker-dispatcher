@@ -19,10 +19,5 @@ EXPERIMENT=$1
 
 for file in $(find "/media/usb/home/fyquah/fyp/prod/processed-data/$EXPERIMENT" -name "decisions.sexp"); do
   dir=$(dirname $file)
-  outfile="$dir/features-v0.sexp"
-  if [ ! -f "$outfile" ]; then
-    echo "./scripts/extract-features-from-one $EXPERIMENT $file $outfile"
-  else
-    echo "skipping args due to preexistence --- $EXPERIMENT $file $outfile" >>/dev/stderr
-  fi
+  echo "./scripts/extract-features-from-one-run $EXPERIMENT $file $dir"
 done | parallel --jobs 4

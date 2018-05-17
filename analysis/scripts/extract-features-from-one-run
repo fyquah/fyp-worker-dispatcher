@@ -13,7 +13,7 @@ set -euo pipefail
 
 EXPERIMENT=$1
 PATH_TO_SEXP_FILE=$2
-PATH_TO_OUT_FILE=$3
+PATH_TO_OUT_DIR=$3
 
 EXPERIMENT_SUB_DIR=$(python ../scripts/query_experiment_params.py --name $EXPERIMENT --subdir)
 EXPERIMENT_BIN_NAME=$(python ../scripts/query_experiment_params.py --name $EXPERIMENT --bin-name)
@@ -42,6 +42,7 @@ echo "Running make in $(pwd)"
 rm -f *.native *.cm*
 make all >out.log
 
-cp $EXPERIMENT_BIN_NAME.flambda.v0.features $PATH_TO_OUT_FILE
+cp $EXPERIMENT_BIN_NAME.flambda.v0.features $PATH_TO_OUT_DIR/features-v0.bin
+cp $EXPERIMENT_BIN_NAME.flambda.v0.queries  $PATH_TO_OUT_DIR/queries-v0.bin
 
 rm -r $SCRATCH_DIR
