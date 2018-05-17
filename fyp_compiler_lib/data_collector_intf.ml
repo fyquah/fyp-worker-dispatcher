@@ -94,6 +94,7 @@ module type S = sig
     type t
 
     type query = {
+      round  : int;
       trace: Trace_item.t list;
       apply_id: Apply_id.t;
     }

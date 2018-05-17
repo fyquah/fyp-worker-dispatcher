@@ -84,10 +84,11 @@ let command_path_patching_on_decisions =
 ;;
 
 let loop_lines rdr ~f =
-  Deferred.repeat_until_finished () (fun () ->
-      match%bind Async.Reader.read_line rdr with
-      | `Eof -> return (`Finished ())
-      | `Ok line -> f line >>| fun () -> (`Repeat ()))
+  let idx = ref (-1) in
+  let pipe = Async.Reader.lines rdr in
+  Async.Pipe.iter pipe ~f:(fun line ->
+    idx := !idx + 1;
+    f ~idx:(!idx) line)
 ;;
 
 let command_concat_features =
@@ -102,7 +103,7 @@ let command_concat_features =
           ref Protocol.Absolute_path.Map.empty
         in
         let%bind () =
-          loop_lines stdin ~f:(fun filename ->
+          loop_lines stdin ~f:(fun ~idx:_ filename ->
             let (extracted_features : Feature_extractor.t list) =
               let ic = Caml.open_in filename in
               let value = Caml.input_value ic in
@@ -126,12 +127,40 @@ let command_concat_features =
         Deferred.unit]
 ;;
 
+let command_concat_queries =
+  let open Command.Let_syntax in
+  Command.async ~summary:"concatenate inlining queries from files given in stdin"
+    [%map_open
+      let output = flag "-output" (required string) ~doc:"target file"
+      and filelist = flag "-filelist" (required string) ~doc:"File list"
+      and allow_repeat =
+        flag "-allow-repeat" no_arg ~doc:"allow repeated queries"
+      in
+      fun () ->
+        let open Deferred.Let_syntax in
+        let%bind filelist = Async.Reader.file_lines filelist in
+        let%bind queries =
+          let allow_repeat =
+            if allow_repeat then Some () else None
+          in
+          let rdr = Io_helper.load_queries ?allow_repeat ~filelist in
+          Async.Pipe.fold rdr ~init:[] ~f:(fun accum query ->
+            return (query :: accum))
+        in
+        let oc = Caml.open_out output in
+        Caml.output_value oc queries;
+        Caml.close_out oc;
+        Log.Global.info "Extracted %d inlining queries" (List.length queries);
+        Deferred.unit]
+;;
+
 
 let () =
   Command.group ~summary:"Data cleaner" [
     ("path-patching", command_path_patching);
     ("path-patching-on-decisions", command_path_patching_on_decisions);
     ("concat-features", command_concat_features);
+    ("concat-queries", command_concat_queries);
   ]
   |> Command.run
 ;;
