@@ -2,6 +2,7 @@ open Core
 open Async
 open Protocol.Shadow_fyp_compiler_lib
 open Mat_utils
+open Common
 
 open Tensorflow_fnn
 
@@ -104,7 +105,7 @@ type hyperparams =
 
 type 'a model = 
   { tf_model                         : tf_model;
-    create_normalised_feature_vector : Feature_extractor.t -> Owl.Mat.mat;
+    create_normalised_feature_vector : [ `raw ] Features.t -> Owl.Mat.mat;
     training                         : 'a Data.t;
   }
 

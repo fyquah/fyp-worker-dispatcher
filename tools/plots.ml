@@ -2,6 +2,7 @@ open Core
 open Async
 open Protocol.Shadow_fyp_compiler_lib
 open Mat_utils
+open Common
 
 module Reward_dump = struct
   type t =
@@ -17,15 +18,18 @@ let command_dump_rewards =
     [%map_open
       let specification_file =
         flag "-spec" (required file) ~doc:"FILE specification file"
+      and feature_version =
+        flag "-feature-version" (required string) ~doc:"STRING feature version"
       in
       fun () ->
         let open Deferred.Let_syntax in
+        let version = Option.value_exn (parse_version feature_version) in
         let%bind specification =
           Reader.load_sexp_exn specification_file
             Specification_file.t_of_sexp
         in
         let%map examples =
-          load_from_specification specification
+          load_from_specification ~version specification
           >>| fun (a, b) -> a @ b
         in
         List.map examples ~f:(fun (_, (target : Raw_data.target)) ->

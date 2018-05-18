@@ -5,7 +5,6 @@ open Protocol.Shadow_fyp_compiler_lib
        
 open Common
 
-
 let process (query : Inlining_query.query) =
   let calc_t_matces expr ~f =
     let ctr = ref 0 in
@@ -33,17 +32,20 @@ let process (query : Inlining_query.query) =
       calc_named_matches expr ~f:(function
           | Flambda.Symbol s -> Symbol.Map.mem s env.approx_sym
           | _ -> false)
+      |> Float.of_int
     in
     let num_mutable_approximations =
       calc_named_matches expr ~f:(function
           | Flambda.Read_mutable mvar ->
             Mutable_variable.Map.mem mvar env.approx_mutable
           | _ -> false)
+      |> Float.of_int
     in
     let num_var_approximations =
       calc_t_matces expr ~f:(function
           | Flambda.Var var -> Variable.Map.mem var env.approx
           | _ -> false)
+      |> Float.of_int
     in
     let num_closure_movements_matches =
       calc_named_matches expr ~f:(fun expr ->
@@ -53,6 +55,7 @@ let process (query : Inlining_query.query) =
               (Projection.Move_within_set_of_closures msvc)
               env.projections
           | _ -> false)
+      |> Float.of_int
     in
     let num_project_closure_matches =
       calc_named_matches expr ~f:(fun expr ->
@@ -62,6 +65,7 @@ let process (query : Inlining_query.query) =
               (Projection.Project_closure pc)
               env.projections
           | _ -> false)
+      |> Float.of_int
     in
     let num_project_var_matches =
       calc_named_matches expr ~f:(fun expr ->
@@ -71,9 +75,10 @@ let process (query : Inlining_query.query) =
               (Projection.Project_var pv)
               env.projections
           | _ -> false)
+      |> Float.of_int
     in
     let p = prefix in
-    let int_features =
+    let numeric_features =
       Feature_list.of_list [
         (p ^ "_symbol_approx",              num_symbol_approximations);
         (p ^ "_mutable_approx",             num_mutable_approximations);
@@ -83,34 +88,38 @@ let process (query : Inlining_query.query) =
         (p ^ "_project_var_approx",         num_project_var_matches);
       ]
     in
+    let int_features = Feature_list.empty in
     let bool_features = Feature_list.empty in
-    { Features. int_features; bool_features }
+    { Features. numeric_features; int_features; bool_features }
   in
   let callee_features ~prefix expr =
-    let size = Inlining_cost.lambda_size expr in
+    let size = Inlining_cost.lambda_size expr |> Float.of_int in
     let num_const_int =
       calc_named_matches expr ~f:(fun (named : Flambda.named) ->
           match named with
           | Flambda.Const (Flambda.Char _)
           | Flambda.Const (Flambda.Int _) -> true
           | _ -> false)
+      |> Float.of_int
     in
     let num_const_pointer =
       calc_named_matches expr ~f:(fun (named : Flambda.named) ->
           match named with
           | Flambda.Const (Flambda.Const_pointer _) -> true
           | _ -> false)
+      |> Float.of_int
     in
     let p = prefix in
-    let int_features =
+    let numeric_features =
       Feature_list.of_list [
         (p ^ "_const_int", num_const_int);
         (p ^ "_const_pointer", num_const_pointer);
         (p ^ "_size", size);
       ]
     in
+    let int_features = Feature_list.empty in
     let bool_features = Feature_list.empty in
-    { Features. int_features; bool_features; }
+    { Features. numeric_features; int_features; bool_features; }
   in
   let parameter_features =
     let num_invariant_params =
@@ -118,6 +127,7 @@ let process (query : Inlining_query.query) =
       Variable.Map.find_opt var query.value_set_of_closures.invariant_params
       |> Option.map ~f:Variable.Set.cardinal
       |> Option.value ~default:0
+      |> Float.of_int
     in
     let num_specialised_args =  (* TODO: Is this even valid? *)
       let params = query.function_decl.params in
@@ -125,29 +135,32 @@ let process (query : Inlining_query.query) =
           let var = Parameter.var p in
           Variable.Map.mem var query.value_set_of_closures.specialised_args)
       |> List.length
+      |> Float.of_int
     in
-    let num_params = List.length query.function_decl.params in
+    let num_params = List.length query.function_decl.params |> Float.of_int in
 
-    let int_features =
+    let numeric_features =
       Feature_list.of_list [
         ("num_invariant_params", num_invariant_params);
         ("num_specialised_args", num_specialised_args);
         ("num_params", num_params);
       ]
     in
+    let int_features = Feature_list.empty in
     let bool_features = Feature_list.empty in
-    { Features. int_features; bool_features; } 
+    { Features. numeric_features; int_features; bool_features; } 
   in
   let env_features =
     let int_features =
       Feature_list.of_list [
         ("inlining_level", env.inlining_level);
-        ("closure_depth", env.closure_depth);
-        ("inside_branch", env.inside_branch);
+        ("closure_depth",  env.closure_depth);
+        ("inside_branch",  env.inside_branch);
       ]
     in
-    let bool_features = Feature_list.empty in
-    { Features. int_features; bool_features; }
+    let numeric_features = Feature_list.empty in
+    let bool_features    = Feature_list.empty in
+    { Features. numeric_features; int_features; bool_features; }
   in
   let open Features in
   calc_matching_approximations_from_env ~prefix:"original" query.original
@@ -182,9 +195,10 @@ let command =
           List.map all_features ~f:(fun features ->
               List.map names ~f:(fun name ->
                 match Features.find_exn features name with
-                  | `Int x -> x
-                  | `Bool x -> (if x then 1 else 0))
-              |> List.map ~f:Int.to_string
+                  | `Numeric x -> x
+                  | `Int x -> Float.of_int x
+                  | `Bool x -> (if x then 1.0 else 0.0))
+              |> List.map ~f:Float.to_string
               |> String.concat ~sep:",")
         in
         let%bind () =

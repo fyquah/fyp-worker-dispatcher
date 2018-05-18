@@ -2,6 +2,7 @@ open Core
 open Async
 open Tensorflow
 open Protocol.Shadow_fyp_compiler_lib
+open Common
 
 module Data :
   sig
@@ -64,7 +65,7 @@ type tf_model =
 
 type 'a model = 
   { tf_model                         : tf_model;
-    create_normalised_feature_vector : Feature_extractor.t -> Owl.Mat.mat;
+    create_normalised_feature_vector : [ `raw ] Features.t -> Owl.Mat.mat;
     training                         : 'a Data.t;
   }
 

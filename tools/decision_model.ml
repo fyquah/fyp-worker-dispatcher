@@ -2,6 +2,7 @@ open Core
 open Async
 open Protocol.Shadow_fyp_compiler_lib
 open Mat_utils
+open Common
 
 open Tensorflow_fnn
 
@@ -87,9 +88,9 @@ let create_label_from_target ((a, b) : Raw_data.target) =
   end
 ;;
 
-type example = (Feature_extractor.t * int)
+type 'a example = ('a Features.t * int)
 
-let filter_eligible_examples (examples : Raw_data.example list) =
+let filter_eligible_examples (examples : [`raw] Raw_data.example list) =
   List.filter_map examples ~f:(fun (f, (a, b)) ->
     match Option.both a b with
     | None -> None
@@ -101,13 +102,12 @@ let filter_eligible_examples (examples : Raw_data.example list) =
 ;;
 
 
-let create_model ~hyperparams (examples: example list) =
+let create_model ~hyperparams (examples: [`raw] example list) =
   let raw_features = Array.of_list_map examples ~f:fst in
   let labels  = Array.of_list_map examples ~f:snd in
   let create_normalised_feature_vector =
     Staged.unstage (
-      Feature_engineering.create_feature_transformer
-        (Array.to_list raw_features)
+      Features.create_normaliser_to_owl_vec (Array.to_list raw_features)
     )
   in
   let feature_matrix =
@@ -130,8 +130,8 @@ let create_model ~hyperparams (examples: example list) =
   }
 ;;
 
-let do_analysis (examples : example list)
-    ~hyperparams ~epochs ~(test_examples : example list) =
+let do_analysis (examples : [`raw] example list)
+    ~hyperparams ~epochs ~(test_examples : [`raw] example list) =
   let training_examples, validation_examples =
     let num_training_examples =
       Float.(to_int (0.8 *. of_int (List.length examples)))
@@ -160,7 +160,7 @@ let do_analysis (examples : example list)
   Deferred.return ()
 ;;
 
-let print_labels_distribution name (examples : example list) =
+let print_labels_distribution name (examples : 'a example list) =
   let ret = Array.create ~len:num_classes 0 in
   List.iter examples ~f:(fun (_, i) ->
     ret.(i) <- ret.(i) + 1);
@@ -193,9 +193,12 @@ let command =
         flag "-epochs" (required int) ~doc:"INT epochs"
       and hyperparams_file =
         flag "-hyperparams" (required file) ~doc:"FILE hyperparams file"
+      and feature_version =
+        flag "-feature-version" (required string) ~doc:"STRING feature version"
       in
       fun () ->
         let open Deferred.Let_syntax in
+        let feature_version = Option.value_exn (parse_version feature_version) in
         let%bind specification =
           Reader.load_sexp_exn specification_file
             Specification_file.t_of_sexp
@@ -204,7 +207,7 @@ let command =
           Reader.load_sexp_exn hyperparams_file [%of_sexp: Tf_helper.hyperparams]
         in
         let%bind training_examples, test_examples =
-          load_from_specification specification
+          load_from_specification ~version:feature_version specification
           >>| fun (a, b) ->
           (filter_eligible_examples a, filter_eligible_examples b)
         in
