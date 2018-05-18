@@ -54,6 +54,7 @@ type query =
     env                      : env;
     r                        : result;
     apply_id                 : Apply_id.t;
+    args                     : Variable.t list;
     original                 : Flambda.t;
     inlined_result           : inlined_result;
     call_kind                : Flambda.call_kind;
@@ -279,6 +280,7 @@ let extract_v0_features query =
     function_decl;
     env;
     apply_id;
+    args = _;
     inlined_result;
     closure_id_being_applied;
     call_kind = kind;

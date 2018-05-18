@@ -648,7 +648,7 @@ module V1 = struct
       in
       let rec find ~subtree query =
         match query with
-        | [] -> Misc.fatal_error "Empty query makes no sense"
+        | [] -> None
         | hd :: tl ->
           begin match List.find_opt (try_to_match hd) subtree with
           | None -> None
