@@ -2,6 +2,8 @@ open Core
 open Async
 open Protocol.Shadow_fyp_compiler_lib
 open Mat_utils
+open Common
+open Features
 
 open Tensorflow_fnn
 
@@ -95,12 +97,12 @@ let target_matrix_of_labels ~num_classes labels =
 ;;
 
 
-let create_model ~hyperparams (examples: Raw_data.example list) =
+let create_model ~hyperparams (examples: [ `raw ] Raw_data.example list) =
   let raw_features = Array.of_list_map examples ~f:fst in
   let raw_targets  = Array.of_list_map examples ~f:snd in
   let create_normalised_feature_vector =
     Staged.unstage (
-      Feature_engineering.create_feature_transformer
+      Features.create_normaliser_to_owl_vec
         (Array.to_list raw_features)
     )
   in
@@ -123,8 +125,8 @@ let create_model ~hyperparams (examples: Raw_data.example list) =
   }
 ;;
 
-let do_analysis (examples : Raw_data.example list)
-    ~hyperparams ~epochs ~(test_examples : Raw_data.example list) =
+let do_analysis (examples : [`raw] Raw_data.example list)
+    ~hyperparams ~epochs ~(test_examples : [`raw] Raw_data.example list) =
   let training_examples, validation_examples =
     let num_training_examples =
       Float.(to_int (0.8 *. of_int (List.length examples)))
@@ -167,9 +169,12 @@ let command =
         flag "-epochs" (required int) ~doc:"INT epochs"
       and hyperparams_file =
         flag "-hyperparams" (required file) ~doc:"FILE hyperparams file"
+      and feature_version =
+        flag "-feature-version" (required string) ~doc:"STRING feature version"
       in
       fun () ->
         let open Deferred.Let_syntax in
+        let feature_version = parse_version feature_version |> Option.value_exn in
         let%bind specification =
           Reader.load_sexp_exn specification_file
             Specification_file.t_of_sexp
@@ -178,7 +183,7 @@ let command =
           Reader.load_sexp_exn hyperparams_file [%of_sexp: Tf_helper.hyperparams]
         in
         let%bind training_examples, test_examples =
-          load_from_specification specification
+          load_from_specification ~version:feature_version specification
         in
         let wait sec = Clock.after (Time.Span.of_sec sec) in
         Log.Global.sexp ~level:`Info [%message (hyperparams: Tf_helper.hyperparams)];

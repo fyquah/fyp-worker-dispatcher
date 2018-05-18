@@ -3,6 +3,7 @@ open Owl
 open Tensorflow
 open Protocol.Shadow_fyp_compiler_lib
 open Async
+open Common
 
 module Absolute_path = Protocol.Absolute_path
 module O = Ops
@@ -86,18 +87,29 @@ module Specification_file = struct
   [@@deriving sexp]
 end
 
-let load_call_site_examples
+let load_call_site_examples ~version
     (specification_entries: Specification_file.entry list) =
   Deferred.List.concat_map specification_entries ~f:(fun specification_entry ->
-      let features_file = specification_entry.features_file in
-      let rewards_file = specification_entry.rewards_file in
-      let%bind (features : Feature_extractor.t list) =
-        Reader.with_file features_file ~f:(fun rdr ->
-          Reader.read_marshal rdr >>= function
-          | `Eof -> failwith "Cannot read somethign like this"
-          | `Ok value -> return value)
+      let%bind (features_trace_pair_list : (Feature_extractor.trace_item list * [`raw] Features.t) list) =
+        let read_marshal_exn filename =
+          Reader.with_file filename ~f:(fun rdr ->
+              Reader.read_marshal rdr >>= function
+              | `Eof -> failwith "Cannot read somethign like this"
+              | `Ok value -> return value)
+        in
+        let prefix = specification_entry.features_file in
+        match version with
+        | `V0 ->
+          read_marshal_exn (prefix ^ "v0.bin")
+          >>| List.map ~f:(fun (features : Feature_extractor.t) ->
+              (features.trace, Feature_engineering.convert_v0_features features))
+        | `V1 ->
+          read_marshal_exn (prefix ^ "v1.bin")
+          >>| List.map ~f:(fun (query : Inlining_query.query) ->
+              (query_trace query, Manual_features_v1.process query))
       in
       let%map (raw_rewards : Raw_data.Reward.t list) =
+        let rewards_file = specification_entry.rewards_file in
         Reader.load_sexp_exn rewards_file [%of_sexp: Raw_data.Reward.t list]
         >>| List.map ~f:(fun (reward : Raw_data.Reward.t) ->
             { reward with path = Absolute_path.compress reward.path })
@@ -105,22 +117,23 @@ let load_call_site_examples
       let rewards =
         List.map raw_rewards ~f:(fun entry ->
           (Raw_data.Reward.path entry,
-          (Raw_data.Reward.inline_reward entry, Raw_data.Reward.no_inline_reward entry)))
+          (Raw_data.Reward.inline_reward entry,
+           Raw_data.Reward.no_inline_reward entry)))
         |> Protocol.Absolute_path.Map.of_alist_exn
       in
       let examples =
-        List.filter_map features ~f:(fun feature_entry ->
+        List.filter_map features_trace_pair_list ~f:(fun (trace, features) ->
             let trace =
-              Protocol.Absolute_path.of_trace feature_entry.trace
+              Protocol.Absolute_path.of_trace trace
               |> Absolute_path.compress
             in
             Option.map (Absolute_path.Map.find rewards trace)
-              ~f:(fun r -> (feature_entry, r)))
+              ~f:(fun r -> (features, r)))
         in
       Log.Global.info "%s | Loaded %d reward entries"
         specification_entry.name (Absolute_path.Map.length rewards);
-      Log.Global.info "%s | Loaded %d feature entries"
-        specification_entry.name (List.length features);
+      Log.Global.info "%s | Loaded %d query entries"
+        specification_entry.name (List.length features_trace_pair_list);
       Log.Global.info "%s | Loaded %d training examples"
         specification_entry.name (List.length examples);
       examples)
@@ -130,12 +143,12 @@ let load_call_site_examples
   List.permute examples
 ;;
 
-let load_from_specification specification =
+let load_from_specification ~version specification =
   match specification with
   | Specification_file.Segmented { training; test; } -> 
     Deferred.both
-      (load_call_site_examples training)
-      (load_call_site_examples test)
+      (load_call_site_examples ~version training)
+      (load_call_site_examples ~version test)
     >>= fun (training, test) ->
     Log.Global.info
       "Loaded %d IN-SAMPLE training examples and \
@@ -144,7 +157,7 @@ let load_from_specification specification =
       (List.length test);
     return (training, test)
   | Specification_file.Unsegmented entries -> 
-    load_call_site_examples entries
+    load_call_site_examples ~version entries
     >>| fun examples ->
     let n = List.length examples * 7 / 10 in
     List.split_n examples n

@@ -1,8 +1,9 @@
 open Core
 open Protocol.Shadow_fyp_compiler_lib
 
+val convert_v0_features : Feature_extractor.t -> [`raw] Common.Features.t
 
-val discretise_int_feature : lo: int -> hi: int -> int -> bool array
+val discretise_int_feature : lo: int -> hi: int -> (string * int) -> (string * bool) array
 
 (** Transformer that (1) transforms the feature extractor object into
  *  mathematical vectors and (2) does feature normalisation on non-boolean

@@ -1,5 +1,6 @@
 open Core
 open Protocol.Shadow_fyp_compiler_lib
+open Common
 
 module Reward = struct
   type dual_reward =
@@ -17,4 +18,4 @@ module Reward = struct
 end
 
 type target = (Reward.dual_reward option * float option)
-type example = (Feature_extractor.t * target)
+type 'a example = ('a Features.t * target)

@@ -1,7 +1,7 @@
 (jbuild_version 1)
 
 (executables
- ((names (now tree_tools data_cleaner local_reward_model))
+ ((names (now tree_tools data_cleaner local_reward_model feature_analysis))
   (preprocess (pps (ppx_jane  ppx_driver.runner)))
   (libraries
     (core
@@ -26,4 +26,5 @@
     ((now.exe as ocamlnow)
      (tree_tools.exe as tree_tools)
      (data_cleaner.exe as data_cleaner)
+     (feature_analysis.exe as feature_analysis)
      (local_reward_model.exe as local_reward_model)))))
