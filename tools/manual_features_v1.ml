@@ -121,6 +121,68 @@ let process (query : Inlining_query.query) =
     let bool_features = Feature_list.empty in
     { Features. numeric_features; int_features; bool_features; }
   in
+  (* Callee features that definitely does not change after inlining *)
+  let persistent_callee_features =
+    let numeric_features = Feature_list.empty in
+    let int_features  = Feature_list.empty in
+    let direct_call =
+      match query.call_kind with
+      | Flambda.Indirect -> false
+      | Flambda.Direct _ -> true
+    in
+    let bool_features =
+      Feature_list.of_list [
+        ("is_a_functor",         query.function_decl.is_a_functor);
+        ("only_use_of_function", query.only_use_of_function);
+        ("direct_call",          direct_call);
+      ]
+    in
+    { Features. numeric_features; int_features; bool_features; }
+  in
+  (* Features about the arguments being passed into the function. *)
+  let args_features =
+    let classify_arg arg =
+      match arg with
+      | None -> 0
+      | Some descr ->
+        match (descr : Simple_value_approx.descr) with
+        | Value_block _ -> 1
+        | Value_int _ -> 1
+        | Value_char _ -> 2
+        | Value_constptr _ -> 3
+        | Value_float _ -> 4
+        | Simple_value_approx.Value_boxed_int _ -> 5
+        | Value_set_of_closures _ -> 6
+        | Value_closure _ -> 7
+        | Value_string _ -> 8
+        | Value_float_array _ -> 9
+        | Value_unknown _ -> 10
+        | Value_bottom -> 11
+        | Value_extern _ -> 12
+        | Value_symbol _ -> 13
+        | Value_unresolved _ -> 14
+    in
+    let int_features =
+      List.init 7 ~f:(fun i ->
+          let opt_descr =
+            let open Option.Let_syntax in
+            let%bind var = List.nth query.args i in
+            let%map (scope, sva) = Variable.Map.find_opt var query.env.approx in
+            sva.descr
+          in
+          opt_descr
+          |> classify_arg
+          |> (fun feature -> (sprintf "approx_arg_%d" i, feature)))
+      |> Feature_list.of_list
+    in
+    let bool_features = Feature_list.empty in
+    let numeric_features = Feature_list.empty in
+    { Features. int_features; bool_features; numeric_features; }
+  in
+  (* Features about the parameters, w/o regards to what is being passed in.
+   * This can be a consequence due to modifications caused by specialisaion
+   * and invariant params.
+   *)
   let parameter_features =
     let num_invariant_params =
       let var = Closure_id.unwrap query.closure_id_being_applied in
@@ -138,7 +200,6 @@ let process (query : Inlining_query.query) =
       |> Float.of_int
     in
     let num_params = List.length query.function_decl.params |> Float.of_int in
-
     let numeric_features =
       Feature_list.of_list [
         ("num_invariant_params", num_invariant_params);
@@ -169,6 +230,8 @@ let process (query : Inlining_query.query) =
   @ parameter_features
   @ callee_features ~prefix:"original" query.original
   @ callee_features ~prefix:"inlined" query.inlined_result.body
+  @ persistent_callee_features
+  @ args_features
 ;;
 
 
