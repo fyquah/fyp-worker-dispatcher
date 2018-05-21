@@ -248,7 +248,7 @@ let command =
         let open Deferred.Let_syntax in
         let%bind filelist = Reader.file_lines filelist in
         let%bind all_features =
-          Io_helper.load_queries ~allow_repeat:() ~filelist
+          Io_helper.load_queries ~allow_repeat:`Only_across_files ~filelist
           |> Pipe.map ~f:process
           |> Pipe.to_list
         in

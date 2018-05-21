@@ -3,5 +3,5 @@
 cd $(dirname $0)
 cd ..
 for exp in $(python ../scripts/query_experiment_params.py --all); do
-  echo "find /media/usb/home/fyquah/fyp/prod/processed-data/$exp/ -name 'features-v0.sexp' | ../_build/default/tools/data_cleaner.exe concat-features -output ../w/$exp/features.bin"
+  echo "find /media/usb/home/fyquah/fyp/prod/processed-data/$exp/ -name 'queries-v0.bin' | ../_build/default/tools/data_cleaner.exe concat-queries -output ../w/$exp/queries-v0.bin -filelist /dev/stdin"
 done | parallel --jobs 6 --verbose

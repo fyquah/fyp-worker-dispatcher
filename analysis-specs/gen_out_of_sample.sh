@@ -7,7 +7,7 @@ TESTING_EXPERIMENT=$1
 echo_exp(){
   local exp=$1
   echo "  ((name $exp)"
-  echo "   (features_file w/$exp/features.bin)"
+  echo "   (features_file w/$exp)"
   echo "   (rewards_file w/$exp/rewards.sexp))"
 }
 

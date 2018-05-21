@@ -92,27 +92,35 @@ let load_call_site_examples ~version
   Deferred.List.concat_map specification_entries ~f:(fun specification_entry ->
       let%bind (features_trace_pair_list : (Feature_extractor.trace_item list * [`raw] Features.t) list) =
         let read_marshal_exn filename =
-          Reader.with_file filename ~f:(fun rdr ->
-              Reader.read_marshal rdr >>= function
-              | `Eof -> failwith "Cannot read somethign like this"
-              | `Ok value -> return value)
-        in
+          match%bind Async.Sys.file_exists filename with
+          | `Unknown
+          | `No -> return []
+          | `Yes ->
+            Reader.with_file filename ~f:(fun rdr ->
+                Reader.read_marshal rdr >>= function
+                | `Eof -> failwith "Cannot read somethign like this"
+                | `Ok value -> return value)
+        in  
         let prefix = specification_entry.features_file in
         match version with
         | `V0 ->
-          read_marshal_exn (prefix ^ "v0.bin")
+          read_marshal_exn (prefix ^/ "features-v0.bin")
           >>| List.map ~f:(fun (features : Feature_extractor.t) ->
               (features.trace, Feature_engineering.convert_v0_features features))
         | `V1 ->
-          read_marshal_exn (prefix ^ "v1.bin")
+          read_marshal_exn (prefix ^/ "queries-v0.bin")
           >>| List.map ~f:(fun (query : Inlining_query.query) ->
               (query_trace query, Manual_features_v1.process query))
       in
       let%map (raw_rewards : Raw_data.Reward.t list) =
         let rewards_file = specification_entry.rewards_file in
-        Reader.load_sexp_exn rewards_file [%of_sexp: Raw_data.Reward.t list]
-        >>| List.map ~f:(fun (reward : Raw_data.Reward.t) ->
-            { reward with path = Absolute_path.compress reward.path })
+        match%bind Async.Sys.file_exists rewards_file with
+        | `Unknown
+        | `No -> return []
+        | `Yes ->
+          Reader.load_sexp_exn rewards_file [%of_sexp: Raw_data.Reward.t list]
+          >>| List.map ~f:(fun (reward : Raw_data.Reward.t) ->
+              { reward with path = Absolute_path.compress reward.path })
       in
       let rewards =
         List.map raw_rewards ~f:(fun entry ->

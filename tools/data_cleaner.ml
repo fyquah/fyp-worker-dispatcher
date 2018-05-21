@@ -133,17 +133,12 @@ let command_concat_queries =
     [%map_open
       let output = flag "-output" (required string) ~doc:"target file"
       and filelist = flag "-filelist" (required string) ~doc:"File list"
-      and allow_repeat =
-        flag "-allow-repeat" no_arg ~doc:"allow repeated queries"
       in
       fun () ->
         let open Deferred.Let_syntax in
         let%bind filelist = Async.Reader.file_lines filelist in
         let%bind queries =
-          let allow_repeat =
-            if allow_repeat then Some () else None
-          in
-          let rdr = Io_helper.load_queries ?allow_repeat ~filelist in
+          let rdr = Io_helper.load_queries ~allow_repeat:`No ~filelist in
           Async.Pipe.fold rdr ~init:[] ~f:(fun accum query ->
             return (query :: accum))
         in

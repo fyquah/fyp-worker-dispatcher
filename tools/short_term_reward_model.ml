@@ -103,15 +103,9 @@ let create_model ~hyperparams (examples: example list) =
     |> Array.map ~f:(fun (a, b) -> [| a ; b; |])
   in
   let create_normalised_feature_vector =
-    let f =
-      Staged.unstage (
-        Features.create_normaliser (Array.to_list raw_features)
-      )
-    in
-    fun raw_features ->
-      raw_features |> f
-      |> Features.to_array
-      |> fun a -> Owl.Mat.of_array a 1 (Array.length a)
+    Staged.unstage (
+      Features.create_normaliser_to_owl_vec (Array.to_list raw_features)
+    )
   in
   let feature_matrix =
     List.map examples ~f:fst
