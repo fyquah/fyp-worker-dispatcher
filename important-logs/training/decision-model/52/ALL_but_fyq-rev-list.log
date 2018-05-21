@@ -1,0 +1,60 @@
+2018-05-21 15:18:00.132285+01:00 Info fyq-rev-list | Loaded 0 reward entries
+2018-05-21 15:18:00.132286+01:00 Info fyq-rev-list | Loaded 0 query entries
+2018-05-21 15:18:00.132287+01:00 Info fyq-rev-list | Loaded 0 training examples
+2018-05-21 15:18:00.132632+01:00 Info Loaded a total of 0 training examples
+2018-05-21 15:18:01.194605+01:00 Info bdd | Loaded 5717 reward entries
+2018-05-21 15:18:01.194618+01:00 Info bdd | Loaded 2818 query entries
+2018-05-21 15:18:01.194621+01:00 Info bdd | Loaded 824 training examples
+2018-05-21 15:18:01.537445+01:00 Info almabench | Loaded 1926 reward entries
+2018-05-21 15:18:01.537451+01:00 Info almabench | Loaded 846 query entries
+2018-05-21 15:18:01.537453+01:00 Info almabench | Loaded 317 training examples
+2018-05-21 15:18:02.312004+01:00 Info lexifi | Loaded 4262 reward entries
+2018-05-21 15:18:02.312019+01:00 Info lexifi | Loaded 4073 query entries
+2018-05-21 15:18:02.312024+01:00 Info lexifi | Loaded 1370 training examples
+2018-05-21 15:18:05.536576+01:00 Info kb | Loaded 4747 reward entries
+2018-05-21 15:18:05.536713+01:00 Info kb | Loaded 35367 query entries
+2018-05-21 15:18:05.536717+01:00 Info kb | Loaded 281 training examples
+2018-05-21 15:18:06.473719+01:00 Info floats-in-functor | Loaded 2774 reward entries
+2018-05-21 15:18:06.473748+01:00 Info floats-in-functor | Loaded 8773 query entries
+2018-05-21 15:18:06.473751+01:00 Info floats-in-functor | Loaded 784 training examples
+2018-05-21 15:18:06.473830+01:00 Info fyq-stdlib-int-sets | Loaded 0 reward entries
+2018-05-21 15:18:06.473831+01:00 Info fyq-stdlib-int-sets | Loaded 0 query entries
+2018-05-21 15:18:06.473832+01:00 Info fyq-stdlib-int-sets | Loaded 0 training examples
+2018-05-21 15:18:06.702761+01:00 Info fft | Loaded 1865 reward entries
+2018-05-21 15:18:06.702767+01:00 Info fft | Loaded 842 query entries
+2018-05-21 15:18:06.702770+01:00 Info fft | Loaded 306 training examples
+2018-05-21 15:18:06.910189+01:00 Info quicksort | Loaded 1667 reward entries
+2018-05-21 15:18:06.910195+01:00 Info quicksort | Loaded 829 query entries
+2018-05-21 15:18:06.910197+01:00 Info quicksort | Loaded 306 training examples
+2018-05-21 15:18:06.910304+01:00 Info fyq-symbolic-maths | Loaded 0 reward entries
+2018-05-21 15:18:06.910305+01:00 Info fyq-symbolic-maths | Loaded 0 query entries
+2018-05-21 15:18:06.910305+01:00 Info fyq-symbolic-maths | Loaded 0 training examples
+2018-05-21 15:18:07.028226+01:00 Info lens | Loaded 1698 reward entries
+2018-05-21 15:18:07.028232+01:00 Info lens | Loaded 835 query entries
+2018-05-21 15:18:07.028234+01:00 Info lens | Loaded 296 training examples
+2018-05-21 15:18:07.208464+01:00 Info sequence-cps | Loaded 3135 reward entries
+2018-05-21 15:18:07.208470+01:00 Info sequence-cps | Loaded 1134 query entries
+2018-05-21 15:18:07.208474+01:00 Info sequence-cps | Loaded 330 training examples
+2018-05-21 15:18:08.075336+01:00 Info hamming | Loaded 3032 reward entries
+2018-05-21 15:18:08.075362+01:00 Info hamming | Loaded 8514 query entries
+2018-05-21 15:18:08.075367+01:00 Info hamming | Loaded 1412 training examples
+2018-05-21 15:18:08.077631+01:00 Info kahan-sum | Loaded 19 reward entries
+2018-05-21 15:18:08.077632+01:00 Info kahan-sum | Loaded 14 query entries
+2018-05-21 15:18:08.077634+01:00 Info kahan-sum | Loaded 2 training examples
+2018-05-21 15:18:11.049187+01:00 Info sequence | Loaded 14618 reward entries
+2018-05-21 15:18:11.049202+01:00 Info sequence | Loaded 4111 query entries
+2018-05-21 15:18:11.049206+01:00 Info sequence | Loaded 86 training examples
+2018-05-21 15:18:11.049395+01:00 Info fyq-stdlib-functor-record-sets | Loaded 0 reward entries
+2018-05-21 15:18:11.049396+01:00 Info fyq-stdlib-functor-record-sets | Loaded 0 query entries
+2018-05-21 15:18:11.049397+01:00 Info fyq-stdlib-functor-record-sets | Loaded 0 training examples
+2018-05-21 15:18:11.049511+01:00 Info Loaded a total of 6314 training examples
+2018-05-21 15:18:11.050018+01:00 Info Loaded 6314 IN-SAMPLE training examples and 0 OUT-OF-SAMPLE test examples
+2018-05-21 15:18:11.050652+01:00 Info (hyperparams((l2_reg 0.001)(dropout_keep_prob 0.5)))
+2018-05-21 15:18:11.150841+01:00 Info ((name"training examples")(distribution((0 0.648720032507111)(1 0.35127996749288909))))
+2018-05-21 15:18:11.150844+01:00 Info ((name"test examples")(distribution((0 -nan)(1 -nan))))
+(monitor.ml.Error (Invalid_argument "index out of bounds")
+ ("Raised by primitive operation at file \"src/owl/dense/owl_dense_ndarray_generic.ml\", line 229, characters 26-36"
+  "Called from file \"tools/decision_model.ml\", line 144, characters 6-150"
+  "Called from file \"tools/decision_model.ml\", line 153, characters 18-60"
+  "Called from file \"src/deferred0.ml\", line 61, characters 64-69"
+  "Called from file \"src/job_queue.ml\", line 159, characters 6-47"))
