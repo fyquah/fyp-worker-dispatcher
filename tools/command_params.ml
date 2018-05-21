@@ -7,6 +7,7 @@ type t =
     hyperparams_file   : string;
     feature_version    : feature_versions;
     dump_graph         : string option;
+    checkpoint         : string option;
   }
 
 let training =
@@ -22,9 +23,11 @@ let training =
       flag "-feature-version" (required string) ~doc:"STRING feature version"
     and dump_graph =
       flag "-dump-graph" (optional string) ~doc:"STRING dump graph"
+    and checkpoint =
+      flag "-checkpoint" (optional string) ~doc:"STRING dump weights"
     in
     let feature_version = parse_version feature_version |> Option.value_exn in
     { specification_file; epochs; hyperparams_file; feature_version;
-      dump_graph;
+      dump_graph; checkpoint;
     }
   ]

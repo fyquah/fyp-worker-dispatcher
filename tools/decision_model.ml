@@ -49,7 +49,7 @@ let construct_tf_model ~(hyperparams : Tf_helper.hyperparams) num_features =
     |> O.relu
     |> maybe_dropout
     |> linear 16 2
-    |> O.softmax
+    |> O.softmax ~name:"network_output"
   in
   let loss =
     let ce =
@@ -131,7 +131,7 @@ let create_model ~hyperparams (examples: [`raw] example list) =
 ;;
 
 let do_analysis (examples : [`raw] example list)
-    ~dump_graph ~hyperparams ~epochs ~(test_examples : [`raw] example list) =
+    ~checkpoint ~dump_graph ~hyperparams ~epochs ~(test_examples : [`raw] example list) =
   let training_examples, validation_examples =
     let num_training_examples =
       Float.(to_int (0.8 *. of_int (List.length examples)))
@@ -155,7 +155,7 @@ let do_analysis (examples : [`raw] example list)
     generate_features_and_labels validation_examples
   in
   let%bind () =
-    Tf_helper.train_model ~dump_graph ~epochs ~validation_data ~test_data ~model
+    Tf_helper.train_model ~checkpoint ~dump_graph ~epochs ~validation_data ~test_data ~model
   in
   Deferred.return ()
 ;;
@@ -193,6 +193,7 @@ let command =
         hyperparams_file;
         feature_version;
         dump_graph;
+        checkpoint;
       } = Command_params.training
       in
       fun () ->
@@ -216,6 +217,6 @@ let command =
         print_labels_distribution "test examples" test_examples;
 
         (* Real analysis begins here. *)
-        do_analysis ~dump_graph ~hyperparams ~epochs ~test_examples training_examples
+        do_analysis ~checkpoint ~dump_graph ~hyperparams ~epochs ~test_examples training_examples
     ]
 ;;

@@ -3,6 +3,21 @@ open Async
 open Protocol.Shadow_fyp_compiler_lib
 open Mat_utils
 
+module Protobuf = Tensorflow_core.Protobuf
+module Graph = Tensorflow_core.Wrapper.Graph
+
+
+let command_test =
+  Command.async ~summary:"a" (Command.Param.return (fun () ->
+    let graph = Graph.create () in
+    let a =
+    Graph.import
+      graph
+      (Protobuf.read_file "graph.pb" |> Protobuf.to_string)
+    in
+    Tensorflow_core.Wrapper.Status.ok_exn a;
+    return ()))
+
 let () =
   Command.group ~summary:"Local reward model" [
     ("familiarity-model", Familiarity_model.command);
@@ -13,6 +28,7 @@ let () =
 
     (* For Plotting *)
     ("plots", Plots.command);
+    ("test", command_test);
   ]
   |> Command.run
 ;;

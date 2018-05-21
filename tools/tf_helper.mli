@@ -93,6 +93,7 @@ val train_model
   -> test_data: 'a Data.t
   -> validation_data: 'a Data.t
   -> dump_graph: string option
+  -> checkpoint: string option
   -> unit Deferred.t
 
 

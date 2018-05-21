@@ -178,7 +178,8 @@ let train_model (type a)
     ~epochs:total_epochs
     ~(test_data: a Data.t)
     ~(validation_data: a Data.t)
-    ~(dump_graph : string option) =
+    ~(dump_graph : string option)
+    ~(checkpoint : string option) =
   let session =
     let options =
       let config =
@@ -206,14 +207,6 @@ let train_model (type a)
   in
   let print_snapshot ss =
     Log.Global.sexp ~level:`Info (Epoch_snapshot.sexp_of_t ss);
-  in
-  let%bind () =
-    match dump_graph with
-    | None -> Deferred.unit
-    | Some dump_graph ->
-      let protobuf = Tensorflow.Session.dump_graph_def session in
-      let contents = Tensorflow_core.Protobuf.to_string protobuf in
-      Writer.save dump_graph ~contents
   in
   let%bind () =
     let open Tensorflow in
@@ -249,6 +242,27 @@ let train_model (type a)
         Deferred.return (`Repeat (current_epoch + 1))
       else
         Deferred.return (`Finished ()))
+  in
+  let%bind () =
+    match dump_graph with
+    | None -> Deferred.unit
+    | Some dump_graph ->
+      let protobuf = Tensorflow.Session.dump_graph_def session in
+      let contents = Tensorflow_core.Protobuf.to_string protobuf in
+      Writer.save dump_graph ~contents
+  in
+  let () =
+    match checkpoint with
+    | None -> ()
+    | Some checkpoint ->
+      let open Tensorflow in
+      let vars =
+        Tensorflow.Var.get_all_vars model.tf_model.output
+        |> List.map ~f:(fun nodep ->
+            (Node.Name.to_string (Node.packed_name nodep), nodep))
+      in
+      let save_node = Tensorflow.Ops.save ~filename:checkpoint vars in
+      Session.run ~targets:[ Node.P save_node ] Session.Output.empty
   in
   let () =
     match test_data with
