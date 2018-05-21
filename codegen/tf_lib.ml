@@ -17,10 +17,19 @@ let map f v =
 
 let bool_not t = map (fun a -> not a) t
 
+let eval_bool t =
+  | Scalar b ->  b
+  | _ -> false (** suffices for now **)
+;;
+
 let shape = function
   | Mat a    -> [| Array.length a; Array.length (a.(0)); |]
   | Vec a    -> [| Array.length a |]
   | Scalar _ -> [| |]
+;;
+
+let notequal a b =
+  not (a = b)  (* polymorphic compare @_@ *)
 ;;
 
 let map2 (type a) f (t_a : a t) (t_b : a t) = 
@@ -103,4 +112,10 @@ let matmul ta tb =
     Mat ret
 
   | _, _ -> assert false
+;;
+
+
+(* TODO *)
+let get_variable (_name : string) (_shape : int array) =
+  Scalar 1.0
 ;;

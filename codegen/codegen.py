@@ -18,9 +18,23 @@ def gensym():
     return "v%d" % _SYM
 
 
+def remove_special_chars_from_node_name(s):
+    if s[0] == '^':
+        s = str(s[1:])
+    if ':' in s:
+        s = s.split(":")[0]
+    return s
+
+
 def float_array_from_tensor(tensor, name):
+    def print_float(x):
+        if x < 0.0:
+            return "(-." + str(abs(x)) + ")"
+        else:
+            return str(abs(x))
+
     assert len(tensor.tensor_shape.dim) == 0
-    return "Tf_lib.of_float " + str(tensor.float_val[0])
+    return "Tf_lib.of_float " + print_float(tensor.float_val[0])
 
 
 def int_array_from_tensor(tensor, name):
@@ -46,7 +60,17 @@ def shape_to_tuple(s):
     return tuple(dims)
 
 def to_var_name(s):
-    return s.replace("-", "_").lower().split(":")[0]
+    name = s.replace("-", "_").lower().split(":")[0]
+    if name[0] == '^':
+        return str(name[1:])
+    else:
+        return name
+
+def find_control_input_from_input_names(input_names):
+    for name in input_names:
+        if name[0] == '^':
+            return name
+    return None
 
 
 Argument = collections.namedtuple("Argument", ["name", "shape"])
@@ -96,21 +120,31 @@ class Codegen(object):
 
     def traverse_impl(self, raw_node_name):
         name = to_var_name(raw_node_name)
-
-        if raw_node_name[0] == "^":
-            ret = self.traverse(str(raw_node_name[1:]))
-            self._body.append("let %s = Tf_lib.bool_not %s in" % (name, ret))
-            return name
-
         node = self._nodes[raw_node_name.split(":")[0]]
 
         dep_names = []
         for input_node_name in node.input:
-            dep_names.append(self.traverse(input_node_name))
+            dep_names.append(self.traverse(remove_special_chars_from_node_name(input_node_name)))
         op_name = node.op
 
         # Regular Ops
-        if node.op == "Variable":
+        if node.op == "Identity":
+            control_input_name = find_control_input_from_input_names(node.input)
+            if control_input_name is None:
+                assert len(node.input) == 1
+                self._body.append("let %s = %s" % (name, to_var_name(node.input[0])))
+                return name
+            else:
+                assert len(node.input) == 2
+                (real_input,) = [x for x in node.input if x != control_input_name]
+                self._body.append("let %s =" % to_var_name(name))
+                self._body.append("  if Tf_lib.eval_bool %s then" % to_var_name(control_input_name))
+                self._body.append("    Some %s" % to_var_name(real_input))
+                self._body.append("  else")
+                self._body.append("    None")
+                self._body.append("in")
+
+        elif node.op == "Variable":
             dims = node.attr["shape"].shape
             dims = [str(d.size) for d in dims.dim]
             dims = "; ".join(dims)
