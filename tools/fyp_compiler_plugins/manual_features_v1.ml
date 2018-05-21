@@ -169,6 +169,7 @@ let process (query : Inlining_query.query) =
               let (scope, sva) = Variable.Map.find var query.env.approx in
               Some sva.descr
             with
+            | Failure _
             | Not_found -> None
           in
           opt_descr
