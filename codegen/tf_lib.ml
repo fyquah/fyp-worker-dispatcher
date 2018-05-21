@@ -2,6 +2,7 @@ type 'a t =
   | Mat of 'a array array
   | Vec of 'a array
   | Scalar of 'a
+  | Nothing
 
 
 let of_float x = Scalar x
@@ -13,12 +14,15 @@ let map f v =
     Mat (Array.map (fun vec -> Array.map (fun a -> f a) vec) mat)
   | Vec v -> Vec (Array.map (fun a -> f a) v)
   | Scalar a -> Scalar (f a)
+  | Nothing -> Nothing
 ;;
 
 let bool_not t = map (fun a -> not a) t
 
 let eval_bool t =
-  | Scalar b ->  b
+  match t with
+  | Nothing -> false
+  | Scalar b -> b
   | _ -> false (** suffices for now **)
 ;;
 
@@ -26,14 +30,18 @@ let shape = function
   | Mat a    -> [| Array.length a; Array.length (a.(0)); |]
   | Vec a    -> [| Array.length a |]
   | Scalar _ -> [| |]
+  | Nothing  -> [| |]
 ;;
 
 let notequal a b =
-  not (a = b)  (* polymorphic compare @_@ *)
+  Scalar (not (a = b))  (* polymorphic compare @_@ *)
 ;;
 
 let map2 (type a) f (t_a : a t) (t_b : a t) = 
   match t_a, t_b with
+  | _ , Nothing -> assert false
+  | Nothing , _ -> assert false
+
   | Mat m_a, Mat m_b ->
     Mat (Array.map2 (Array.map2 f) m_a m_b)
   | Mat m_a, Vec v_b ->
@@ -70,6 +78,10 @@ let randomuniform = function
 
 let add a b = map2 (+.) a b
 
+let mul a b = map2 ( *. ) a b
+
+let floor a = map floor a
+
 let relu a = map (fun x -> if x > 0.0 then x else 0.0) a
 
 let reciprocal a = map (fun x -> 1.0 /. x) a
@@ -84,6 +96,7 @@ let softmax t =
   | Scalar _ -> assert false
   | Mat m_a -> Mat (Array.map (fun v_a -> softmax v_a) m_a)
   | Vec v_a -> Vec (softmax v_a)
+  | Nothing -> Nothing
 ;;
 
 
@@ -120,8 +133,10 @@ let get_variable (_name : string) (_shape : int array) =
   Scalar 1.0
 ;;
 
-let merge a b = function
-  | Some _, Some _
-  | None, None -> assert False
-  | Some a, None
-  | Noe, None -> a
+let merge a b =
+  match a, b with
+  | Nothing, Nothing -> assert false
+  | Nothing, b -> b
+  | a, Nothing -> a
+  | _, _ -> assert false
+;;

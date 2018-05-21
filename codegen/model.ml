@@ -13,22 +13,22 @@ let model placeholder_6 placeholder_8 =
   let const_26 = Tf_lib.of_float 0.5 in
   let const_9 = Tf_lib.of_int 0 in
   let notequal_10 = Tf_lib.notequal const_9 placeholder_8 in
-  let switch_27 = if notequal_10 then (None, Some notequal_10) else (Some notequal_10, None) in
+  let switch_27 = if Tf_lib.eval_bool notequal_10 then (Tf_lib.Nothing, notequal_10) else (notequal_10, Tf_lib.Nothing) in
   let identity_29 = (snd switch_27) in
   let identity_30 =
-    if Tf_lib.eval_bool const_26 then
-      Some identity_29
+    if Tf_lib.eval_bool identity_29 then
+      const_26
     else
-      None
+      Tf_lib.Nothing
   in
   let const_25 = Tf_lib.of_float 1.0 in
-  let switch_28 = if notequal_10 then (None, Some notequal_10) else (Some notequal_10, None) in
+  let switch_28 = if Tf_lib.eval_bool notequal_10 then (Tf_lib.Nothing, notequal_10) else (notequal_10, Tf_lib.Nothing) in
   let identity_31 = (fst switch_28) in
   let identity_32 =
-    if Tf_lib.eval_bool const_25 then
-      Some identity_31
+    if Tf_lib.eval_bool identity_31 then
+      const_25
     else
-      None
+      Tf_lib.Nothing
   in
   let merge_34 = Tf_lib.merge identity_30 identity_32 in
   let reciprocal_39 = Tf_lib.reciprocal merge_34 in
@@ -46,22 +46,22 @@ let model placeholder_6 placeholder_8 =
   let add_54 = Tf_lib.add matmul_53 variable_52 in
   let relu_55 = Tf_lib.relu add_54 in
   let const_57 = Tf_lib.of_float 0.5 in
-  let switch_58 = if notequal_10 then (None, Some notequal_10) else (Some notequal_10, None) in
+  let switch_58 = if Tf_lib.eval_bool notequal_10 then (Tf_lib.Nothing, notequal_10) else (notequal_10, Tf_lib.Nothing) in
   let identity_60 = (snd switch_58) in
   let identity_61 =
-    if Tf_lib.eval_bool const_57 then
-      Some identity_60
+    if Tf_lib.eval_bool identity_60 then
+      const_57
     else
-      None
+      Tf_lib.Nothing
   in
   let const_56 = Tf_lib.of_float 1.0 in
-  let switch_59 = if notequal_10 then (None, Some notequal_10) else (Some notequal_10, None) in
+  let switch_59 = if Tf_lib.eval_bool notequal_10 then (Tf_lib.Nothing, notequal_10) else (notequal_10, Tf_lib.Nothing) in
   let identity_62 = (fst switch_59) in
   let identity_63 =
-    if Tf_lib.eval_bool const_56 then
-      Some identity_62
+    if Tf_lib.eval_bool identity_62 then
+      const_56
     else
-      None
+      Tf_lib.Nothing
   in
   let merge_65 = Tf_lib.merge identity_61 identity_63 in
   let reciprocal_70 = Tf_lib.reciprocal merge_65 in

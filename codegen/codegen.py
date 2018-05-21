@@ -95,7 +95,7 @@ class Codegen(object):
             f.write("  "  + d + "\n")
         f.write("*)\n")
 
-        f.write("let model %s =\n" % " ".join(args))
+        f.write("let feed_forward %s =\n" % " ".join(args))
 
         for line in self._body:
             f.write("  " + line + "\n")
@@ -145,10 +145,10 @@ class Codegen(object):
                 (real_input,) = [x for x in node.input if x != control_input_name]
                 # (data, pred)
                 self._body.append("let %s =" % to_var_name(name))
-                self._body.append("  if Tf_lib.eval_bool %s then" % dep_names[0])
-                self._body.append("    Some %s" % dep_names[1])
+                self._body.append("  if Tf_lib.eval_bool %s then" % dep_names[1])
+                self._body.append("    %s" % dep_names[0])
                 self._body.append("  else")
-                self._body.append("    None")
+                self._body.append("    Tf_lib.Nothing")
                 self._body.append("in")
 
         elif node.op == "Variable":
@@ -168,7 +168,7 @@ class Codegen(object):
             data_name = dep_names[0]
             pred_name = dep_names[1]
             self._body.append(
-                    "let %s = if %s then (None, Some %s) else (Some %s, None) in"
+                    "let %s = if Tf_lib.eval_bool %s then (Tf_lib.Nothing, %s) else (%s, Tf_lib.Nothing) in"
                     % (name, pred_name, data_name, data_name)
             )
 
