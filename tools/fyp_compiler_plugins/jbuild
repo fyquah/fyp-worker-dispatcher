@@ -1,0 +1,5 @@
+(jbuild_version 1)
+
+(library
+ ((name       fyp_compiler_plugins)
+  (libraries  (fyp_compiler_lib))))

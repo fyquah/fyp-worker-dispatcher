@@ -177,7 +177,8 @@ let train_model (type a)
     ~(model : a model)
     ~epochs:total_epochs
     ~(test_data: a Data.t)
-    ~(validation_data: a Data.t) =
+    ~(validation_data: a Data.t)
+    ~(dump_graph : string option) =
   let session =
     let options =
       let config =
@@ -187,25 +188,6 @@ let train_model (type a)
       add_config empty config
     in
     Tensorflow.Session.create ~options ()
-  in
-  let check_stopping_cond =
-    let streak = ref 0 in
-    let prev_loss = ref 0.0 in
-    fun () ->
-      let validation_snapshot =
-        gen_snapshot_entry ~session model validation_data
-      in
-      if validation_snapshot.loss <. !prev_loss then begin
-        streak := !streak + 1
-      end else begin
-        streak := 0
-      end;
-      prev_loss := validation_snapshot.loss;
-      if !streak > 20 then begin
-        `Stop
-      end else begin
-        `Continue
-      end
   in
   let gen_snapshot ~session model epoch =
     let ss =
@@ -226,6 +208,14 @@ let train_model (type a)
     Log.Global.sexp ~level:`Info (Epoch_snapshot.sexp_of_t ss);
   in
   let%bind () =
+    match dump_graph with
+    | None -> Deferred.unit
+    | Some dump_graph ->
+      let protobuf = Tensorflow.Session.dump_graph_def session in
+      let contents = Tensorflow_core.Protobuf.to_string protobuf in
+      Writer.save dump_graph ~contents
+  in
+  let%bind () =
     let open Tensorflow in
     let tf_model = model.tf_model in
     let feature_matrix =
@@ -234,7 +224,6 @@ let train_model (type a)
     let target_matrix  =
       tensor_of_mat (Data.targets model.training)
     in
-
     Deferred.repeat_until_finished 0 (fun current_epoch ->
       Session.run ~session ~targets:tf_model.gd ~inputs:Session.Input.[
         float tf_model.input_placeholder feature_matrix;

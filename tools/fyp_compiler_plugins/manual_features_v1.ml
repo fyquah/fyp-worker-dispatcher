@@ -1,10 +1,9 @@
-open Core
-open Async
-open Fyp_compiler_lib
-open Protocol.Shadow_fyp_compiler_lib
-       
-open Common
+open Import
 
+module Feature_list = Feature_utils.Feature_list
+module Features = Feature_utils.Features
+
+       
 let process (query : Inlining_query.query) =
   let calc_t_matces expr ~f =
     let ctr = ref 0 in
@@ -32,20 +31,20 @@ let process (query : Inlining_query.query) =
       calc_named_matches expr ~f:(function
           | Flambda.Symbol s -> Symbol.Map.mem s env.approx_sym
           | _ -> false)
-      |> Float.of_int
+      |> float_of_int
     in
     let num_mutable_approximations =
       calc_named_matches expr ~f:(function
           | Flambda.Read_mutable mvar ->
             Mutable_variable.Map.mem mvar env.approx_mutable
           | _ -> false)
-      |> Float.of_int
+      |> float_of_int
     in
     let num_var_approximations =
       calc_t_matces expr ~f:(function
           | Flambda.Var var -> Variable.Map.mem var env.approx
           | _ -> false)
-      |> Float.of_int
+      |> float_of_int
     in
     let num_closure_movements_matches =
       calc_named_matches expr ~f:(fun expr ->
@@ -55,7 +54,7 @@ let process (query : Inlining_query.query) =
               (Projection.Move_within_set_of_closures msvc)
               env.projections
           | _ -> false)
-      |> Float.of_int
+      |> float_of_int
     in
     let num_project_closure_matches =
       calc_named_matches expr ~f:(fun expr ->
@@ -65,7 +64,7 @@ let process (query : Inlining_query.query) =
               (Projection.Project_closure pc)
               env.projections
           | _ -> false)
-      |> Float.of_int
+      |> float_of_int
     in
     let num_project_var_matches =
       calc_named_matches expr ~f:(fun expr ->
@@ -75,7 +74,7 @@ let process (query : Inlining_query.query) =
               (Projection.Project_var pv)
               env.projections
           | _ -> false)
-      |> Float.of_int
+      |> float_of_int
     in
     let p = prefix in
     let numeric_features =
@@ -93,21 +92,21 @@ let process (query : Inlining_query.query) =
     { Features. numeric_features; int_features; bool_features }
   in
   let callee_features ~prefix expr =
-    let size = Inlining_cost.lambda_size expr |> Float.of_int in
+    let size = Inlining_cost.lambda_size expr |> float_of_int in
     let num_const_int =
       calc_named_matches expr ~f:(fun (named : Flambda.named) ->
           match named with
           | Flambda.Const (Flambda.Char _)
           | Flambda.Const (Flambda.Int _) -> true
           | _ -> false)
-      |> Float.of_int
+      |> float_of_int
     in
     let num_const_pointer =
       calc_named_matches expr ~f:(fun (named : Flambda.named) ->
           match named with
           | Flambda.Const (Flambda.Const_pointer _) -> true
           | _ -> false)
-      |> Float.of_int
+      |> float_of_int
     in
     let p = prefix in
     let numeric_features =
@@ -163,16 +162,18 @@ let process (query : Inlining_query.query) =
         | Value_unresolved _ -> 14
     in
     let int_features =
-      List.init 7 ~f:(fun i ->
+      List.init 7 (fun i ->
           let opt_descr =
-            let open Option.Let_syntax in
-            let%bind var = List.nth query.args i in
-            let%map (scope, sva) = Variable.Map.find_opt var query.env.approx in
-            sva.descr
+            try
+              let var = List.nth query.args i in
+              let (scope, sva) = Variable.Map.find var query.env.approx in
+              Some sva.descr
+            with
+            | Not_found -> None
           in
           opt_descr
           |> classify_arg
-          |> (fun feature -> (sprintf "approx_arg_%d" i, feature)))
+          |> (fun feature -> (Format.asprintf "approx_arg_%d" i, feature)))
       |> Feature_list.of_list
     in
     let bool_features = Feature_list.empty in
@@ -186,20 +187,24 @@ let process (query : Inlining_query.query) =
   let parameter_features =
     let num_invariant_params =
       let var = Closure_id.unwrap query.closure_id_being_applied in
-      Variable.Map.find_opt var query.value_set_of_closures.invariant_params
-      |> Option.map ~f:Variable.Set.cardinal
-      |> Option.value ~default:0
-      |> Float.of_int
+      float_of_int (
+        try
+          Variable.Map.find var query.value_set_of_closures.invariant_params
+          |> Variable.Set.cardinal
+        with
+        | Not_found -> 0
+      )
     in
     let num_specialised_args =  (* TODO: Is this even valid? *)
       let params = query.function_decl.params in
-      List.filter params ~f:(fun p ->
+      List.filter (fun p ->
           let var = Parameter.var p in
           Variable.Map.mem var query.value_set_of_closures.specialised_args)
+        params
       |> List.length
-      |> Float.of_int
+      |> float_of_int
     in
-    let num_params = List.length query.function_decl.params |> Float.of_int in
+    let num_params = List.length query.function_decl.params |> float_of_int in
     let numeric_features =
       Feature_list.of_list [
         ("num_invariant_params", num_invariant_params);
@@ -232,44 +237,4 @@ let process (query : Inlining_query.query) =
   @ callee_features ~prefix:"inlined" query.inlined_result.body
   @ persistent_callee_features
   @ args_features
-;;
-
-
-let command =
-  let open Command.Let_syntax in
-  Command.async ~summary:"Manual hand features v1"
-    [%map_open
-      let filelist =
-        flag "-filelist" (required string) ~doc:"FILE data source"
-      and output =
-        flag "-output" (required string) ~doc:"FILE output"
-      in
-      fun () ->
-        let open Deferred.Let_syntax in
-        let%bind filelist = Reader.file_lines filelist in
-        let%bind all_features =
-          Io_helper.load_queries ~allow_repeat:`Only_across_files ~filelist
-          |> Pipe.map ~f:process
-          |> Pipe.to_list
-        in
-        let names = Features.names (List.hd_exn all_features) in
-        let header = String.concat ~sep:"," names in
-        let rows =
-          List.map all_features ~f:(fun features ->
-              List.map names ~f:(fun name ->
-                match Features.find_exn features name with
-                  | `Numeric x -> x
-                  | `Int x -> Float.of_int x
-                  | `Bool x -> (if x then 1.0 else 0.0))
-              |> List.map ~f:Float.to_string
-              |> String.concat ~sep:",")
-        in
-        let%bind () =
-          Writer.with_file output ~f:(fun wrt ->
-              Writer.write_line wrt header;
-              List.iter rows ~f:(Writer.write_line wrt);
-              Deferred.unit)
-        in
-        return ()
-    ]
 ;;

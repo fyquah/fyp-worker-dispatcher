@@ -95,12 +95,11 @@ let convert_v0_features (feature_vector : Feature_extractor.t) =
 let create_numerical_features (feature_vector : Feature_extractor.t) =
   let features = convert_v0_features feature_vector in
   let int_features =
-    (List.map ~f:Float.to_int (String.Map.data features.numeric_features))
-    @ (String.Map.data features.int_features)
+    (List.map ~f:Float.to_int (Feature_list.data features.numeric_features))
+    @ (Feature_list.data features.int_features)
   in
-  let boolean_features = String.Map.data features.bool_features in
-  (Array.of_list int_features,
-   Array.of_list boolean_features)
+  let boolean_features = Feature_list.data features.bool_features in
+  (Array.of_list int_features, Array.of_list boolean_features)
 ;;
 
 

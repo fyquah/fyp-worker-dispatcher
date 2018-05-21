@@ -92,6 +92,7 @@ val train_model
   -> epochs: int
   -> test_data: 'a Data.t
   -> validation_data: 'a Data.t
+  -> dump_graph: string option
   -> unit Deferred.t
 
 

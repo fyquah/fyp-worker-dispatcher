@@ -131,7 +131,7 @@ let create_model ~hyperparams (examples: [`raw] example list) =
 ;;
 
 let do_analysis (examples : [`raw] example list)
-    ~hyperparams ~epochs ~(test_examples : [`raw] example list) =
+    ~dump_graph ~hyperparams ~epochs ~(test_examples : [`raw] example list) =
   let training_examples, validation_examples =
     let num_training_examples =
       Float.(to_int (0.8 *. of_int (List.length examples)))
@@ -155,7 +155,7 @@ let do_analysis (examples : [`raw] example list)
     generate_features_and_labels validation_examples
   in
   let%bind () =
-    Tf_helper.train_model ~epochs ~validation_data ~test_data ~model
+    Tf_helper.train_model ~dump_graph ~epochs ~validation_data ~test_data ~model
   in
   Deferred.return ()
 ;;
@@ -187,18 +187,16 @@ let command =
   let open Command.Let_syntax in
   Command.async ~summary:"Linear reward model"
     [%map_open
-      let specification_file =
-        flag "-spec" (required file) ~doc:"FILE specification file"
-      and epochs =
-        flag "-epochs" (required int) ~doc:"INT epochs"
-      and hyperparams_file =
-        flag "-hyperparams" (required file) ~doc:"FILE hyperparams file"
-      and feature_version =
-        flag "-feature-version" (required string) ~doc:"STRING feature version"
+      let {
+        specification_file;
+        epochs;
+        hyperparams_file;
+        feature_version;
+        dump_graph;
+      } = Command_params.training
       in
       fun () ->
         let open Deferred.Let_syntax in
-        let feature_version = Option.value_exn (parse_version feature_version) in
         let%bind specification =
           Reader.load_sexp_exn specification_file
             Specification_file.t_of_sexp
@@ -218,6 +216,6 @@ let command =
         print_labels_distribution "test examples" test_examples;
 
         (* Real analysis begins here. *)
-        do_analysis ~hyperparams ~epochs ~test_examples training_examples
+        do_analysis ~dump_graph ~hyperparams ~epochs ~test_examples training_examples
     ]
 ;;
