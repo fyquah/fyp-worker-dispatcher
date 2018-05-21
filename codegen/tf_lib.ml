@@ -119,3 +119,9 @@ let matmul ta tb =
 let get_variable (_name : string) (_shape : int array) =
   Scalar 1.0
 ;;
+
+let merge a b = function
+  | Some _, Some _
+  | None, None -> assert False
+  | Some a, None
+  | Noe, None -> a

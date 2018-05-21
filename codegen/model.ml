@@ -13,20 +13,20 @@ let model placeholder_6 placeholder_8 =
   let const_26 = Tf_lib.of_float 0.5 in
   let const_9 = Tf_lib.of_int 0 in
   let notequal_10 = Tf_lib.notequal const_9 placeholder_8 in
-  let switch_27 = Tf_lib.switch notequal_10 notequal_10 in
-  let identity_29 = switch_27
+  let switch_27 = if notequal_10 then (None, Some notequal_10) else (Some notequal_10, None) in
+  let identity_29 = (snd switch_27) in
   let identity_30 =
-    if Tf_lib.eval_bool identity_29 then
-      Some const_26
+    if Tf_lib.eval_bool const_26 then
+      Some identity_29
     else
       None
   in
   let const_25 = Tf_lib.of_float 1.0 in
-  let switch_28 = Tf_lib.switch notequal_10 notequal_10 in
-  let identity_31 = switch_28
+  let switch_28 = if notequal_10 then (None, Some notequal_10) else (Some notequal_10, None) in
+  let identity_31 = (fst switch_28) in
   let identity_32 =
-    if Tf_lib.eval_bool identity_31 then
-      Some const_25
+    if Tf_lib.eval_bool const_25 then
+      Some identity_31
     else
       None
   in
@@ -46,20 +46,20 @@ let model placeholder_6 placeholder_8 =
   let add_54 = Tf_lib.add matmul_53 variable_52 in
   let relu_55 = Tf_lib.relu add_54 in
   let const_57 = Tf_lib.of_float 0.5 in
-  let switch_58 = Tf_lib.switch notequal_10 notequal_10 in
-  let identity_60 = switch_58
+  let switch_58 = if notequal_10 then (None, Some notequal_10) else (Some notequal_10, None) in
+  let identity_60 = (snd switch_58) in
   let identity_61 =
-    if Tf_lib.eval_bool identity_60 then
-      Some const_57
+    if Tf_lib.eval_bool const_57 then
+      Some identity_60
     else
       None
   in
   let const_56 = Tf_lib.of_float 1.0 in
-  let switch_59 = Tf_lib.switch notequal_10 notequal_10 in
-  let identity_62 = switch_59
+  let switch_59 = if notequal_10 then (None, Some notequal_10) else (Some notequal_10, None) in
+  let identity_62 = (fst switch_59) in
   let identity_63 =
-    if Tf_lib.eval_bool identity_62 then
-      Some const_56
+    if Tf_lib.eval_bool const_56 then
+      Some identity_62
     else
       None
   in

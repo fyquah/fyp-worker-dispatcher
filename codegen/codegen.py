@@ -18,14 +18,6 @@ def gensym():
     return "v%d" % _SYM
 
 
-def remove_special_chars_from_node_name(s):
-    if s[0] == '^':
-        s = str(s[1:])
-    if ':' in s:
-        s = s.split(":")[0]
-    return s
-
-
 def float_array_from_tensor(tensor, name):
     def print_float(x):
         if x < 0.0:
@@ -60,7 +52,7 @@ def shape_to_tuple(s):
     return tuple(dims)
 
 def to_var_name(s):
-    name = s.replace("-", "_").lower().split(":")[0]
+    name = s.replace("-", "_").lower().replace(":", "__")
     if name[0] == '^':
         return str(name[1:])
     else:
@@ -119,12 +111,26 @@ class Codegen(object):
         return ret
 
     def traverse_impl(self, raw_node_name):
+        if raw_node_name[0] == '^':
+            return self.traverse(str(raw_node_name[1:]))
+        if ":" in raw_node_name:
+            return self.traverse(raw_node_name.split(":")[0])
+
         name = to_var_name(raw_node_name)
         node = self._nodes[raw_node_name.split(":")[0]]
 
         dep_names = []
         for input_node_name in node.input:
-            dep_names.append(self.traverse(remove_special_chars_from_node_name(input_node_name)))
+            dep_name = self.traverse(input_node_name)
+            output_pose = 0
+            if ":" in input_node_name:
+                output_pose = int(input_node_name.split(":")[1])
+
+            # Much hacki-ness
+            fnc_name = [ "fst", "snd" ]
+            if "Switch" in input_node_name:
+                dep_name = "(%s %s)" % (fnc_name[output_pose], dep_name)
+            dep_names.append(dep_name)
         op_name = node.op
 
         # Regular Ops
@@ -132,14 +138,15 @@ class Codegen(object):
             control_input_name = find_control_input_from_input_names(node.input)
             if control_input_name is None:
                 assert len(node.input) == 1
-                self._body.append("let %s = %s" % (name, to_var_name(node.input[0])))
+                self._body.append("let %s = %s in" % (name, dep_names[0]))
                 return name
             else:
                 assert len(node.input) == 2
                 (real_input,) = [x for x in node.input if x != control_input_name]
+                # (data, pred)
                 self._body.append("let %s =" % to_var_name(name))
-                self._body.append("  if Tf_lib.eval_bool %s then" % to_var_name(control_input_name))
-                self._body.append("    Some %s" % to_var_name(real_input))
+                self._body.append("  if Tf_lib.eval_bool %s then" % dep_names[0])
+                self._body.append("    Some %s" % dep_names[1])
                 self._body.append("  else")
                 self._body.append("    None")
                 self._body.append("in")
@@ -155,6 +162,15 @@ class Codegen(object):
         elif node.op == "Const":
             c = typed_array_from_tensor(node.attr["value"].tensor, name=name)
             self._body.append("let %s = %s in" % (name, c))
+
+        elif node.op == "Switch":
+            assert len(dep_names) == 2
+            data_name = dep_names[0]
+            pred_name = dep_names[1]
+            self._body.append(
+                    "let %s = if %s then (None, Some %s) else (Some %s, None) in"
+                    % (name, pred_name, data_name, data_name)
+            )
 
         elif node.op == "Placeholder":
             shape = shape_to_tuple(node.attr["shape"].shape)
