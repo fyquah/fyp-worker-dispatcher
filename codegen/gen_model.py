@@ -110,6 +110,8 @@ class Codegen(object):
             for sanity_test in self._sanity_tests:
                 dims = "[|" + "; ".join(sanity_test.dims) + "|]"
                 f.write("  assert (Tf_lib.shape %s.%s = %s);\n" % (self._weights_module, sanity_test.var_name, dims))
+            f.write("  ()")
+            f.write(";;")
 
         return f.getvalue()
 
@@ -154,7 +156,11 @@ class Codegen(object):
                 assert len(node.input) == 2
                 (real_input,) = [x for x in node.input if x != control_input_name]
                 # (data, pred)
-                self._body.append("let %s = %s in" % (to_var_name(name), dep_names[0]))
+                self._body.append("let %s =" % to_var_name(name))
+                self._body.append("  match (%s) with" % dep_names[1])
+                self._body.append("  | Tf_lib.Nothing -> Tf_lib.Nothing")
+                self._body.append("  | _ -> %s" % dep_names[0])
+                self._body.append("in")
 
         elif node.op == "Variable":
             dims = node.attr["shape"].shape
