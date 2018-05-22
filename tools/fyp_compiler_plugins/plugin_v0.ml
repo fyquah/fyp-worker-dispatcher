@@ -9,19 +9,35 @@ let unpack_binary_classification t =
   | _ -> assert false
 ;;
 
+let (`Staged normalise_for_familiarity) =
+  Features.create_normaliser_function Familiarity_normaliser.normaliser
+;;
+
+let (`Staged normalise_for_decision) =
+  Features.create_normaliser_function Decision_normaliser.normaliser
+;;
+
+let flip f = (fun a b -> f b a)
+
+let to_vec features = Tf_lib.Vec (Features.to_array features)
+
 let f (query : Inlining_query.query) =
   let features = Manual_features_v1.process query in
-  assert (List.length features.int_features = 0);
-  (* TODO: Normalisation *)
-  let feature_vector = Tf_lib.Vec (Features.to_array features) in
-  let is_training = Tf_lib.Scalar false in
+  assert (List.length (Feature_list.to_list features.int_features) = 0);
+  let is_training = Tf_lib.Scalar 0 in
   let familiar =
-    Familiarity_model.feed_forward feature_vector is_training
+    features
+    |> normalise_for_familiarity
+    |> to_vec
+    |> flip Familiarity_model.feed_forward is_training
     |> unpack_binary_classification
   in
   if familiar then begin
     let decision =
-      Decision_model.feed_forward feature_vector is_training
+      features
+      |> normalise_for_decision
+      |> to_vec
+      |> flip Decision_model.feed_forward is_training
       |> unpack_binary_classification
     in 
     if decision then

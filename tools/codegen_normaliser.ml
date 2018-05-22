@@ -16,7 +16,7 @@ let print_float x =
 ;;
 
 let print_decl var_name vars =
-  Format.printf "let %s = [\n" var_name;
+  Format.printf "let %s = Feature_utils.Feature_list.of_list [\n" var_name;
   List.iter (fun (name, s) ->
       Format.printf "  (\"%s\", %s);\n" name (print_float s))
     vars;
@@ -24,6 +24,7 @@ let print_decl var_name vars =
 ;;
 
 let () =
-  print_decl "means" (Feature_list.to_list normaliser.mean);
-  print_decl "std" (Feature_list.to_list normaliser.std)
+  print_decl "mean" (Feature_list.to_list normaliser.mean);
+  print_decl "std" (Feature_list.to_list normaliser.std);
+  Format.printf "let normaliser = { Feature_utils. mean; std; }\n"
 ;;

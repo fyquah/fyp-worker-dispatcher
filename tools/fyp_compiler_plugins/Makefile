@@ -7,6 +7,9 @@ build/familiarity_model.ml build/familiarity_weights.ml: build/familiarity_graph
 	  --model-module   Familiarity_model \
 	  --weights-module Familiarity_weights
 
+build/familiarity_normaliser.ml: build/familiarity_normaliser.bin
+	../../_build/default/tools/codegen_normaliser.exe $< >$@
+
 build/decision_model.ml build/decision_weights.ml: build/decision_graph.bin
 	cd build/ && python2 ../../../codegen/codegen.py \
 	  --graph decision_graph.bin \
@@ -14,13 +17,19 @@ build/decision_model.ml build/decision_weights.ml: build/decision_graph.bin
 	  --model-module   Decision_model \
 	  --weights-module Decision_weights
 
+build/decision_normaliser.ml: build/decision_normaliser.bin
+	../../_build/default/tools/codegen_normaliser.exe $< >$@
+
 build/plugin_v0.cmxs: \
   tf_lib.mli tf_lib.ml \
-  build/familiarity_weights.ml build/familiarity_model.ml \
-  build/decision_weights.ml build/decision_model.ml \
   import.ml feature_utils.mli feature_utils.ml \
+  build/familiarity_weights.ml build/familiarity_model.ml build/familiarity_normaliser.ml \
+  build/decision_weights.ml build/decision_model.ml build/decision_normaliser.ml \
   manual_features_v1.mli manual_features_v1.ml \
   plugin_v0.ml
 	echo "" >build/fyp_compiler_lib.ml
 	~/fyp/ocaml/ocamlopt.opt -I build/ -I +compiler-libs -shared -o $@ \
 	  build/fyp_compiler_lib.ml $^
+
+clean:
+	rm build/*.cmxs build/*.ml build/*.mli
