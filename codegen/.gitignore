@@ -1,2 +1,5 @@
 *.cm*
 *.o
+*.pyc
+tf_model.ml*
+tf_weights.ml*
