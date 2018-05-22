@@ -21,9 +21,9 @@ let flip f = (fun a b -> f b a)
 
 let to_vec features = Tf_lib.Vec (Features.to_array features)
 
-let f (query : Inlining_query.query) =
+let f_0 (query : Inlining_query.query) =
   let features = Manual_features_v1.process query in
-  assert (List.length (Feature_list.to_list features.int_features) = 0);
+  (* assert (List.length (Feature_list.to_list features.int_features) = 0); *)
   let is_training = Tf_lib.Scalar 0 in
   let familiar =
     features
@@ -40,13 +40,22 @@ let f (query : Inlining_query.query) =
       |> flip Decision_model.feed_forward is_training
       |> unpack_binary_classification
     in 
-    if decision then
+    if decision then begin
       Some Data_collector.Action.Inline
-    else
+    end else begin
       Some Data_collector.Action.Apply
+    end
   end else
     None
 ;;
+
+let f (query : Inlining_query.query) =
+  if query.env.round = 0 then
+    f_0 query
+  else
+    None
+;;
+
 
 let () =
   Inlining_decision.init_custom_heuristic f

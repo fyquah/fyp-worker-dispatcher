@@ -31,5 +31,8 @@ build/plugin_v0.cmxs: \
 	~/fyp/ocaml/ocamlopt.opt -I build/ -I +compiler-libs -shared -o $@ \
 	  build/fyp_compiler_lib.ml $^
 
+test: test.ml build/plugin_v0.cmxs
+	~/fyp/ocaml/ocamlopt.opt -O3 -plugin build/plugin_v0.cmxs -inlining-report $<
+
 clean:
 	rm build/*.cmxs build/*.ml build/*.mli

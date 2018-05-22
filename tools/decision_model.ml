@@ -80,14 +80,6 @@ let construct_tf_model ~(hyperparams : Tf_helper.hyperparams) num_features =
   }
 ;;
 
-let create_label_from_target ((a, b) : Raw_data.target) =
-  if Option.is_some a && Option.is_some b then begin
-    1
-  end else begin
-    0
-  end
-;;
-
 type 'a example = ('a Features.t * int)
 
 let filter_eligible_examples (examples : [`raw] Raw_data.example list) =

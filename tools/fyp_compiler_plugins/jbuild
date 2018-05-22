@@ -2,5 +2,5 @@
 
 (library
  ((name       fyp_compiler_plugins)
-  (modules    (:standard \ plugin_v0))
+  (modules    (:standard \ plugin_v0 test))
   (libraries  (fyp_compiler_lib))))
