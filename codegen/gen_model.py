@@ -154,12 +154,7 @@ class Codegen(object):
                 assert len(node.input) == 2
                 (real_input,) = [x for x in node.input if x != control_input_name]
                 # (data, pred)
-                self._body.append("let %s =" % to_var_name(name))
-                self._body.append("  if Tf_lib.eval_bool %s then" % dep_names[1])
-                self._body.append("    %s" % dep_names[0])
-                self._body.append("  else")
-                self._body.append("    Tf_lib.Nothing")
-                self._body.append("in")
+                self._body.append("let %s = %s in" % (to_var_name(name), dep_names[0]))
 
         elif node.op == "Variable":
             dims = node.attr["shape"].shape
