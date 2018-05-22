@@ -34,6 +34,10 @@ module Feature_list = struct
   let data a = StringMap.bindings a |> List.map snd
 end
 
+type normaliser =
+  { mean : float Feature_list.t;
+    std  : float Feature_list.t;
+  }
 
 module Features = struct
   type 'a t =
@@ -105,29 +109,12 @@ module Features = struct
       Feature_list.empty features_list
   ;;
 
-  let create_normaliser features_list =
-    let num_examples = List.length features_list |> float_of_int in
-    let means =
-      fold_numeric_features features_list ~f:(fun ~name:_ ~acc value ->
-          match acc with
-          | None -> value
-          | Some x -> value +. x)
-      |> StringMap.map (fun a -> a /. num_examples)
-    in
-    let std =
-      fold_numeric_features features_list ~f:(fun ~name ~acc value ->
-          let mean = StringMap.find name means in
-          let value = (value -. mean) ** 2.0 in
-          match acc with
-          | None -> value
-          | Some x -> value +. x)
-      |> StringMap.map (fun a -> a /. num_examples)
-    in
+  let create_normaliser_function { mean; std; } =
     `Staged (
       fun ({ numeric_features; int_features; bool_features } : [`raw] t) ->
         let numeric_features =
           StringMap.mapi (fun key data ->
-              let mean = StringMap.find key means in
+              let mean = StringMap.find key mean in
               let std  = StringMap.find key std in
 
               if 0.0 = std then
@@ -138,6 +125,27 @@ module Features = struct
         in
         ({ numeric_features; int_features; bool_features; } : [`normalised] t)
     )
+  ;;
+
+  let create_normaliser features_list =
+    let num_examples = List.length features_list |> float_of_int in
+    let mean =
+      fold_numeric_features features_list ~f:(fun ~name:_ ~acc value ->
+          match acc with
+          | None -> value
+          | Some x -> value +. x)
+      |> StringMap.map (fun a -> a /. num_examples)
+    in
+    let std =
+      fold_numeric_features features_list ~f:(fun ~name ~acc value ->
+          let mean = StringMap.find name mean in
+          let value = (value -. mean) ** 2.0 in
+          match acc with
+          | None -> value
+          | Some x -> value +. x)
+      |> StringMap.map (fun a -> a /. num_examples)
+    in
+    { mean; std; }
   ;;
 end
 

@@ -8,6 +8,7 @@ type t =
     feature_version    : feature_versions;
     dump_graph         : string option;
     checkpoint         : string option;
+    dump_normaliser    : string option;
   }
 
 let training =
@@ -25,9 +26,11 @@ let training =
       flag "-dump-graph" (optional string) ~doc:"STRING dump graph"
     and checkpoint =
       flag "-checkpoint" (optional string) ~doc:"STRING dump weights"
+    and dump_normaliser =
+      flag "-dump-normaliser" (optional string) ~doc:"STRING dump normaliser"
     in
     let feature_version = parse_version feature_version |> Option.value_exn in
     { specification_file; epochs; hyperparams_file; feature_version;
-      dump_graph; checkpoint;
+      dump_graph; checkpoint; dump_normaliser;
     }
   ]

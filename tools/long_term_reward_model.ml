@@ -94,9 +94,10 @@ type 'a example = ('a Features.t * float)
 let create_model ~hyperparams (examples: [`raw] example list) =
   let raw_features = Array.of_list_map examples ~f:fst in
   let raw_targets  = Array.of_list_map examples ~f:snd in
+  let normaliser = Features.create_normaliser (Array.to_list raw_features) in
   let create_normalised_feature_vector =
     Staged.unstage (
-      Features.create_normaliser_to_owl_vec (Array.to_list raw_features)
+      Features.create_normaliser_to_owl_vec normaliser
     )
   in
   let feature_matrix =
@@ -115,12 +116,12 @@ let create_model ~hyperparams (examples: [`raw] example list) =
     Tf_helper.Data.Regression { features; targets; }
   in
   { Tf_helper.
-    tf_model; create_normalised_feature_vector; training;
+    normaliser; tf_model; create_normalised_feature_vector; training;
   }
 ;;
 
 let do_analysis (examples : [`raw] example list)
-    ~checkpoint ~dump_graph ~hyperparams ~epochs ~(test_examples : [`raw] example list) =
+    ~dump_normaliser ~checkpoint ~dump_graph ~hyperparams ~epochs ~(test_examples : [`raw] example list) =
   let training_examples, validation_examples =
     let num_training_examples =
       Float.(to_int (0.8 *. of_int (List.length examples)))
@@ -146,7 +147,7 @@ let do_analysis (examples : [`raw] example list)
     generate_features_and_targets validation_examples
   in
   let%bind () =
-    Tf_helper.train_model ~checkpoint ~dump_graph ~epochs ~validation_data ~test_data ~model
+    Tf_helper.train_model ~dump_normaliser ~checkpoint ~dump_graph ~epochs ~validation_data ~test_data ~model
   in
   Deferred.return ()
 ;;
@@ -163,6 +164,7 @@ let command =
         feature_version;
         dump_graph;
         checkpoint;
+        dump_normaliser;
       } = Command_params.training
       in
       fun () ->
@@ -184,6 +186,6 @@ let command =
         let%bind () = wait 0.1 in
 
         (* Real analysis begins here. *)
-        do_analysis ~checkpoint ~dump_graph ~hyperparams ~epochs ~test_examples training_examples
+        do_analysis ~dump_normaliser ~checkpoint ~dump_graph ~hyperparams ~epochs ~test_examples training_examples
     ]
 ;;

@@ -65,6 +65,7 @@ type tf_model =
 
 type 'a model = 
   { tf_model                         : tf_model;
+    normaliser                       : Feature_utils.normaliser;
     create_normalised_feature_vector : [ `raw ] Features.t -> Owl.Mat.mat;
     training                         : 'a Data.t;
   }
@@ -94,6 +95,7 @@ val train_model
   -> validation_data: 'a Data.t
   -> dump_graph: string option
   -> checkpoint: string option
+  -> dump_normaliser : string option
   -> unit Deferred.t
 
 

@@ -14,6 +14,11 @@ module Feature_list : sig
   val to_list : 'a t -> (string * 'a) list
 end
 
+type normaliser =
+  { mean : float Feature_list.t;
+    std  : float Feature_list.t;
+  }
+
 module Features : sig
   type 'a t =
     { int_features     : int   Feature_list.t;
@@ -36,8 +41,10 @@ module Features : sig
 
   val to_array : 'a t -> float array
 
-  val create_normaliser
-     : 'a t list -> [ `Staged of ([ `raw ] t -> [ `normalised ] t) ]
+  val create_normaliser : 'a t list -> normaliser
+
+  val create_normaliser_function
+     : normaliser -> ([ `Staged of ([ `raw ] t -> [ `normalised ] t) ])
 end
 
 val query_trace : Inlining_query.query -> Feature_extractor.trace_item list

@@ -3,6 +3,7 @@ open Core
 type feature_versions = [ `V0 | `V1 ]
 
 module Manual_features_v1 = Fyp_compiler_plugins.Manual_features_v1
+module Feature_utils = Fyp_compiler_plugins.Feature_utils
 
 module Feature_list = struct
   include Fyp_compiler_plugins.Feature_utils.Feature_list
@@ -15,8 +16,8 @@ end
 module Features = struct
   include Fyp_compiler_plugins.Feature_utils.Features
 
-  let create_normaliser_to_owl_vec features_list =
-    let (`Staged f) = (create_normaliser features_list) in
+  let create_normaliser_to_owl_vec normaliser =
+    let (`Staged f) = (create_normaliser_function normaliser) in
     Staged.stage (
       fun raw_features ->
         f raw_features

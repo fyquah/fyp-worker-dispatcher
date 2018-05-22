@@ -105,6 +105,7 @@ type hyperparams =
 
 type 'a model = 
   { tf_model                         : tf_model;
+    normaliser                       : Feature_utils.normaliser;
     create_normalised_feature_vector : [ `raw ] Features.t -> Owl.Mat.mat;
     training                         : 'a Data.t;
   }
@@ -179,7 +180,8 @@ let train_model (type a)
     ~(test_data: a Data.t)
     ~(validation_data: a Data.t)
     ~(dump_graph : string option)
-    ~(checkpoint : string option) =
+    ~(checkpoint : string option)
+    ~(dump_normaliser : string option) =
   let session =
     let options =
       let config =
@@ -265,7 +267,16 @@ let train_model (type a)
             (name, nodep))
       in
       let save_node = Tensorflow.Ops.save ~filename:checkpoint vars in
-      Session.run ~targets:[ Node.P save_node ] Session.Output.empty
+      Session.run ~session ~targets:[ Node.P save_node ] Session.Output.empty
+  in
+  let%bind () =
+    match dump_normaliser with
+    | None -> return ()
+    | Some dump_normaliser ->
+      Writer.with_file dump_normaliser ~f:(fun wrt ->
+        Writer.write_marshal wrt []
+          (model.normaliser : Feature_utils.normaliser);
+        Deferred.unit)
   in
   let () =
     match test_data with

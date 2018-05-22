@@ -100,7 +100,7 @@ let softmax t =
 ;;
 
 
-let matmul ta tb =
+let rec matmul ta tb =
   match ta, tb with
   | Mat m_a, Mat m_b ->
     let mat_shape m =
@@ -123,7 +123,11 @@ let matmul ta tb =
       done
     done;
     Mat ret
-
+  | Vec v_a, Mat m_b ->
+    begin match matmul (Mat [| v_a; |]) (Mat m_b) with
+    | Mat ret -> Vec ret.(0)
+    | _ -> assert false
+    end
   | _, _ -> assert false
 ;;
 
