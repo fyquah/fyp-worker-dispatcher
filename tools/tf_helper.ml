@@ -259,7 +259,10 @@ let train_model (type a)
       let vars =
         Tensorflow.Var.get_all_vars model.tf_model.output
         |> List.map ~f:(fun nodep ->
-            (Node.Name.to_string (Node.packed_name nodep), nodep))
+            let name =
+              sprintf "Variable-%s" (Node.Id.to_string (Node.packed_id nodep))
+            in
+            (name, nodep))
       in
       let save_node = Tensorflow.Ops.save ~filename:checkpoint vars in
       Session.run ~targets:[ Node.P save_node ] Session.Output.empty
