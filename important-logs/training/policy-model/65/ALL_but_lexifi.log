@@ -1,0 +1,148 @@
+2018-05-23 15:26:42.897733+01:00 Info lexifi | Loaded 4262 reward entries
+2018-05-23 15:26:42.897757+01:00 Info lexifi | Loaded 4073 query entries
+2018-05-23 15:26:42.897765+01:00 Info lexifi | Loaded 1370 training examples
+2018-05-23 15:26:42.898132+01:00 Info Loaded a total of 1370 training examples
+2018-05-23 15:26:44.808270+01:00 Info bdd | Loaded 5717 reward entries
+2018-05-23 15:26:44.808291+01:00 Info bdd | Loaded 2818 query entries
+2018-05-23 15:26:44.808298+01:00 Info bdd | Loaded 824 training examples
+2018-05-23 15:26:45.296919+01:00 Info almabench | Loaded 1926 reward entries
+2018-05-23 15:26:45.296928+01:00 Info almabench | Loaded 846 query entries
+2018-05-23 15:26:45.296933+01:00 Info almabench | Loaded 317 training examples
+2018-05-23 15:26:54.513822+01:00 Info kb | Loaded 4747 reward entries
+2018-05-23 15:26:54.513950+01:00 Info kb | Loaded 35367 query entries
+2018-05-23 15:26:54.513956+01:00 Info kb | Loaded 281 training examples
+2018-05-23 15:27:04.992608+01:00 Info floats-in-functor | Loaded 2774 reward entries
+2018-05-23 15:27:04.992640+01:00 Info floats-in-functor | Loaded 8773 query entries
+2018-05-23 15:27:04.992644+01:00 Info floats-in-functor | Loaded 784 training examples
+2018-05-23 15:27:04.992851+01:00 Info fyq-stdlib-int-sets | Loaded 0 reward entries
+2018-05-23 15:27:04.992851+01:00 Info fyq-stdlib-int-sets | Loaded 0 query entries
+2018-05-23 15:27:04.992852+01:00 Info fyq-stdlib-int-sets | Loaded 0 training examples
+2018-05-23 15:27:05.557850+01:00 Info fft | Loaded 1865 reward entries
+2018-05-23 15:27:05.557858+01:00 Info fft | Loaded 842 query entries
+2018-05-23 15:27:05.557863+01:00 Info fft | Loaded 306 training examples
+2018-05-23 15:27:06.353065+01:00 Info quicksort | Loaded 1667 reward entries
+2018-05-23 15:27:06.353075+01:00 Info quicksort | Loaded 829 query entries
+2018-05-23 15:27:06.353078+01:00 Info quicksort | Loaded 306 training examples
+2018-05-23 15:27:06.355356+01:00 Info fyq-symbolic-maths | Loaded 0 reward entries
+2018-05-23 15:27:06.355358+01:00 Info fyq-symbolic-maths | Loaded 0 query entries
+2018-05-23 15:27:06.355359+01:00 Info fyq-symbolic-maths | Loaded 0 training examples
+2018-05-23 15:27:07.044905+01:00 Info lens | Loaded 1698 reward entries
+2018-05-23 15:27:07.044910+01:00 Info lens | Loaded 835 query entries
+2018-05-23 15:27:07.044914+01:00 Info lens | Loaded 296 training examples
+2018-05-23 15:27:07.045015+01:00 Info fyq-rev-list | Loaded 0 reward entries
+2018-05-23 15:27:07.045016+01:00 Info fyq-rev-list | Loaded 0 query entries
+2018-05-23 15:27:07.045017+01:00 Info fyq-rev-list | Loaded 0 training examples
+2018-05-23 15:27:07.311657+01:00 Info sequence-cps | Loaded 3135 reward entries
+2018-05-23 15:27:07.311663+01:00 Info sequence-cps | Loaded 1134 query entries
+2018-05-23 15:27:07.311666+01:00 Info sequence-cps | Loaded 330 training examples
+2018-05-23 15:27:12.355354+01:00 Info hamming | Loaded 3032 reward entries
+2018-05-23 15:27:12.355421+01:00 Info hamming | Loaded 8514 query entries
+2018-05-23 15:27:12.355431+01:00 Info hamming | Loaded 1412 training examples
+2018-05-23 15:27:12.359739+01:00 Info kahan-sum | Loaded 19 reward entries
+2018-05-23 15:27:12.359741+01:00 Info kahan-sum | Loaded 14 query entries
+2018-05-23 15:27:12.359744+01:00 Info kahan-sum | Loaded 2 training examples
+2018-05-23 15:27:15.171123+01:00 Info sequence | Loaded 14618 reward entries
+2018-05-23 15:27:15.171153+01:00 Info sequence | Loaded 4111 query entries
+2018-05-23 15:27:15.171155+01:00 Info sequence | Loaded 86 training examples
+2018-05-23 15:27:15.171307+01:00 Info fyq-stdlib-functor-record-sets | Loaded 0 reward entries
+2018-05-23 15:27:15.171308+01:00 Info fyq-stdlib-functor-record-sets | Loaded 0 query entries
+2018-05-23 15:27:15.171309+01:00 Info fyq-stdlib-functor-record-sets | Loaded 0 training examples
+2018-05-23 15:27:15.171392+01:00 Info Loaded a total of 4944 training examples
+2018-05-23 15:27:15.171745+01:00 Info Loaded 4944 IN-SAMPLE training examples and 1370 OUT-OF-SAMPLE test examples
+2018-05-23 15:27:15.171778+01:00 Info (hyperparams((l2_reg 0.001)(dropout_keep_prob 1)))
+2018-05-23 15:27:15.604039: I tensorflow/core/platform/cpu_feature_guard.cc:140] Your CPU supports instructions that this TensorFlow binary was not compiled to use: SSE4.1 SSE4.2 AVX AVX2 FMA
+2018-05-23 15:27:15.749498: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:898] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2018-05-23 15:27:15.752391: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1356] Found device 0 with properties: 
+name: GeForce GTX 1080 major: 6 minor: 1 memoryClockRate(GHz): 1.7715
+pciBusID: 0000:01:00.0
+totalMemory: 7.93GiB freeMemory: 7.51GiB
+2018-05-23 15:27:15.752426: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1435] Adding visible gpu devices: 0
+2018-05-23 15:27:16.569436: I tensorflow/core/common_runtime/gpu/gpu_device.cc:923] Device interconnect StreamExecutor with strength 1 edge matrix:
+2018-05-23 15:27:16.569479: I tensorflow/core/common_runtime/gpu/gpu_device.cc:929]      0 
+2018-05-23 15:27:16.569490: I tensorflow/core/common_runtime/gpu/gpu_device.cc:942] 0:   N 
+2018-05-23 15:27:16.569693: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1053] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 7120 MB memory) -> physical GPU (device: 0, name: GeForce GTX 1080, pci bus id: 0000:01:00.0, compute capability: 6.1)
+(monitor.ml.Error
+ (Failure
+  "3 Dimensions must be equal, but are 3 and 2 for 'Mul-28' (op: 'Mul') with input shapes: [?,3], [?,2].")
+ ("Raised at file \"pervasives.ml\", line 32, characters 17-33"
+  "Called from file \"src/graph/session.ml\", line 92, characters 6-248"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/graph/session.ml\", line 82, characters 16-29"
+  "Called from file \"src/list1.ml\", line 10, characters 12-15"
+  "Called from file \"src/graph/session.ml\", line 80, characters 6-435"
+  "Called from file \"src/list.ml\", line 325, characters 13-17"
+  "Called from file \"src/list.ml\" (inlined), line 350, characters 15-31"
+  "Called from file \"src/graph/session.ml\", line 117, characters 16-45"
+  "Called from file \"src/graph/session.ml\", line 272, characters 4-37"
+  "Called from file \"tools/tf_helper.ml\", line 223, characters 6-286"
+  "Called from file \"src/deferred1.ml\", line 172, characters 6-13"
+  "Called from file \"src/deferred0.ml\", line 54, characters 2-10"
+  "Called from file \"tools/tf_helper.ml\", line 222, characters 4-941"
+  "Called from file \"tools/policy_model.ml\", line 155, characters 4-109"
+  "Called from file \"src/deferred0.ml\", line 61, characters 64-69"
+  "Called from file \"src/job_queue.ml\", line 159, characters 6-47"))
