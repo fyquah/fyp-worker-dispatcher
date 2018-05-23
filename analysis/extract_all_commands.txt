@@ -1,12 +1,12 @@
-python extract_data_from_experiments.py --script-name ./experiment-scripts/simulated-annealing-almabench              --experiment-name almabench         --output-dir ./out/almabench &>tmp/almabench.log
-python extract_data_from_experiments.py --script-name ./experiment-scripts/simulated-annealing-bdd                    --experiment-name bdd               --output-dir ./out/bdd &>tmp/bdd.log
-python extract_data_from_experiments.py --script-name ./experiment-scripts/simulated-annealing-fft                    --experiment-name fft               --output-dir ./out/fft &>tmp/fft.log
-python extract_data_from_experiments.py --script-name ./experiment-scripts/simulated-annealing-floats-in-functor      --experiment-name floats-in-functor --output-dir ./out/floats-in-functor &>tmp/floats-in-functor.log
-python extract_data_from_experiments.py --script-name ./experiment-scripts/simulated-annealing-hamming                --experiment-name hamming           --output-dir ./out/hamming &>tmp/hamming.log
-python extract_data_from_experiments.py --script-name ./experiment-scripts/simulated-annealing-kahan-sum              --experiment-name kahan-sum         --output-dir ./out/kahan-sum &>tmp/kahan-sum.log
-python extract_data_from_experiments.py --script-name ./experiment-scripts/simulated-annealing-kb                     --experiment-name kb                --output-dir ./out/kb &>tmp/kb.log
-python extract_data_from_experiments.py --script-name ./experiment-scripts/simulated-annealing-lens-benchmark         --experiment-name lens              --output-dir ./out/lens &>tmp/lens.log
-python extract_data_from_experiments.py --script-name ./experiment-scripts/simulated-annealing-lexifi-g2pp_benchmark  --experiment-name lexifi            --output-dir ./out/lexifi &>tmp/lexifi.log
-python extract_data_from_experiments.py --script-name ./experiment-scripts/simulated-annealing-quicksort              --experiment-name quicksort         --output-dir ./out/quicksort &>tmp/quicksort.log
-python extract_data_from_experiments.py --script-name ./experiment-scripts/simulated-annealing-sequence_benchmark     --experiment-name sequence          --output-dir ./out/sequence &>tmp/sequence.log
-python extract_data_from_experiments.py --script-name ./experiment-scripts/simulated-annealing-sequence_cps_benchmark --experiment-name sequence-cps      --output-dir ./out/sequence-cps &>tmp/sequence-cps.log
+python extract_data_from_experiments.py --experiment-name almabench         --output-dir ./out/almabench &>tmp/almabench.log
+python extract_data_from_experiments.py --experiment-name bdd               --output-dir ./out/bdd &>tmp/bdd.log
+python extract_data_from_experiments.py --experiment-name fft               --output-dir ./out/fft &>tmp/fft.log
+python extract_data_from_experiments.py --experiment-name floats-in-functor --output-dir ./out/floats-in-functor &>tmp/floats-in-functor.log
+python extract_data_from_experiments.py --experiment-name hamming           --output-dir ./out/hamming &>tmp/hamming.log
+python extract_data_from_experiments.py --experiment-name kahan-sum         --output-dir ./out/kahan-sum &>tmp/kahan-sum.log
+python extract_data_from_experiments.py --experiment-name kb                --output-dir ./out/kb &>tmp/kb.log
+python extract_data_from_experiments.py --experiment-name lens              --output-dir ./out/lens &>tmp/lens.log
+python extract_data_from_experiments.py --experiment-name lexifi            --output-dir ./out/lexifi &>tmp/lexifi.log
+python extract_data_from_experiments.py --experiment-name quicksort         --output-dir ./out/quicksort &>tmp/quicksort.log
+python extract_data_from_experiments.py --experiment-name sequence          --output-dir ./out/sequence &>tmp/sequence.log
+python extract_data_from_experiments.py --experiment-name sequence-cps      --output-dir ./out/sequence-cps &>tmp/sequence-cps.log
