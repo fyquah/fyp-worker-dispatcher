@@ -30,6 +30,8 @@ def snapshot_of_sexp(sexp):
         validation = option_of_sexp(m["validation"], f=ss_entry_of_sexp)
         test = option_of_sexp(m["test"], f=ss_entry_of_sexp)
         return Snapshot(epoch=epoch, training=training, validation=validation, test=test)
+    except KeyError:
+        return None
     except ValueError:  # When parsing other sexps
         return None
 
