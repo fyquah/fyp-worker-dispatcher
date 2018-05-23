@@ -1,3 +1,5 @@
+OCAMLOPT=~/fyp/opam-root/4.05.0+fyp/bin/ocamlopt.opt 
+
 all: build/plugin_v0.cmxs
 
 build/familiarity_model.ml build/familiarity_weights.ml: build/familiarity_graph.bin
@@ -28,11 +30,11 @@ build/plugin_v0.cmxs: \
   manual_features_v1.mli manual_features_v1.ml \
   plugin_v0.ml
 	echo "" >build/fyp_compiler_lib.ml
-	~/fyp/ocaml/ocamlopt.opt -I build/ -I +compiler-libs -shared -o $@ \
+	$(OCAMLOPT) -I build/ -I +compiler-libs -shared -o $@ \
 	  build/fyp_compiler_lib.ml $^
 
 test: test.ml build/plugin_v0.cmxs
-	~/fyp/ocaml/ocamlopt.opt -O3 -plugin build/plugin_v0.cmxs -inlining-report $<
+	$(OCAMLOPT) -O3 -plugin build/plugin_v0.cmxs -inlining-report $<
 
 clean:
 	rm build/*.cmxs build/*.ml build/*.mli

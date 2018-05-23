@@ -4,3 +4,4 @@
 *.o
 *data_collector.v0.sexp
 *data_collector.v1.sexp
+build/

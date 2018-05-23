@@ -41,12 +41,16 @@ let f_0 (query : Inlining_query.query) =
       |> unpack_binary_classification
     in 
     if decision then begin
+      Format.eprintf "inline\n";
       Some Data_collector.Action.Inline
     end else begin
+      Format.eprintf "Don't inline\n";
       Some Data_collector.Action.Apply
     end
-  end else
+  end else begin
+    Format.eprintf "I don't know\n";
     None
+  end
 ;;
 
 let f (query : Inlining_query.query) =
