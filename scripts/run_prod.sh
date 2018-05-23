@@ -16,6 +16,7 @@ set -euo pipefail
 make controller
 
 export OPAMROOT=$HOME/fyp/opam-root/
+opam switch 4.05.0+fyp
 eval `opam config env`
 opam switch 4.05.0+fyp
 
@@ -56,10 +57,16 @@ else
   echo "INFO: OVERRIDE TMP DIR WITH $EXPERIMENT_TMP_DIR"
 fi
 
+if [ -z ${EXPERIMENT_OCAMLPARAM+x} ]; then
+  EXPERIMENT_OCAMLPARAM=_
+else
+  echo "INFO: OVERRIDE OCAMLPARAM WITH $EXPERIMENT_OCAMLPARAM"
+fi
+
 mkdir -p $EXPERIMENT_TMP_DIR
 
 set -x
-OPAMROOT=~/.opam nohup _build/install/default/bin/controller \
+OPAMROOT=~/.opam OCAMLPARAM="$EXPERIMENT_OCAMLPARAM" nohup _build/install/default/bin/controller \
   "$1" run \
   -config "$RUNDIR/config.sexp" \
   -rundir "$RUNDIR" \

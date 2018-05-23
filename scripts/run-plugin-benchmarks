@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# Runs all the experiments' benchmark using overrides obtained from a given
+# model. The overrides are looked for in "analysis/out/[exp_name]/[method]/*/optimal.sexp"
+#   Note: This script is written w/o "set -euo pipefail", because it is possible
+#         that the relevant directory containing the optimal.sexp file does
+#         note exist. It is not a bug!
+
+plugin_name=$1
+
+PLUGIN_PATH="$HOME/fyp/worker-dispatcher/tools/fyp_compiler_plugins/build/$plugin_name.cmxs"
+DUMMY_PLUGIN_FILE=$(mktemp)
+echo "()" >$DUMMY_PLUGIN_FILE
+
+if [ ! -f "$PLUGIN_PATH" ]; then
+  echo "MISSING PUGIN $PLUGIN_PATH"
+  exit 1
+fi
+
+if [ "$plugin_name" == "" ]; then
+  echo "Missing plugin_name argument!"
+  exit 1
+fi
+
+if [ "$2" == "" ]; then
+  EXPS=$(python ./scripts/query_experiment_params.py --all)
+else
+  echo "Running only $2"
+  EXPS="$2"
+fi
+
+for exp in $EXPS; do
+  OUTPUT="results/$exp/plugins/$plugin_name.csv"
+  mkdir -p $(dirname $OUTPUT)
+
+  if [ -f "$OUTPUT" ]; then
+    echo "||||| Skipping $exp with plugin $plugin_name"
+  else
+    echo ">>>>> Running experiment $exp with $PLUGIN_PATH"
+    EXPERIMENT_OCAMLPARAM="_,plugin=$PLUGIN_PATH" \
+      ./scripts/run-benchmark $exp $DUMMY_PLUGIN_FILE \
+      1> "$OUTPUT"
+  fi
+done

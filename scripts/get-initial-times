@@ -1,0 +1,12 @@
+#!/bin/bash
+set -euo pipefail
+
+set -x
+BENCHMARK=$1
+set +x
+
+echo ">>> Best initial runs"
+cat pca-data/$BENCHMARK.csv | grep "initial" | cut -d',' -f51 | sort -n  | head -n 5
+
+echo ">>> Worst initial runs"
+cat pca-data/$BENCHMARK.csv | grep "initial" | cut -d',' -f51 | sort -n  | tail -n 5
