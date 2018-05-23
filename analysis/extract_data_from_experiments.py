@@ -217,20 +217,43 @@ def formulate_problem(raw_trees, execution_times, execution_directories):
             edges_lists=edge_lists)
 
 parser = argparse.ArgumentParser(description="formulate the problem")
-parser.add_argument("--script-name", type=str, help="Name of script", required=True)
 parser.add_argument("--output-dir", type=str, help="output dir", required=True)
 parser.add_argument("--experiment-name", type=str, required=True, help="")
 parser.add_argument("--debug", action="store_true", help="debugging mode")
+parser.add_argument("--dry-run", action="store_true", help="print all the tasks that wil be processed")
+
+def remove_prefix(s, prefix):
+    if s.startswith(prefix):
+        return str(s[len(prefix):])
+    else:
+        return None
+
+def script_name_to_exp_name(script_name):
+    basename = os.path.basename(script_name)
+    prefixes = ["mcts-", "simulated-annealing-", "random-walk-"]
+    suffix = None
+    for prefix in prefixes:
+        suffix = remove_prefix(basename, prefix=prefix)
+        if suffix is not None:
+            break
+    assert suffix is not None
+
+    if suffix.startswith("generic"):
+        l = suffix.split(" ")
+        assert len(l) == 2
+        assert l[1] in py_common.EXPERIMENT_TO_PARAMETERS
+        return l[1]
+    else:
+        return py_common.SCRIPT_SUFFIX_TO_EXP_NAME[suffix]
 
 
-def main():
-    logging.getLogger().setLevel(logging.INFO)
-    args = parser.parse_args()
+def read_log_file(interested_exp_name, filename):
     rundirs = []
-    with open("../important-logs/batch_executor_before_proof.log") as batch_f:
+    with open(filename) as batch_f:
         for line in csv.reader(batch_f):
             (script_name, sub_rundir) = line
-            if script_name == args.script_name:
+            exp_name = script_name_to_exp_name(script_name)
+            if exp_name == interested_exp_name:
                 rundir = "/media/usb" + sub_rundir
                 if os.path.exists(rundir):
                     rundirs.append(rundir)
@@ -239,8 +262,32 @@ def main():
                 if os.path.exists(rundir):
                     rundirs.append(rundir)
 
-    np.random.shuffle(rundirs)
+                rundir = "/media/usb3/prod/rundir/" + remove_prefix(sub_rundir, prefix="/home/fyquah/fyp/prod/rundir/")
+                if os.path.exists(rundir):
+                    rundirs.append(rundir)
+    return rundirs
+
+
+def main():
+    logging.getLogger().setLevel(logging.INFO)
+    args = parser.parse_args()
+    rundirs = []
+
+    rundirs.extend(read_log_file(
+        args.experiment_name, "../important-logs/batch_executor_before_proof.log"))
+    rundirs.extend(read_log_file(
+        args.experiment_name, "../important-logs/batch_executor_before_module_paths.log"))
+    rundirs.extend(read_log_file(
+        args.experiment_name, "../important-logs/batch_executor_before_specialise_for.log"))
+
+    if args.dry_run:
+        print "Rundirs:"
+        print "\n".join(rundirs)
+        return 0
+
     tasks = list(iterate_rundirs(rundirs))
+
+    np.random.shuffle(rundirs)
 
     if args.debug:
         tasks = tasks[:10]

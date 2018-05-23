@@ -25,6 +25,24 @@ SCRIPT_TO_BIN_NAME = {
         "mcts-sequence_benchmark": "sequence_benchmark",
 }
 
+
+SCRIPT_SUFFIX_TO_EXP_NAME = {
+        "almabench": "almabench",
+        "bdd":                    "bdd",
+        "fft":                    "fft",
+        "float_in_functor":       "floats-in-functor",
+        "float-in-functor":       "floats-in-functor",
+        "floats-in-functor":      "floats-in-functor",
+        "hamming":                "hamming",
+        "kahan-sum":              "kahan-sum",
+        "kb":                     "kb",
+        "lens-benchmark":         "lens",
+        "lexifi-g2pp_benchmark":  "lexifi",
+        "quicksort":              "quicksort",
+        "sequence_benchmark":     "sequence",
+        "sequence_cps_benchmark": "sequence-cps",
+}
+
 EXPERIMENT_TO_PARAMETERS = {
 
         "almabench": ExperimentParameters(
