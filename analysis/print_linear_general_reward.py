@@ -219,7 +219,7 @@ def run(argv):
             problem, hyperparams,
             normalise_with_num_children=normalise_with_num_children)
     target_benefit = learn_linear_general_reward.construct_benefit_from_exec_time(
-            hyperparams.benefit_function, problem.execution_times)
+            hyperparams.benefit_function, problem)
     num_nodes = problem_matrices.participation_mask.shape[1] / 2
     participation_count = np.sum(problem_matrices.participation_mask, axis=0)
     w = np.load(

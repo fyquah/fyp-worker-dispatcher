@@ -71,29 +71,43 @@ def compute_vector_space_of_solutions(R, rhs):
     print(w)
 
 
-def _sigmoid_speedup_over_mean(execution_times):
-    time_average = np.mean(execution_times)
-    return learn_problem.sigmoid(
-            -20 * (execution_times - time_average) / time_average)
+def _sigmoid_speedup_over_mean(execution_times, baseline):
+    return np.tanh(
+            -3 * (execution_times - baseline) / baseline)
 
 
-def _linear_speedup_over_mean(execution_times):
-    time_average = np.mean(execution_times)
-    return -(execution_times - time_average) / time_average
+def _linear_speedup_over_mean(execution_times, baseline):
+    return -(execution_times - baseline) / baseline
 
 
-def _log_speedup_over_mean(execution_times):
-    time_average = np.mean(execution_times)
-    return -np.log(execution_times / time_average)
+def _log_speedup_over_mean(execution_times, baseline):
+    return -np.log(execution_times / baseline)
 
 
-def construct_benefit_from_exec_time(kind, execution_times):
+def construct_benefit_from_exec_time(kind, problem):
+    execution_times = problem.execution_times
+    baseline = get_baseline_execution_time(problem)
     dispatch = {
             "sigmoid_speedup_over_mean": _sigmoid_speedup_over_mean,
             "linear_speedup_over_mean":  _linear_speedup_over_mean,
             "log_speedup_over_mean":     _log_speedup_over_mean,
     }
-    return dispatch[kind](execution_times)
+    return dispatch[kind](execution_times, baseline=baseline)
+
+
+def geometric_mean(arr):
+    acc = 1.0
+    for a in arr:
+        acc *= a
+    return acc ** (1.0 / len(arr))
+
+
+def get_baseline_execution_time(problem):
+    times = []
+    for i, dir in enumerate(problem.execution_directories):
+        if "initial" in dir[1]:
+            times.append(problem.execution_times[i])
+    return geometric_mean(times)
 
 
 def run(args):
@@ -131,7 +145,7 @@ def run(args):
             problem, hyperparams, normalise_with_num_children)
 
     target_benefit = construct_benefit_from_exec_time(
-            args.benefit_function, execution_times)
+            args.benefit_function, problem)
     num_features = problem_matrices.benefit_relations.shape[1]
 
     logging.info("Computing analytical solution for %s." % (experiment_name))

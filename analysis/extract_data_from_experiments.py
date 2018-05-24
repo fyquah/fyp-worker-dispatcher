@@ -280,12 +280,14 @@ def main():
     rundirs.extend(read_log_file(
         args.experiment_name, "../important-logs/batch_executor_before_specialise_for.log"))
 
+    tasks = list(iterate_rundirs(rundirs))
+
     if args.dry_run:
         print "Rundirs:"
         print "\n".join(rundirs)
+        print "Tasks:"
+        print "\n".join(str(x) for x in tasks)
         return 0
-
-    tasks = list(iterate_rundirs(rundirs))
 
     np.random.shuffle(rundirs)
 
