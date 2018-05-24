@@ -98,12 +98,14 @@ let read_decisions ~round ~exp_dir ~module_paths =
       exp_dir ^/ (filename ^ sprintf ".%d.data_collector.v0.sexp" round))
     |> List.rev
     |> Deferred.Or_error.List.concat_map ~f:(fun filename ->
+        Log.Global.info "Reading v0 decisions from %s" filename;
         Reader.load_sexp filename [%of_sexp: Data_collector.V0.t list])
   in
   let%bind v1_decisions =
     List.map module_paths ~f:(fun filename ->
       exp_dir ^/ (filename ^ sprintf ".%d.data_collector.v1.sexp" round))
     |> Deferred.Or_error.List.concat_map ~f:(fun filename ->
+        Log.Global.info "Reading v1 decisions from %s" filename;
         Reader.load_sexp filename
           [%of_sexp: Data_collector.V1.Decision.t list])
   in

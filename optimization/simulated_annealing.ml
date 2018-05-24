@@ -103,8 +103,21 @@ module Make(T: Simulated_annealing_intf.T) = struct
     (* TODO: ok_exn here is NOT okay! *)
     let%bind candidate_next_states =
       Deferred.List.init t.config.workers ~how:`Sequential ~f:(fun worker_id ->
-        T.move ~config:t.config ~step:t.step ~sub_id:worker_id current_state
-        >>| ok_exn)
+        Deferred.repeat_until_finished 0 (fun ctr ->
+          T.move ~config:t.config ~step:t.step ~sub_id:worker_id current_state
+          >>| function
+          | Ok x -> `Finished x
+          | Error e ->
+            if ctr >= 10 then
+              failwithf
+                !"SA failed to move after 10 steps. Terminating %{Error.to_string_hum}"
+                e ()
+            else begin
+              Log.Global.info
+                !"SA failed to move after %d steps with error %{Error.to_string_hum}"
+                ctr e;
+              `Repeat (ctr + 1)
+            end))
     in
     let%bind (t, next_state, next_energy) =
       let t, candidate_next_states_with_deferred_energy =
