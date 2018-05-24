@@ -68,6 +68,7 @@ mkdir -p $EXPERIMENT_TMP_DIR
 set -x
 OPAMROOT=~/.opam OCAMLPARAM="$EXPERIMENT_OCAMLPARAM" nohup _build/install/default/bin/controller \
   "$1" run \
+  -round "$EXPERIMENT_ROUND" \
   -config "$RUNDIR/config.sexp" \
   -rundir "$RUNDIR" \
   -exp-dir "$EXPERIMENTS_REPO/$EXPERIMENT_DIR" \

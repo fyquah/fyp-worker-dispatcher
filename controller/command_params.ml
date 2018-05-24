@@ -7,6 +7,7 @@ type params =
     bin_name          : string;
     bin_args          : string;
     module_paths      : string list;
+    round             : int;
   }
 
 let params =
@@ -26,6 +27,8 @@ let params =
      and debug = flag "-debug" no_arg ~doc:"debug"
      and module_paths =
        flag "-module-paths" (required string) ~doc:"STRING comma separated list of modules"
+     and round =
+       flag "-round" (required int) ~doc:"INT compilation round being studied. Should be 0, 1 or 2."
      in
      if Filename.check_suffix bin_name ".ml" then begin
        failwith "Binary name should not contain .ml suffix!"
@@ -41,4 +44,4 @@ let params =
      Experiment_utils.Dump_utils.set_controller_rundir controller_rundir;
      let module_paths = String.split ~on:',' module_paths in
      { config_filename; controller_rundir; exp_dir; bin_name; bin_args;
-       module_paths; }]
+       module_paths; round; }]

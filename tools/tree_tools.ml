@@ -387,7 +387,9 @@ module V1 = struct
     let open Command.Let_syntax in
     Command.async ~summary:"bla" [%map_open
       let input = anon ("filename" %: string)
-      and output  = flag "-output"  (required string) ~doc:"output" in
+      and output  = flag "-output"  (required string) ~doc:"output"
+      and round = flag "-round" (required int) ~doc:"INT inlining round"
+      in
       fun () ->
         let open Deferred.Let_syntax in
         let%bind tree = 
@@ -395,7 +397,7 @@ module V1 = struct
             [%of_sexp: Inlining_tree.Top_level.Expanded.t]
         in
         let overrides =
-          Inlining_tree.Top_level.Expanded.to_override_rules tree
+          Inlining_tree.Top_level.Expanded.to_override_rules ~round tree
         in
         let sexp = [%sexp_of: Data_collector.Overrides.t] overrides in
         let%map wrt = Writer.open_file output in
