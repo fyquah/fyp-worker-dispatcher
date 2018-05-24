@@ -814,7 +814,7 @@ module V1 = struct
           transformed
     ;;
 
-    let to_override_rules root =
+    let to_override_rules ~round root =
       let rec loop_node ~source ~call_stack ~node =
         match node with
         | Declaration decl ->
@@ -837,7 +837,6 @@ module V1 = struct
           in
           let call_stack = trace in
           let metadata = applied in
-          let round = 0 in  (* TODO(fyq14): Support other rounds? *)
           let hd = { Decision. round; trace; action; metadata; apply_id } in
           hd :: List.concat_no_order (
             List.map inlined.children ~f:(fun node ->
@@ -850,7 +849,6 @@ module V1 = struct
           let trace =
             Trace_item.At_call_site { source; apply_id; applied } :: call_stack
           in
-          let round = 0 in
           let metadata = applied in
           let action = Action.Apply in
           [{ Decision. round; trace; apply_id; action; metadata; }]
@@ -1015,8 +1013,8 @@ module V1 = struct
       }
     ;;
 
-    let to_simple_overrides root =
-      Data_collector.Simple_overrides.of_v1_overrides (to_override_rules root)
+    let to_simple_overrides ~round root =
+      Data_collector.Simple_overrides.of_v1_overrides (to_override_rules ~round root)
     ;;
 
     module Expanded = struct
@@ -1198,7 +1196,7 @@ module V1 = struct
         }
       ;;
 
-      let to_override_rules (root_ : t) =
+      let to_override_rules ~round (root_ : t) =
         let open Data_collector in
         let build_decisions ~trace:old_trace ~source ~path ~applied ~action =
           let apply_id = Apply_id.of_path_inconsistent path in
@@ -1206,7 +1204,6 @@ module V1 = struct
           let metadata = applied in
           let acs = Trace_item.At_call_site acs in
           let trace = acs :: old_trace in
-          let round = 0 in
           let decisions =
             { Decision.
               round; trace = acs :: old_trace;

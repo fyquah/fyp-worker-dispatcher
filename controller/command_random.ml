@@ -30,6 +30,7 @@ let command_run =
         bin_name;
         bin_args;
         module_paths;
+        round;
        } = Command_params.params
       in
       fun () ->
@@ -42,7 +43,7 @@ let command_run =
         >>=? fun worker_connections ->
 
         (* TODO(fyq14): get initial state from a different sample instead? *)
-        EU.get_initial_state ~bin_name ~exp_dir ~base_overrides:[] () ~module_paths
+        EU.get_initial_state ~bin_name ~exp_dir ~base_overrides:[] () ~module_paths ~round
         >>=? fun initial_state ->
         let initial_state = Option.value_exn initial_state in
         Deferred.Or_error.return ()
@@ -66,7 +67,7 @@ let command_run =
           in
           let write_overrides output_filename =
             let overrides =
-              Inlining_tree.Top_level.to_override_rules tree
+              Inlining_tree.Top_level.to_override_rules ~round tree
             in
             lift_deferred (
               Writer.save_sexp output_filename
@@ -76,7 +77,7 @@ let command_run =
           Experiment_utils.compile_binary ~dir:exp_dir ~bin_name
             ~dump_directory ~write_overrides
           >>=? fun path_to_bin ->
-          Experiment_utils.read_decisions ~exp_dir ~module_paths
+          Experiment_utils.read_decisions ~exp_dir ~module_paths ~round
           >>=? fun (_, v1_decisions) ->
           let new_tree = Inlining_tree.build v1_decisions in
           let work_unit = { EU.Work_unit. step; sub_id; path_to_bin; } in

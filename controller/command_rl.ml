@@ -32,7 +32,7 @@ let command_run =
     [%map_open
       let { Command_params.
         config_filename; controller_rundir; exp_dir; bin_name; bin_args;
-        module_paths;
+        module_paths; round;
       } = Command_params.params
       and log_rewards =
         flag "-log-rewards" (required bool) ~doc:"BOOL logarithmic speedups as reward"
@@ -55,7 +55,7 @@ let command_run =
         Log.Global.sexp ~level:`Info [%message
           "Initializing Worker connections!"
             (config: Config.t)];
-        Experiment_utils.get_initial_state ~env ~bin_name ~exp_dir
+        Experiment_utils.get_initial_state ~env ~bin_name ~exp_dir ~round
             ~module_paths ~base_overrides:[] ()
         >>=? fun initial_state ->
 
@@ -138,7 +138,7 @@ let command_run =
                 ~dump_directory:dump_directory_for_compilation
               >>= fun filename ->
               let filename = ok_exn filename in
-              (EU.read_decisions ~exp_dir ~module_paths >>|? snd)
+              (EU.read_decisions ~exp_dir ~module_paths ~round >>|? snd)
               >>= fun decisions ->
               let decisions = Or_error.ok_exn decisions in
               let visited_states =
