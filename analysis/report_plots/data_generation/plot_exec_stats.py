@@ -102,6 +102,7 @@ def main():
     matplotlib.rcParams.update({'font.size': 8, "font.family": "serif"})
     matplotlib.rc('xtick', labelsize=labelsize)
     matplotlib.rc('ytick', labelsize=labelsize)
+    matplotlib.rc('figure', figsize=(11.69,8.27))
 
     all_experiments = py_common.INITIAL_EXPERIMENTS
 
@@ -115,23 +116,25 @@ def main():
 
     print "Done with reading heavy-lifting"
 
-    nrows = int(math.ceil(len(all_experiments) / 3.0))
     ncols = 3
+    nrows = int(math.ceil(len(all_experiments) / float(ncols)))
     fig, axes = plt.subplots(nrows, ncols)
+
+    fig.suptitle("Histogram of Execution Times in Experiments")
     print "Num rows =", nrows, "; num cols =", ncols
 
-    for r in range(4):
-        for c in range(3):
-            if r * 3 + c >= len(all_experiments):
+    for r in range(nrows):
+        for c in range(ncols):
+            if r * ncols + c >= len(all_experiments):
                 continue
 
             if nrows == 1:
-                ax1 = axes[r * 3 + c]
+                ax1 = axes[r * ncols + c]
             else:
                 ax1 = axes[r, c]
 
-            exp_name = all_experiments[r * 3 + c]
-            plt.title("Histogram of Execution Time in Experiment [%s]" % exp_name)
+            exp_name = all_experiments[r * ncols + c]
+            ax1.set_title("[%s]" % exp_name)
 
             sorted_exec_times = sorted(exec_times[exp_name])
             bins = [min(sorted_exec_times)]
@@ -146,16 +149,18 @@ def main():
             ax1.set_xlabel('execution time (s)')
 
             ax1.hist(exec_times[exp_name], color='#1985FF', bins=bins)
-            ax1.set_ylabel('frequency in all runs', color='#1985FF')
+            ax1.set_ylabel('All runs', color='#1985FF')
             ax1.tick_params('y', color='#1985FF')
 
             ax2 = ax1.twinx()
             ax2.hist(initial_exec_times[exp_name], color='#303030A0', bins=bins)
-            ax2.set_ylabel('frequency in initial runs', color='#303030')
+            ax2.set_ylabel('initial runs', color='#303030')
             ax2.tick_params('y', color='#303030')
 
-    fig.tight_layout()
-    plt.show()
+    # fig.tight_layout()
+    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+    fig.savefig(fname=os.path.join(os.path.dirname(os.path.realpath(__file__)), "exec_times.pdf"), format='pdf')
+    # plt.show()
 
 if __name__ == "__main__":
     main()
