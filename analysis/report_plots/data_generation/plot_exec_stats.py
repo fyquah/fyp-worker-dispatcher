@@ -14,12 +14,12 @@ import py_common
 from extract_data_from_experiments import remove_prefix, script_name_to_exp_name, iterate_rundirs
 from inlining_tree import sexp_to_map, geometric_mean, unpack_atom
 
-def read_log_file(filename):
+def read_log_file(filename, check=None):
     rundirs = collections.defaultdict(list)
     with open(filename) as batch_f:
         for line in csv.reader(batch_f):
             (script_name, sub_rundir) = line
-            if "simulated-annealing" not in script_name:
+            if check is not None and check not in script_name:
                 continue
 
             exp_name = script_name_to_exp_name(script_name)
@@ -59,17 +59,21 @@ def merge_list_dist(main, copy):
 
 CACHE_FILE = os.path.join(
         os.path.dirname(os.path.realpath(__file__)),
-        'exec_times.pickle')
+        'exec-times-%s.pickle')
 
-def load():
+def load(check):
     rundirs = collections.defaultdict(list)
+    check = sys.argv[1]
 
     merge_list_dist(rundirs, read_log_file(
-        "../important-logs/batch_executor_before_proof.log"))
+        "../important-logs/batch_executor_before_proof.log",
+        check=check))
     merge_list_dist(rundirs, read_log_file(
-        "../important-logs/batch_executor_before_module_paths.log"))
+        "../important-logs/batch_executor_before_module_paths.log",
+        check=check))
     merge_list_dist(rundirs, read_log_file(
-        "../important-logs/batch_executor_before_specialise_for.log"))
+        "../important-logs/batch_executor_before_specialise_for.log",
+        check=check))
 
     initial_exec_times = {}
     exec_times = {}
@@ -88,7 +92,7 @@ def load():
                 if "initial" in task[0]:
                     initial_exec_times[exp_name].append(s)
 
-    with open(CACHE_FILE, 'wb') as f:
+    with open(CACHE_FILE % check, 'wb') as f:
         pickle.dump((exec_times, initial_exec_times), f)
     return (exec_times, initial_exec_times)
 
@@ -104,11 +108,17 @@ def main():
     matplotlib.rc('ytick', labelsize=labelsize)
     matplotlib.rc('figure', figsize=(11.69,8.27))
 
+    try:
+        check = sys.argv[1]
+    except IndexError:
+        check = None
+
+    print "Script regex check = ", check
     all_experiments = py_common.INITIAL_EXPERIMENTS
 
-    if os.path.exists(CACHE_FILE):
+    if os.path.exists(CACHE_FILE % check):
         print "Loading from cache"
-        with open(CACHE_FILE, 'rb') as f:
+        with open(CACHE_FILE % check, 'rb') as f:
             (exec_times, initial_exec_times) = pickle.load(f)
     else:
         print "Not loading from cache"
