@@ -275,10 +275,10 @@ def main():
 
     rundirs.extend(read_log_file(
         args.experiment_name, "../important-logs/batch_executor_before_proof.log"))
-    # rundirs.extend(read_log_file(
-    #     args.experiment_name, "../important-logs/batch_executor_before_module_paths.log"))
-    # rundirs.extend(read_log_file(
-    #   args.experiment_name, "../important-logs/batch_executor_before_specialise_for.log"))
+    rundirs.extend(read_log_file(
+        args.experiment_name, "../important-logs/batch_executor_before_module_paths.log"))
+    rundirs.extend(read_log_file(
+      args.experiment_name, "../important-logs/batch_executor_before_specialise_for.log"))
 
     tasks = list(iterate_rundirs(rundirs))
 
