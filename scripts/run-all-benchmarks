@@ -8,6 +8,11 @@
 
 method=$1
 
+if [ "$VERSION" == "" ]; then
+  echo "Missing VERSION env var!"
+  exit 1
+fi
+
 if [ "$method" == "" ]; then
   echo "Missing method!"
   exit 1
@@ -21,7 +26,7 @@ else
 fi
 
 for exp in $EXPS; do
-  mkdir -p results/$exp/$method
+  mkdir -p results/$exp/$method-$VERSION
   for file in $(ls analysis/out-$VERSION/$exp/$method/*/optimal.sexp); do
     OUTPUT="results/$exp/$method-$VERSION/$(basename $(dirname $file)).csv"
 
