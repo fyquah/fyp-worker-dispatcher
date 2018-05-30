@@ -41,13 +41,13 @@ let construct_tf_model ~(hyperparams : Tf_helper.hyperparams) num_features =
   in
   let output =
     O.Placeholder.to_node input_placeholder
-    |> linear num_features 32
+    (*
+    |> linear num_features 20
     |> O.relu
     |> maybe_dropout
-    |> linear 32 16
-    |> O.relu
-    |> maybe_dropout
-    |> linear 16 2
+    |> linear 20 2
+    *)
+    |> linear num_features 2
     |> O.softmax ~name:"network_output"
   in
   let loss =

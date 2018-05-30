@@ -32,7 +32,7 @@ def iterate_rundirs(rundirs):
 
         # parse every step
         for step in range(0, 299):
-            for substep in range(0, 3):
+            for substep in ["current"] + list(range(0, 3)):
                 substep_dir = os.path.join(
                         opt_data_dir, str(step), str(substep))
                 output_dir = os.path.join(
@@ -275,10 +275,10 @@ def main():
 
     rundirs.extend(read_log_file(
         args.experiment_name, "../important-logs/batch_executor_before_proof.log"))
-    rundirs.extend(read_log_file(
-        args.experiment_name, "../important-logs/batch_executor_before_module_paths.log"))
-    rundirs.extend(read_log_file(
-        args.experiment_name, "../important-logs/batch_executor_before_specialise_for.log"))
+    # rundirs.extend(read_log_file(
+    #     args.experiment_name, "../important-logs/batch_executor_before_module_paths.log"))
+    # rundirs.extend(read_log_file(
+    #   args.experiment_name, "../important-logs/batch_executor_before_specialise_for.log"))
 
     tasks = list(iterate_rundirs(rundirs))
 
