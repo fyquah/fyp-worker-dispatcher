@@ -72,8 +72,8 @@ def compute_vector_space_of_solutions(R, rhs):
 
 
 def _sigmoid_speedup_over_mean(execution_times, baseline):
-    return np.tanh(
-            -3 * (execution_times - baseline) / baseline)
+    return learn_problem.sigmoid(
+            -20 * (execution_times - baseline) / baseline)
 
 
 def _linear_speedup_over_mean(execution_times, baseline):
@@ -107,7 +107,11 @@ def get_baseline_execution_time(problem):
     for i, dir in enumerate(problem.execution_directories):
         if "initial" in dir[1]:
             times.append(problem.execution_times[i])
-    return geometric_mean(times)
+    assert len(times) > 0
+    logging.info("Baseline time = %f" % geometric_mean(times))
+    logging.info("Average initial time = %f" % np.mean(times))
+    logging.info("Real average time = %f" % np.mean(problem.execution_times))
+    return np.mean(problem.execution_times)
 
 
 def run(args):

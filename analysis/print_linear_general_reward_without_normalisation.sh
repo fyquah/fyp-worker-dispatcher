@@ -22,5 +22,6 @@ python2 batch_execute.py print_linear_general_reward $ADDITIONAL_FLAGS <$TASK_FI
 for subdir in $(ls $EXP_BASE_DIR/); do
   ../_build/default/tools/tree_tools.exe v1 expanded-to-decisions \
     $EXP_BASE_DIR/$subdir/optimal-expanded.sexp \
+    -round 0 \
     -output $EXP_BASE_DIR/$subdir/optimal.sexp
 done
