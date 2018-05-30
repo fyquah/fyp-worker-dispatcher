@@ -19,6 +19,7 @@ def read_log_file(filename, check=None):
     with open(filename) as batch_f:
         for line in csv.reader(batch_f):
             (script_name, sub_rundir) = line
+
             if check is not None and check not in script_name:
                 continue
 
@@ -34,7 +35,6 @@ def read_log_file(filename, check=None):
             rundir = "/media/usb3/prod/rundir/" + remove_prefix(sub_rundir, prefix="/home/fyquah/fyp/prod/rundir/")
             if os.path.exists(rundir):
                 rundirs[exp_name].append(rundir)
-
     return rundirs
 
 def parse_time(s):
@@ -63,7 +63,6 @@ CACHE_FILE = os.path.join(
 
 def load(check):
     rundirs = collections.defaultdict(list)
-    check = sys.argv[1]
 
     merge_list_dist(rundirs, read_log_file(
         "../important-logs/batch_executor_before_proof.log",
@@ -122,7 +121,7 @@ def main():
             (exec_times, initial_exec_times) = pickle.load(f)
     else:
         print "Not loading from cache"
-        (exec_times, initial_exec_times) = load()
+        (exec_times, initial_exec_times) = load(check)
 
     print "Done with reading heavy-lifting"
 
