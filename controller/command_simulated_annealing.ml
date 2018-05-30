@@ -121,7 +121,7 @@ end) = struct
           ([%sexp_of: Data_collector.V1.Overrides.t] overrides)
       )
       >>=? fun () ->
-      shell ~dir:M.exp_dir "make" [ "all" ]
+      shell ~dir:M.exp_dir "timeout" [ "1m"; "make"; "all"; ]
       >>=? fun () ->
       let filename = Filename.temp_file "fyp-" ("-" ^ M.bin_name) in
       shell ~dir:M.exp_dir

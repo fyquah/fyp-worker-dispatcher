@@ -792,7 +792,7 @@ module V1 = struct
     let rec uniform_random_mutation tree =
       let num_leaves = count_leaves tree in
       if Random.bool () then
-        let modified_leaves = 1 in
+        let modified_leaves = 3 in  (* arbitray *)
         let choices =
           unique_random_from_list ~count:modified_leaves
             (List.init num_leaves ~f:Fn.id)
