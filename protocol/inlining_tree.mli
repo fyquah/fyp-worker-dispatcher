@@ -111,13 +111,13 @@ module V1 : sig
 
     val uniform_random_mutation : t -> t
 
-    val to_override_rules : t -> Overrides.t
+    val to_override_rules : round: int -> t -> Overrides.t
 
     val pp : Format.formatter -> t -> unit
 
     val pprint : ?indent:int -> Buffer.t -> t -> unit
 
-    val to_simple_overrides : t -> Data_collector.Simple_overrides.t
+    val to_simple_overrides : round: int -> t -> Data_collector.Simple_overrides.t
 
     (* If we have an inlining tree with inlining decisions made in the
      * declarations, namely as follows:
@@ -204,7 +204,7 @@ module V1 : sig
 
       val expanded_function_metadata : Function_metadata.t
 
-      val to_override_rules : t -> Overrides.t
+      val to_override_rules : round: int -> t -> Overrides.t
     end
 
     val iter : f:(node -> t) -> t -> unit

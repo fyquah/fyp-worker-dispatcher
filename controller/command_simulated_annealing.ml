@@ -86,6 +86,8 @@ module Make_annealer(M: sig
 
   val bin_name : string
 
+  val round : int
+
 end) = struct
   module T1 = struct
     include Base_state_energy
@@ -112,7 +114,7 @@ end) = struct
       shell ~dir:M.exp_dir "make" [ "clean" ]
       >>=? fun () ->
       let overrides =
-        Inlining_tree.V1.Top_level.to_override_rules new_tree
+        Inlining_tree.V1.Top_level.to_override_rules ~round:M.round new_tree
       in
       lift_deferred (
         Writer.save_sexp (M.exp_dir ^/ "overrides.sexp")
@@ -127,7 +129,8 @@ end) = struct
       >>=? fun () ->
       shell ~dir:M.exp_dir "chmod" [ "755"; filename ]
       >>=? fun () ->
-      (Utils.read_decisions ~module_paths:M.module_paths ~exp_dir:M.exp_dir >>|? snd)
+      (Utils.read_decisions ~module_paths:M.module_paths ~exp_dir:M.exp_dir ~round:M.round
+       >>|? snd)
       >>=? fun executed_decisions ->
       Experiment_utils.copy_compilation_artifacts
         ~exp_dir:M.exp_dir ~abs_path_to_binary:filename
@@ -195,6 +198,7 @@ let command_run =
         bin_name;
         bin_args;
         module_paths;
+        round;
        } = Command_params.params
      and from_empty = flag "-from-empty" no_arg ~doc:"FLAG from empty" in
       fun () ->
@@ -210,7 +214,7 @@ let command_run =
             Experiment_utils.init_connection ~hostname ~worker_config)
         >>=? fun worker_connections ->
         Log.Global.sexp ~level:`Info [%message "building initial state" ];
-        Utils.get_initial_state
+        Utils.get_initial_state ~round
           ~bin_name ~exp_dir ~base_overrides:[] ~module_paths ()
         >>=? fun initial_state ->
         let initial_state = Option.value_exn initial_state in
@@ -282,7 +286,7 @@ let command_run =
             ~write_overrides:(fun output_filename ->
               let overrides =
                 initial_tree_state
-                |> Inlining_tree.V1.Top_level.to_override_rules
+                |> Inlining_tree.V1.Top_level.to_override_rules ~round
               in
               Writer.save_sexp output_filename
                 ([%sexp_of: Data_collector.V1.Overrides.t] overrides)
@@ -350,6 +354,7 @@ let command_run =
           let exp_dir = exp_dir
           let initial_execution_time = initial_execution_time
           let scheduler = scheduler
+          let round = round
         end)
         in
         let simulated_annealing_initial_state =

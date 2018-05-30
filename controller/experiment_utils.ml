@@ -90,18 +90,19 @@ module Initial_state = struct
     }
 end
 
-let read_decisions ~exp_dir ~module_paths =
+let read_decisions ~round ~exp_dir ~module_paths =
   let open Deferred.Or_error.Let_syntax in
+  assert (0 <= round && round < 3);
   let%bind v0_decisions =
     List.map module_paths ~f:(fun filename ->
-      exp_dir ^/ (filename ^ ".0.data_collector.v0.sexp"))
+      exp_dir ^/ (filename ^ sprintf ".%d.data_collector.v0.sexp" round))
     |> List.rev
     |> Deferred.Or_error.List.concat_map ~f:(fun filename ->
         Reader.load_sexp filename [%of_sexp: Data_collector.V0.t list])
   in
   let%bind v1_decisions =
     List.map module_paths ~f:(fun filename ->
-      exp_dir ^/ (filename ^ ".0.data_collector.v1.sexp"))
+      exp_dir ^/ (filename ^ sprintf ".%d.data_collector.v1.sexp" round))
     |> Deferred.Or_error.List.concat_map ~f:(fun filename ->
         Reader.load_sexp filename
           [%of_sexp: Data_collector.V1.Decision.t list])
@@ -109,7 +110,7 @@ let read_decisions ~exp_dir ~module_paths =
   return (v0_decisions, v1_decisions)
 ;;
 
-let get_initial_state ?(env = []) ~module_paths ~bin_name ~exp_dir ~base_overrides () =
+let get_initial_state ?(env = []) ~round ~module_paths ~bin_name ~exp_dir ~base_overrides () =
   let open Deferred.Or_error.Let_syntax in
   Log.Global.info "Compiling first version of source tree.";
   let%bind () =
@@ -122,7 +123,7 @@ let get_initial_state ?(env = []) ~module_paths ~bin_name ~exp_dir ~base_overrid
     shell ~env:env ~dir:exp_dir "make" [ "all" ]
   in
   let%bind (v0_decisions, v1_decisions) =
-    read_decisions ~exp_dir ~module_paths
+    read_decisions ~round ~exp_dir ~module_paths
   in
   let path_to_bin =
     Filename.temp_file "fyp-" ("-" ^ bin_name)
