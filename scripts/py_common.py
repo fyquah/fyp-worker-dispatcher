@@ -157,3 +157,21 @@ EXPERIMENT_TO_PARAMETERS = {
             module_paths=["main"]
         ),
 }
+
+INITIAL_EXPERIMENTS = [
+        "almabench",
+        "bdd",
+        "fft",
+
+        "floats-in-functor",
+        "hamming",
+        "kahan-sum",
+
+        "kb",
+        "lens",
+        "lexifi",
+
+        "quicksort",
+        "sequence",
+        "sequence-cps",
+        ]

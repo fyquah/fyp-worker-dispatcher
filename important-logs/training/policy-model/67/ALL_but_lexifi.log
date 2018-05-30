@@ -1,66 +1,66 @@
-2018-05-23 15:31:18.393410+01:00 Info lexifi | Loaded 4262 reward entries
-2018-05-23 15:31:18.393433+01:00 Info lexifi | Loaded 4073 query entries
-2018-05-23 15:31:18.393440+01:00 Info lexifi | Loaded 1370 training examples
-2018-05-23 15:31:18.393800+01:00 Info Loaded a total of 1370 training examples
-2018-05-23 15:31:20.625271+01:00 Info bdd | Loaded 5717 reward entries
-2018-05-23 15:31:20.625288+01:00 Info bdd | Loaded 2818 query entries
-2018-05-23 15:31:20.625293+01:00 Info bdd | Loaded 824 training examples
-2018-05-23 15:31:21.069721+01:00 Info almabench | Loaded 1926 reward entries
-2018-05-23 15:31:21.069729+01:00 Info almabench | Loaded 846 query entries
-2018-05-23 15:31:21.069733+01:00 Info almabench | Loaded 317 training examples
-2018-05-23 15:31:29.269278+01:00 Info kb | Loaded 4747 reward entries
-2018-05-23 15:31:29.269499+01:00 Info kb | Loaded 35367 query entries
-2018-05-23 15:31:29.269506+01:00 Info kb | Loaded 281 training examples
-2018-05-23 15:31:31.427819+01:00 Info floats-in-functor | Loaded 2774 reward entries
-2018-05-23 15:31:31.427879+01:00 Info floats-in-functor | Loaded 8773 query entries
-2018-05-23 15:31:31.427887+01:00 Info floats-in-functor | Loaded 784 training examples
-2018-05-23 15:31:31.428035+01:00 Info fyq-stdlib-int-sets | Loaded 0 reward entries
-2018-05-23 15:31:31.428036+01:00 Info fyq-stdlib-int-sets | Loaded 0 query entries
-2018-05-23 15:31:31.428037+01:00 Info fyq-stdlib-int-sets | Loaded 0 training examples
-2018-05-23 15:31:31.860892+01:00 Info fft | Loaded 1865 reward entries
-2018-05-23 15:31:31.860900+01:00 Info fft | Loaded 842 query entries
-2018-05-23 15:31:31.860904+01:00 Info fft | Loaded 306 training examples
-2018-05-23 15:31:32.164771+01:00 Info quicksort | Loaded 1667 reward entries
-2018-05-23 15:31:32.164779+01:00 Info quicksort | Loaded 829 query entries
-2018-05-23 15:31:32.164784+01:00 Info quicksort | Loaded 306 training examples
-2018-05-23 15:31:32.164970+01:00 Info fyq-symbolic-maths | Loaded 0 reward entries
-2018-05-23 15:31:32.164971+01:00 Info fyq-symbolic-maths | Loaded 0 query entries
-2018-05-23 15:31:32.164973+01:00 Info fyq-symbolic-maths | Loaded 0 training examples
-2018-05-23 15:31:32.461667+01:00 Info lens | Loaded 1698 reward entries
-2018-05-23 15:31:32.461677+01:00 Info lens | Loaded 835 query entries
-2018-05-23 15:31:32.461681+01:00 Info lens | Loaded 296 training examples
-2018-05-23 15:31:32.461847+01:00 Info fyq-rev-list | Loaded 0 reward entries
-2018-05-23 15:31:32.461849+01:00 Info fyq-rev-list | Loaded 0 query entries
-2018-05-23 15:31:32.461850+01:00 Info fyq-rev-list | Loaded 0 training examples
-2018-05-23 15:31:32.873230+01:00 Info sequence-cps | Loaded 3135 reward entries
-2018-05-23 15:31:32.873242+01:00 Info sequence-cps | Loaded 1134 query entries
-2018-05-23 15:31:32.873246+01:00 Info sequence-cps | Loaded 330 training examples
-2018-05-23 15:31:37.953859+01:00 Info hamming | Loaded 3032 reward entries
-2018-05-23 15:31:37.953911+01:00 Info hamming | Loaded 8514 query entries
-2018-05-23 15:31:37.953918+01:00 Info hamming | Loaded 1412 training examples
-2018-05-23 15:31:37.957525+01:00 Info kahan-sum | Loaded 19 reward entries
-2018-05-23 15:31:37.957527+01:00 Info kahan-sum | Loaded 14 query entries
-2018-05-23 15:31:37.957529+01:00 Info kahan-sum | Loaded 2 training examples
-2018-05-23 15:31:40.770438+01:00 Info sequence | Loaded 14618 reward entries
-2018-05-23 15:31:40.770463+01:00 Info sequence | Loaded 4111 query entries
-2018-05-23 15:31:40.770468+01:00 Info sequence | Loaded 86 training examples
-2018-05-23 15:31:40.770659+01:00 Info fyq-stdlib-functor-record-sets | Loaded 0 reward entries
-2018-05-23 15:31:40.770661+01:00 Info fyq-stdlib-functor-record-sets | Loaded 0 query entries
-2018-05-23 15:31:40.770662+01:00 Info fyq-stdlib-functor-record-sets | Loaded 0 training examples
-2018-05-23 15:31:40.770740+01:00 Info Loaded a total of 4944 training examples
-2018-05-23 15:31:40.771174+01:00 Info Loaded 4944 IN-SAMPLE training examples and 1370 OUT-OF-SAMPLE test examples
-2018-05-23 15:31:40.771201+01:00 Info (hyperparams((l2_reg 0.01)(dropout_keep_prob 1)))
-2018-05-23 15:31:41.250831: I tensorflow/core/platform/cpu_feature_guard.cc:140] Your CPU supports instructions that this TensorFlow binary was not compiled to use: SSE4.1 SSE4.2 AVX AVX2 FMA
-2018-05-23 15:31:41.375410: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:898] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
-2018-05-23 15:31:41.375786: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1356] Found device 0 with properties: 
+2018-05-23 16:40:53.422665+01:00 Info lexifi | Loaded 4262 reward entries
+2018-05-23 16:40:53.422681+01:00 Info lexifi | Loaded 4073 query entries
+2018-05-23 16:40:53.422686+01:00 Info lexifi | Loaded 1370 training examples
+2018-05-23 16:40:53.422944+01:00 Info Loaded a total of 1370 training examples
+2018-05-23 16:40:55.767404+01:00 Info bdd | Loaded 5717 reward entries
+2018-05-23 16:40:55.767428+01:00 Info bdd | Loaded 2818 query entries
+2018-05-23 16:40:55.767434+01:00 Info bdd | Loaded 824 training examples
+2018-05-23 16:40:56.236904+01:00 Info almabench | Loaded 1926 reward entries
+2018-05-23 16:40:56.236914+01:00 Info almabench | Loaded 846 query entries
+2018-05-23 16:40:56.236918+01:00 Info almabench | Loaded 317 training examples
+2018-05-23 16:41:02.277347+01:00 Info kb | Loaded 4747 reward entries
+2018-05-23 16:41:02.277449+01:00 Info kb | Loaded 35367 query entries
+2018-05-23 16:41:02.277452+01:00 Info kb | Loaded 281 training examples
+2018-05-23 16:41:06.856203+01:00 Info floats-in-functor | Loaded 2774 reward entries
+2018-05-23 16:41:06.856234+01:00 Info floats-in-functor | Loaded 8773 query entries
+2018-05-23 16:41:06.856239+01:00 Info floats-in-functor | Loaded 784 training examples
+2018-05-23 16:41:06.870539+01:00 Info fyq-stdlib-int-sets | Loaded 0 reward entries
+2018-05-23 16:41:06.870540+01:00 Info fyq-stdlib-int-sets | Loaded 0 query entries
+2018-05-23 16:41:06.870541+01:00 Info fyq-stdlib-int-sets | Loaded 0 training examples
+2018-05-23 16:41:10.949358+01:00 Info fft | Loaded 1865 reward entries
+2018-05-23 16:41:10.949361+01:00 Info fft | Loaded 842 query entries
+2018-05-23 16:41:10.949363+01:00 Info fft | Loaded 306 training examples
+2018-05-23 16:41:12.633654+01:00 Info quicksort | Loaded 1667 reward entries
+2018-05-23 16:41:12.633674+01:00 Info quicksort | Loaded 829 query entries
+2018-05-23 16:41:12.633687+01:00 Info quicksort | Loaded 306 training examples
+2018-05-23 16:41:13.012008+01:00 Info fyq-symbolic-maths | Loaded 0 reward entries
+2018-05-23 16:41:13.012013+01:00 Info fyq-symbolic-maths | Loaded 0 query entries
+2018-05-23 16:41:13.012018+01:00 Info fyq-symbolic-maths | Loaded 0 training examples
+2018-05-23 16:41:14.341191+01:00 Info lens | Loaded 1698 reward entries
+2018-05-23 16:41:14.341197+01:00 Info lens | Loaded 835 query entries
+2018-05-23 16:41:14.341200+01:00 Info lens | Loaded 296 training examples
+2018-05-23 16:41:14.341806+01:00 Info fyq-rev-list | Loaded 0 reward entries
+2018-05-23 16:41:14.341807+01:00 Info fyq-rev-list | Loaded 0 query entries
+2018-05-23 16:41:14.341808+01:00 Info fyq-rev-list | Loaded 0 training examples
+2018-05-23 16:41:16.519076+01:00 Info sequence-cps | Loaded 3135 reward entries
+2018-05-23 16:41:16.519082+01:00 Info sequence-cps | Loaded 1134 query entries
+2018-05-23 16:41:16.519085+01:00 Info sequence-cps | Loaded 330 training examples
+2018-05-23 16:41:21.263090+01:00 Info hamming | Loaded 3032 reward entries
+2018-05-23 16:41:21.263116+01:00 Info hamming | Loaded 8514 query entries
+2018-05-23 16:41:21.263121+01:00 Info hamming | Loaded 1412 training examples
+2018-05-23 16:41:21.266594+01:00 Info kahan-sum | Loaded 19 reward entries
+2018-05-23 16:41:21.266595+01:00 Info kahan-sum | Loaded 14 query entries
+2018-05-23 16:41:21.266598+01:00 Info kahan-sum | Loaded 2 training examples
+2018-05-23 16:41:23.731023+01:00 Info sequence | Loaded 14618 reward entries
+2018-05-23 16:41:23.731044+01:00 Info sequence | Loaded 4111 query entries
+2018-05-23 16:41:23.731047+01:00 Info sequence | Loaded 86 training examples
+2018-05-23 16:41:23.731183+01:00 Info fyq-stdlib-functor-record-sets | Loaded 0 reward entries
+2018-05-23 16:41:23.731184+01:00 Info fyq-stdlib-functor-record-sets | Loaded 0 query entries
+2018-05-23 16:41:23.731185+01:00 Info fyq-stdlib-functor-record-sets | Loaded 0 training examples
+2018-05-23 16:41:23.731240+01:00 Info Loaded a total of 4944 training examples
+2018-05-23 16:41:23.731545+01:00 Info Loaded 4944 IN-SAMPLE training examples and 1370 OUT-OF-SAMPLE test examples
+2018-05-23 16:41:23.731569+01:00 Info (hyperparams((l2_reg 0.01)(dropout_keep_prob 1)))
+2018-05-23 16:41:24.181222: I tensorflow/core/platform/cpu_feature_guard.cc:140] Your CPU supports instructions that this TensorFlow binary was not compiled to use: SSE4.1 SSE4.2 AVX AVX2 FMA
+2018-05-23 16:41:24.285469: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:898] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2018-05-23 16:41:24.285807: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1356] Found device 0 with properties: 
 name: GeForce GTX 1080 major: 6 minor: 1 memoryClockRate(GHz): 1.7715
 pciBusID: 0000:01:00.0
-totalMemory: 7.93GiB freeMemory: 7.53GiB
-2018-05-23 15:31:41.375804: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1435] Adding visible gpu devices: 0
-2018-05-23 15:31:41.945543: I tensorflow/core/common_runtime/gpu/gpu_device.cc:923] Device interconnect StreamExecutor with strength 1 edge matrix:
-2018-05-23 15:31:41.945584: I tensorflow/core/common_runtime/gpu/gpu_device.cc:929]      0 
-2018-05-23 15:31:41.945589: I tensorflow/core/common_runtime/gpu/gpu_device.cc:942] 0:   N 
-2018-05-23 15:31:41.945769: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1053] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 7274 MB memory) -> physical GPU (device: 0, name: GeForce GTX 1080, pci bus id: 0000:01:00.0, compute capability: 6.1)
+totalMemory: 7.93GiB freeMemory: 7.26GiB
+2018-05-23 16:41:24.285821: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1435] Adding visible gpu devices: 0
+2018-05-23 16:41:25.524079: I tensorflow/core/common_runtime/gpu/gpu_device.cc:923] Device interconnect StreamExecutor with strength 1 edge matrix:
+2018-05-23 16:41:25.524117: I tensorflow/core/common_runtime/gpu/gpu_device.cc:929]      0 
+2018-05-23 16:41:25.524126: I tensorflow/core/common_runtime/gpu/gpu_device.cc:942] 0:   N 
+2018-05-23 16:41:25.524357: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1053] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 6947 MB memory) -> physical GPU (device: 0, name: GeForce GTX 1080, pci bus id: 0000:01:00.0, compute capability: 6.1)
 (monitor.ml.Error
  (Failure
   "3 Dimensions must be equal, but are 3 and 2 for 'Mul-28' (op: 'Mul') with input shapes: [?,3], [?,2].")
