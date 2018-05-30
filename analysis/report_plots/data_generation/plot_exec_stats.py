@@ -169,7 +169,8 @@ def main():
 
     # fig.tight_layout()
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
-    fig.savefig(fname=os.path.join(os.path.dirname(os.path.realpath(__file__)), "exec_times.pdf"), format='pdf')
+    fig.savefig(fname=os.path.join(os.path.dirname(os.path.realpath(__file__)),
+        "exec-times-%s.pdf" % check), format='pdf')
     # plt.show()
 
 if __name__ == "__main__":
