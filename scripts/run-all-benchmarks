@@ -22,8 +22,8 @@ fi
 
 for exp in $EXPS; do
   mkdir -p results/$exp/$method
-  for file in $(ls analysis/out/$exp/$method/*/optimal.sexp); do
-    OUTPUT="results/$exp/$method/$(basename $(dirname $file)).csv"
+  for file in $(ls analysis/out-$VERSION/$exp/$method/*/optimal.sexp); do
+    OUTPUT="results/$exp/$method-$VERSION/$(basename $(dirname $file)).csv"
 
     if [ -f "$OUTPUT" ]; then
       echo "||||| Skipping $exp with override $file"
