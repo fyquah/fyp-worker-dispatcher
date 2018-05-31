@@ -56,7 +56,7 @@ def main():
     plot_data = []
     initial_exec_time_by_bench = {}
     best_times_by_bench = {}
-    for benchmark in py_common.EXPERIMENT_TO_PARAMETERS.keys():
+    for benchmark in py_common.INITIAL_EXPERIMENTS:
         initial_exec_times = []
         best_time = None
         with open("../pca-data/%s.csv" % benchmark, "rb") as f:
@@ -73,7 +73,7 @@ def main():
     del best_time
     all_records = collections.defaultdict(list)
 
-    for benchmark in py_common.EXPERIMENT_TO_PARAMETERS.keys():
+    for benchmark in py_common.INITIAL_EXPERIMENTS:
         bench_dir = (
             "../results/%s/%s/"
             % (benchmark, args.model))
@@ -94,7 +94,7 @@ def main():
                     all_records[benchmark].append((filename, time, ratio, speedup))
 
 
-    for benchmark in py_common.EXPERIMENT_TO_PARAMETERS.keys():
+    for benchmark in py_common.INITIAL_EXPERIMENTS:
         best_ratio = None
         worst_ratio = None
         best_speedup = None
@@ -125,41 +125,46 @@ def main():
         plot_data.append((benchmark, best_ratio, worst_ratio, active_ratio, best_speedup, worst_speedup, active_speedup))
         print benchmark, best_ratio, initial_exec_time, best_time
 
+    plot_data.sort(key=lambda k : float(k[3]))
+
     x = [a[0] for a in plot_data]
 
-    matplotlib.rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
+    labelsize = 10
+    matplotlib.rc('font',**{
+        'family':'sans-serif',
+        'sans-serif':['Helvetica'],
+    })
+    matplotlib.rcParams.update({'font.size': 12, "font.family": "serif"})
+    matplotlib.rc('xtick', labelsize=labelsize)
+    matplotlib.rc('ytick', labelsize=labelsize)
+    matplotlib.rc('figure', figsize=(11.69,17.27))
 
-    fig, axes = plt.subplots(2, 1, figsize=(18, 9))
+    fig, axes = plt.subplots(2, 1)
     fig.suptitle(args.title)
 
     axes[0].axhline(y=1.0, color='r', linestyle='--')
     axes[0].axhline(y=0.0, color='g', linestyle='--')
 
     axes[0].grid()
-    axes[0].plot(x, [a[1] for a in plot_data], 'kx')
-    axes[0].plot(x, [a[2] for a in plot_data], 'rx')
+    axes[0].plot(range(len(plot_data)), [a[1] for a in plot_data], 'kx')
+    axes[0].plot(range(len(plot_data)), [a[2] for a in plot_data], 'rx')
     axes[0].bar(range(0, len(x)), [a[3] or 0 for a in plot_data])
     # axes[0].xticks(range(0, len(x)), x)
     axes[0].set_xlabel("benchmark")
     axes[0].set_xlabel("Relative performance")
     axes[0].set_ylim([-1.5, 1.5])
+    plt.xticks(range(0, len(x)), x, rotation="vertical")
 
-    # axes[0].xticks(range(0, len(x)), x)
-    axes[1].bar(x, [a[6] or 0 for a in plot_data])
+    axes[1].bar(range(len(plot_data)), [a[6] or 0 for a in plot_data])
     axes[1].set_xlabel("benchmark")
     axes[1].set_xlabel("Obtained speedup")
-    axes[1].plot(x, [a[4] for a in plot_data], 'kx')
-    axes[1].plot(x, [a[5] for a in plot_data], 'rx')
+    axes[1].plot(range(len(plot_data)), [a[4] for a in plot_data], 'kx')
+    axes[1].plot(range(len(plot_data)), [a[5] for a in plot_data], 'rx')
     axes[1].set_ylim([-0.1, 0.2])
+    plt.xticks(range(0, len(x)), x, rotation="60")
 
     plt.grid(True)
-
-    if args.pdf is None:
-        plt.show()
-    else:
-        pp = backend_pdf.PdfPages(args.pdf)
-        pp.savefig()
-        pp.close()
+    plt.savefig("report_plots/reward_assignment/model_performance.pdf")
 
 
 if __name__ == "__main__":
