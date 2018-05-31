@@ -350,7 +350,7 @@ def main():
 
     problem = formulate_problem(trees, execution_times, execution_directories)
     if not os.path.exists(args.output_dir):
-        os.mkdir(args.output_dir)
+        os.mkdirs(args.output_dir)
     problem.dump(args.output_dir)
 
 
