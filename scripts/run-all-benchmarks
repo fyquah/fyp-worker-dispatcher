@@ -8,6 +8,11 @@
 
 method=$1
 
+if [ "$VERSION" == "" ]; then
+  echo "Missing VERSION env var!"
+  exit 1
+fi
+
 if [ "$method" == "" ]; then
   echo "Missing method!"
   exit 1
@@ -21,9 +26,9 @@ else
 fi
 
 for exp in $EXPS; do
-  mkdir -p results/$exp/$method
-  for file in $(ls analysis/out/$exp/$method/*/optimal.sexp); do
-    OUTPUT="results/$exp/$method/$(basename $(dirname $file)).csv"
+  mkdir -p results/$exp/$method-$VERSION
+  for file in $(ls analysis/out-$VERSION/$exp/$method/*/optimal.sexp); do
+    OUTPUT="results/$exp/$method-$VERSION/$(basename $(dirname $file)).csv"
 
     if [ -f "$OUTPUT" ]; then
       echo "||||| Skipping $exp with override $file"
