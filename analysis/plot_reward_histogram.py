@@ -100,11 +100,11 @@ def plot_immediate_reward_histrogram(all_data):
 
     for d in all_data:
         if d.inline is not None and d.no_inline is not None:
-            xs.append(d.inline.immediate)
+            xs.append(d.inline.long_term)
 
-    plt.title("Immediate Reward Histogram")
-    plt.hist(xs, density=True, bins=50)
-    plt.xlabel("Immediate Reward")
+    plt.title("Immediate Reward Histogram (%d samples)" % len(xs))
+    plt.hist(xs, bins=300)
+    plt.xlabel("Long Term Reward")
     plt.ylabel("Normalised Frequency")
     plt.grid()
 
