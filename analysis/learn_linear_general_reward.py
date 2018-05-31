@@ -71,28 +71,63 @@ def compute_vector_space_of_solutions(R, rhs):
     print(w)
 
 
-def _sigmoid_speedup_over_mean(execution_times, baseline):
-    return np.tanh(
-            -3 * (execution_times - baseline) / baseline)
+def _sigmoid_speedup_over_mean(execution_times, problem):
+    baseline = np.mean(problem.execution_times)
+    return learn_problem.sigmoid(
+            -20 * (execution_times - baseline) / baseline)
+
+def _sigmoid_speedup_over_baseline(execution_times, problem):
+    baseline = get_baseline_execution_time(problem)
+    return learn_problem.sigmoid(
+            -20 * (execution_times - baseline) / baseline)
 
 
-def _linear_speedup_over_mean(execution_times, baseline):
+def _linear_speedup_over_mean(execution_times, problem):
+    baseline = np.mean(problem.execution_times)
     return -(execution_times - baseline) / baseline
 
 
-def _log_speedup_over_mean(execution_times, baseline):
+def _linear_speedup_over_baseline(execution_times, problem):
+    baseline = get_baseline_execution_time(problem)
+    return -(execution_times - baseline) / baseline
+
+
+def _log_speedup_over_mean(execution_times, problem):
+    baseline = np.mean(problem.execution_times)
     return -np.log(execution_times / baseline)
+
+
+def _log_speedup_over_baseline(execution_times, problem):
+    baseline = get_baseline_execution_time(problem)
+    return -np.log(execution_times / baseline)
+
+
+def _tanh_speedup_over_mean(execution_times, problem):
+    baseline = np.mean(problem.execution_times)
+    return np.tanh(
+            -10 * (execution_times - baseline) / baseline)
+
+
+def _tanh_speedup_over_baseline(execution_times, problem):
+    baseline = get_baseline_execution_time(problem)
+    return np.tanh(
+            -10 * (execution_times - baseline) / baseline)
 
 
 def construct_benefit_from_exec_time(kind, problem):
     execution_times = problem.execution_times
-    baseline = get_baseline_execution_time(problem)
     dispatch = {
             "sigmoid_speedup_over_mean": _sigmoid_speedup_over_mean,
             "linear_speedup_over_mean":  _linear_speedup_over_mean,
             "log_speedup_over_mean":     _log_speedup_over_mean,
+            "tanh_speedup_over_mean":     _tanh_speedup_over_mean,
+
+            "sigmoid_speedup_over_baseline": _sigmoid_speedup_over_baseline,
+            "linear_speedup_over_baseline":  _linear_speedup_over_baseline,
+            "log_speedup_over_baseline":     _log_speedup_over_baseline,
+            "tanh_speedup_over_baseline": _tanh_speedup_over_baseline,
     }
-    return dispatch[kind](execution_times, baseline=baseline)
+    return dispatch[kind](execution_times, problem=problem)
 
 
 def geometric_mean(arr):
@@ -107,6 +142,10 @@ def get_baseline_execution_time(problem):
     for i, dir in enumerate(problem.execution_directories):
         if "initial" in dir[1]:
             times.append(problem.execution_times[i])
+    assert len(times) > 0
+    logging.info("Geometric  mean initial time = %f" % geometric_mean(times))
+    logging.info("Arithmetic mean initial time = %f" % np.mean(times))
+    logging.info("Aithmetic mean time over everything = %f" % np.mean(problem.execution_times))
     return geometric_mean(times)
 
 

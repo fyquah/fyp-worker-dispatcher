@@ -3,6 +3,25 @@ open Import
 module Feature_list = Feature_utils.Feature_list
 module Features = Feature_utils.Features
 
+
+let bounded_discretise ~lo ~hi (name, label) =
+  assert (lo <= label);
+  assert (label <= hi);
+  let has_true = ref false in
+  let ret =
+    List.init (hi - lo + 1) (fun i ->
+        let value =
+          if label - lo = i then begin
+            has_true := true;
+            true
+          end else
+            false
+        in
+        (Format.asprintf "%s_%d" name i, value))
+  in
+  assert (!has_true);
+  ret
+;;
        
 let process (query : Inlining_query.query) =
   let calc_t_matces expr ~f =
@@ -161,7 +180,7 @@ let process (query : Inlining_query.query) =
         | Value_symbol _ -> 13
         | Value_unresolved _ -> 14
     in
-    let int_features =
+    let bool_features =
       List.init 7 (fun i ->
           let opt_descr =
             try
@@ -174,10 +193,13 @@ let process (query : Inlining_query.query) =
           in
           opt_descr
           |> classify_arg
-          |> (fun feature -> (Format.asprintf "approx_arg_%d" i, feature)))
+          |> (fun label ->
+              bounded_discretise ~lo:0 ~hi:14
+                (Format.asprintf "approx_arg_%d" i, label)))
+      |> List.concat
       |> Feature_list.of_list
     in
-    let bool_features = Feature_list.empty in
+    let int_features = Feature_list.empty in
     let numeric_features = Feature_list.empty in
     { Features. int_features; bool_features; numeric_features; }
   in
@@ -218,14 +240,14 @@ let process (query : Inlining_query.query) =
     { Features. numeric_features; int_features; bool_features; } 
   in
   let env_features =
-    let int_features =
+    let numeric_features =
       Feature_list.of_list [
-        ("inlining_level", env.inlining_level);
-        ("closure_depth",  env.closure_depth);
-        ("inside_branch",  env.inside_branch);
+        ("inlining_level", float_of_int env.inlining_level);
+        ("closure_depth",  float_of_int env.closure_depth);
+        ("inside_branch",  float_of_int env.inside_branch);
       ]
     in
-    let numeric_features = Feature_list.empty in
+    let int_features = Feature_list.empty in
     let bool_features    = Feature_list.empty in
     { Features. numeric_features; int_features; bool_features; }
   in
