@@ -2,6 +2,8 @@ import argparse
 import collections
 import sys
 import math
+import cPickle as pickle
+
 import scipy
 import scipy.stats
 
@@ -10,7 +12,14 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends import backend_pdf
 
+import os
+
+import numpy as np
 import inlining_tree
+
+from sklearn.decomposition import PCA
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_curve
 
 Features = collections.namedtuple("Features", ["int_features", "bool_features", "numeric_features"])
 Reward = collections.namedtuple("Reward", ["inline", "no_inline"])
@@ -40,18 +49,27 @@ def parse(sexp):
         no_inline = option_of_sexp(m["no_inline"], f=float)
         return Reward(inline=inline, no_inline=no_inline)
 
-    def parse_feature_list(sexp, f);
-        return {k : f(v) for k, v in sexp}
+    def parse_feature_list(sexp, f):
+        return {inlining_tree.unpack_atom(k) : f(inlining_tree.unpack_atom(v)) for k, v in sexp}
+
+    def parse_bool(s):
+        if s == "true":
+            return True
+        elif s == "false":
+            return False
+        else:
+            assert False
+
 
     def parse_features(sexp):
         m = inlining_tree.sexp_to_map(sexp)
         int_features = parse_feature_list(m["int_features"], f=int)
         numeric_features = parse_feature_list(m["numeric_features"], f=float)
-        bool_features = parse_feature_list(m["bool_features"], f=bool)
+        bool_features = parse_feature_list(m["bool_features"], f=parse_bool)
         return Features(int_features=int_features, bool_features=bool_features, numeric_features=numeric_features)
 
     assert isinstance(sexp, list)
-    return [(parse_features(a), option_of_sex(b, f=parse_reward)) for (a, b) in sexp]
+    return [(parse_features(a), option_of_sexp(b, f=parse_reward)) for (a, b) in sexp]
 
 def fmap(x, f):
     if x is not None:
@@ -169,39 +187,102 @@ parser = argparse.ArgumentParser()
 parser.add_argument("name", type=str, help="output file name")
 parser.add_argument("--pdf", type=str, help="pdf output file name (optional)")
 
+
 def main():
+    # args = parser.parse_args()
+    # with open(args.name, "r") as f:
+    #     all_data = parse(sexpdata.load(f))
 
-    font = {'size'   : 8}
-    matplotlib.rc('font', **font)
+    # with open("./report_plots/machine_learning/v1_data.pickle", "wb") as f:
+    #     pickle.dump(all_data, f)
 
-    args = parser.parse_args()
-    with open(args.name, "r") as f:
-        all_data = parse(sexpdata.load(f))
+    minimal = float(sys.argv[1])
+    print "Minimal:", minimal
+    with open("./report_plots/machine_learning/v1_data.pickle", "rb") as f:
+        all_data = pickle.load(f)
 
-    all_data = remove_annomalises(all_data)
+    all_numeric_features  = np.zeros((len(all_data), len(all_data[0][0].numeric_features)))
+    all_bool_features     = np.zeros((len(all_data), len(all_data[0][0].bool_features)))
+    raw_targets           = [b for (_, b) in all_data]
 
-    plt.suptitle("Reward Statistics")
+    for i, (features, raw_target) in enumerate(all_data):
+        all_numeric_features[i, :] = [a for (_, a) in features.numeric_features.iteritems()]
+        all_bool_features[i, :]    = [a for (_, a) in features.bool_features.iteritems()]
 
-    plt.subplot(2, 2, 1)
-    plot_immediate_and_long_term_correlation(all_data)
+    relevant_numeric_features = all_numeric_features[:, (np.std(all_numeric_features,  axis=0) > 0.0001)]
+    relevant_bool_features    = all_bool_features[:, (np.mean(all_bool_features,  axis=0) > 0.0001)]
 
-    plt.subplot(2, 2, 2)
-    plot_immediate_and_no_inline_correlation(all_data)
+    normalised_numeric_features = (relevant_numeric_features - np.mean(relevant_numeric_features, axis=0))
+    normalised_numeric_features = normalised_numeric_features / np.std(relevant_numeric_features, axis=0)
 
-    plt.subplot(2, 2, 3)
-    plot_long_term_and_no_inline_correlation(all_data)
+    features = np.concatenate([normalised_numeric_features, relevant_bool_features], axis=1)
+    labels = []
+    for t in raw_targets:
+        labels.append(
+                t is not None
+                and t.inline is not None
+                and t.no_inline is not None
+                and (abs(t.inline.long_term > minimal) or abs(t.no_inline) > minimal)
+        )
+    familiarity_labels = np.array(labels)
 
-    plt.subplot(2, 2, 4)
-    plot_immediate_reward_histrogram(all_data)
+    print "familiarity label mean:", np.mean(labels)
+    model = LogisticRegression()
+    model.fit(features, labels)
+    print "familiarity model score:", model.score(features, labels)
+    fpr, tpr, thresholds = roc_curve(labels, model.predict_proba(features)[:, 1])
 
+    plt.subplot(1, 2, 1)
+    plt.title("Familiarity Model (%s samples)" % len(features))
+    plt.plot(fpr, tpr)
+    plt.plot([0, 1], [0, 1],'r--')
+    plt.grid()
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+
+    decision_features = []
+    decision_labels = []
+    for i in range(len(labels)):
+        if labels[i]:
+            decision_features.append(features[i, :])
+            decision_labels.append(raw_targets[i].inline.long_term > raw_targets[i].no_inline)
+    decision_features = np.array(decision_features)
+    decision_labels = np.array(decision_labels)
+    print "decision training examples:", len(decision_labels)
+    print "decision label mean:", np.mean(decision_labels)
+    decision_model = LogisticRegression()
+    decision_model.fit(decision_features, decision_labels)
+    print "decision model score:", decision_model.score(decision_features, decision_labels)
+
+    fpr, tpr, thresholds = roc_curve(decision_labels, model.predict_proba(decision_features)[:, 1])
+    plt.subplot(1, 2, 2)
+    plt.plot(fpr, tpr)
+    plt.plot([0, 1], [0, 1],'r--')
+    plt.title("Decision Model (%s samples)" % len(decision_features))
+    plt.grid()
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+
+    # plt.show()
     plt.tight_layout()
+    plt.savefig(fname=os.path.join("roc_plots", ("%.4f" % minimal)) + ".pdf", format='pdf')
 
-    if args.pdf:
-        pp = backend_pdf.PdfPages(args.pdf)
-        pp.savefig()
-        pp.close()
-    else:
-        plt.show()
+    return
+
+    # pca = PCA(n_components=2, svd_solver='full')
+    # pca.fit(features)
+    # transformed = pca.transform(features)
+
+    # fig = plt.figure()
+    # plt.title("PCA")
+
+    # plt.scatter(transformed[np.logical_not(labels), 0], transformed[np.logical_not(labels), 1], color='b', marker='x', s=4)
+    # plt.scatter(transformed[labels, 0], transformed[labels, 1], color='r', marker='x', s=4)
+
+    # plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    # plt.grid()
+    # plt.show()
+    # plt.savefig(fname=os.path.join(PLOT_DIR, filename) + ".pdf", format='pdf')
 
 if __name__ == "__main__":
     main()
