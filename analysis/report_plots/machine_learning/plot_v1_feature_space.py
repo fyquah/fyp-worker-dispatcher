@@ -210,7 +210,7 @@ def plot_pca(features, labels, title, fname, legend):
 def plot_lda(features, labels, title, fname, legend):
     lda = LDA(n_components=1)
     lda.fit(features, labels)
-    pca = PCA(n_components=2)
+    pca = PCA(n_components=1)
     pca.fit(features)
     transformed = np.hstack((pca.transform(features), lda.transform(features)))
 
@@ -244,6 +244,99 @@ def plot_lda_3_classes(features, labels, title, fname, legend):
     plt.legend([l1, l2, l3], legend)
     plt.tight_layout()
     plt.grid()
+    plt.savefig(fname)
+
+
+def compute_heatmap(transformed, side_bins):
+    x_min = transformed[:, 0].min()
+    x_max = transformed[:, 0].max()
+    y_min = transformed[:, 1].min()
+    y_max = transformed[:, 1].max()
+
+    x_gap = float(x_max - x_min) / side_bins
+    y_gap = float(y_max - y_min) / side_bins
+    density = np.zeros((side_bins, side_bins), dtype=np.int)
+
+    for (x, y) in transformed:
+        i = int(math.floor((y - y_min) / y_gap))
+        j = int(math.floor((x - x_min) / x_gap))
+        if i == side_bins:
+            i = side_bins - 1
+        if j == side_bins:
+            j = side_bins - 1
+        assert 0 <= i and i < side_bins
+        assert 0 <= j and j < side_bins
+        i = side_bins - 1 - i  # because image increases from top to bottom, but our axes is bottom to top
+        density[i, j] += 1
+    return density / float(len(transformed))
+
+
+def plot_pca_3_classes(features, labels, title, fname, legend):
+    pca = PCA(n_components=2)
+    pca.fit(features)
+    transformed = pca.transform(features)
+
+    fig = plt.figure()
+    plt.xlabel("PCA Component 0")
+    plt.ylabel("PCA Component 1")
+    plt.title(title)
+    labels = np.array(labels)
+
+    l1 = plt.scatter(transformed[labels == 0, 0], transformed[labels == 0, 1], color='r', marker='x', s=4)
+    l2 = plt.scatter(transformed[labels == 1, 0], transformed[labels == 1, 1], color='g', marker='x', s=4)
+    l3 = plt.scatter(transformed[labels == 2, 0], transformed[labels == 2, 1], color='b', marker='x', s=4)
+
+    plt.legend([l1, l2, l3], legend)
+    plt.tight_layout()
+    plt.grid()
+    plt.savefig(fname)
+
+
+def plot_lda_density(features, labels, title, fname):
+    lda = LDA(n_components=2)
+    lda.fit(features, labels)
+    transformed = lda.transform(features)
+    heat_map = compute_heatmap(transformed, side_bins=20)
+
+    plt.figure()
+    plt.title(title)
+    plt.imshow(heat_map)
+    plt.savefig(fname)
+
+
+def plot_pca_density(features, title, fname):
+    pca = PCA(n_components=2)
+    pca.fit(features)
+    transformed = pca.transform(features)
+
+    side_bins = 20
+    heat_map = compute_heatmap(transformed, side_bins=side_bins)
+
+    plt.figure()
+
+    xlabels = []
+    ylabels = []
+
+    x_min = transformed[:, 0].min()
+    x_max = transformed[:, 0].max()
+    x_gap = (x_max - x_min) / 20.0
+
+    y_min = transformed[:, 1].min()
+    y_max = transformed[:, 1].max()
+    y_gap = (y_max - y_min) / 20.0
+
+    for i in range(20):
+        xlabels.append("%.2f" % (x_min + (i + 0.5) * x_gap))
+        ylabels.append("%.2f" % (y_min + (18.5 - i) * y_gap))
+
+    ax = plt.gca()
+    plt.title(title)
+    im = ax.imshow(heat_map)
+    cbar = ax.figure.colorbar(im, ax=ax)
+    ax.set_xticks(np.arange(side_bins))
+    ax.set_yticks(np.arange(side_bins))
+    ax.set_xticklabels(xlabels, rotation="60")
+    ax.set_yticklabels(ylabels)
     plt.savefig(fname)
 
 
@@ -316,14 +409,6 @@ def main():
     print "familiarity model score:", model.score(features, familiarity_labels)
     fpr, tpr, thresholds = roc_curve(familiarity_labels, model.predict_proba(features)[:, 1])
 
-    plt.subplot(1, 2, 1)
-    plt.title("Familiarity Model (%s samples)" % len(features))
-    plt.plot(fpr, tpr)
-    plt.plot([0, 1], [0, 1],'r--')
-    plt.grid()
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-
     plot_lda(familiarity_features, familiarity_labels,
             title="LDA Scatter Plot of Familiarity Points (B = %f)" % minimal,
             legend=["Familiar", "Not Familiar"],
@@ -350,6 +435,16 @@ def main():
             legend=["Inline", "Terminate"],
             fname="report_plots/machine_learning/decision_pca_scatter_plot.pdf")
 
+    # ROC curve
+    plt.figure()
+    plt.subplot(1, 2, 1)
+    plt.title("Familiarity Model (%s samples)" % len(features))
+    plt.plot(fpr, tpr)
+    plt.plot([0, 1], [0, 1],'r--')
+    plt.grid()
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+
     fpr, tpr, thresholds = roc_curve(decision_labels, model.predict_proba(decision_features)[:, 1])
     plt.subplot(1, 2, 2)
     plt.plot(fpr, tpr)
@@ -360,11 +455,24 @@ def main():
     plt.ylabel("True Positive Rate")
     plt.tight_layout()
     plt.savefig(fname=os.path.join("roc_plots", ("%.4f" % minimal)) + ".pdf", format='pdf')
+    # end of ROC curve
 
     plot_lda_3_classes(features, thorough_labels,
             title="LDA Scatter Plot of Decision Points (B = %f)" % minimal,
             legend=["I Don't Know", "Inline", "Terminate"],
             fname="report_plots/machine_learning/all_lda_scatter_plot.pdf")
+    plot_lda_density(features, thorough_labels,
+            title="Heat Map of LDA Scatter Plot",
+            fname="report_plots/machine_learning/all_lda_heat_map.pdf")
+
+    plot_pca_3_classes(features, thorough_labels,
+            title="PCA Scatter Plot of Decision Points (B = %f)" % minimal,
+            legend=["I Don't Know", "Inline", "Terminate"],
+            fname="report_plots/machine_learning/all_pca_scatter_plot.pdf")
+    plot_pca_density(features,
+            title="Heat Map of PCA Scatter Plot",
+            fname="report_plots/machine_learning/all_pca_heat_map.pdf")
+
 
 if __name__ == "__main__":
     main()
