@@ -10,6 +10,7 @@ import scipy.stats
 import sexpdata
 import matplotlib
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.backends import backend_pdf
 
 import os
@@ -19,6 +20,7 @@ import inlining_tree
 
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.metrics import roc_curve
 
 Features = collections.namedtuple("Features", ["int_features", "bool_features", "numeric_features"])
@@ -188,6 +190,63 @@ parser.add_argument("name", type=str, help="output file name")
 parser.add_argument("--pdf", type=str, help="pdf output file name (optional)")
 
 
+def plot_pca(features, labels, title, fname, legend):
+    pca = PCA(n_components=2)
+    pca.fit(features)
+    transformed = pca.transform(features)
+
+    fig = plt.figure()
+    plt.title(title)
+    plt.xlabel("PCA Component 0")
+    plt.ylabel("PCA Component 1")
+    l1 = plt.scatter(transformed[np.array(labels), 0], transformed[np.array(labels), 1], color='r', marker='x', s=4)
+    l2 = plt.scatter(transformed[np.logical_not(labels), 0], transformed[np.logical_not(labels), 1], color='b', marker='x', s=4)
+    plt.legend([l1, l2], legend)
+    plt.tight_layout()
+    plt.grid()
+    plt.savefig(fname)
+
+
+def plot_lda(features, labels, title, fname, legend):
+    lda = LDA(n_components=1)
+    lda.fit(features, labels)
+    pca = PCA(n_components=2)
+    pca.fit(features)
+    transformed = np.hstack((pca.transform(features), lda.transform(features)))
+
+    fig = plt.figure()
+    plt.xlabel("PCA primary component")
+    plt.ylabel("LDA component")
+    plt.title(title)
+    l1 = plt.scatter(transformed[np.array(labels), 0], transformed[np.array(labels), 1], color='r', marker='x', s=4)
+    l2 = plt.scatter(transformed[np.logical_not(labels), 0], transformed[np.logical_not(labels), 1], color='b', marker='x', s=4)
+    plt.legend([l1, l2], legend)
+    plt.tight_layout()
+    plt.grid()
+    plt.savefig(fname)
+
+
+def plot_lda_3_classes(features, labels, title, fname, legend):
+    lda = LDA(n_components=2)
+    lda.fit(features, labels)
+    transformed = lda.transform(features)
+
+    fig = plt.figure()
+    plt.xlabel("LDA Component 0")
+    plt.ylabel("LDA Component 1")
+    plt.title(title)
+    labels = np.array(labels)
+
+    l1 = plt.scatter(transformed[labels == 0, 0], transformed[labels == 0, 1], color='r', marker='x', s=4)
+    l2 = plt.scatter(transformed[labels == 1, 0], transformed[labels == 1, 1], color='g', marker='x', s=4)
+    l3 = plt.scatter(transformed[labels == 2, 0], transformed[labels == 2, 1], color='b', marker='x', s=4)
+
+    plt.legend([l1, l2, l3], legend)
+    plt.tight_layout()
+    plt.grid()
+    plt.savefig(fname)
+
+
 def main():
     # args = parser.parse_args()
     # with open(args.name, "r") as f:
@@ -200,6 +259,12 @@ def main():
     print "Minimal:", minimal
     with open("./report_plots/machine_learning/v1_data.pickle", "rb") as f:
         all_data = pickle.load(f)
+
+    print "No Information about rewards", len([t for (_, t) in all_data if t is None])
+    print "Both inline and termination", len([t for (_, t) in all_data if t is not None and t.inline is not None and t.no_inline is not None])
+    print "Just inline", len([t for (_, t) in all_data if t is not None and t.inline is not None and t.no_inline is None])
+    print "Just termination", len([t for (_, t) in all_data if t is not None and t.inline is None and t.no_inline is not None])
+    print "Total", len(all_data)
 
     all_numeric_features  = np.zeros((len(all_data), len(all_data[0][0].numeric_features)))
     all_bool_features     = np.zeros((len(all_data), len(all_data[0][0].bool_features)))
@@ -216,21 +281,40 @@ def main():
     normalised_numeric_features = normalised_numeric_features / np.std(relevant_numeric_features, axis=0)
 
     features = np.concatenate([normalised_numeric_features, relevant_bool_features], axis=1)
-    labels = []
-    for t in raw_targets:
-        labels.append(
+
+    thorough_labels = []
+    familiarity_labels = []
+    decision_features = []
+    decision_labels = []
+
+    assert len(features) == len(raw_targets)
+
+    for i, t in enumerate(raw_targets):
+        familiarity_labels.append(
                 t is not None
                 and t.inline is not None
                 and t.no_inline is not None
-                and (abs(t.inline.long_term > minimal) or abs(t.no_inline) > minimal)
+                and (abs(t.inline.long_term) > minimal or abs(t.no_inline) > minimal)
         )
-    familiarity_labels = np.array(labels)
 
-    print "familiarity label mean:", np.mean(labels)
+        if not familiarity_labels[-1]:
+            thorough_labels.append(0)
+        else:
+            decision_features.append(features[i, :])
+            decision_labels.append(raw_targets[i].inline.long_term > raw_targets[i].no_inline)
+            if not decision_labels[-1]:
+                thorough_labels.append(1)
+            else:
+                thorough_labels.append(2)
+
+    familiarity_features = np.array(features)
+    familiarity_labels = np.array(familiarity_labels)
+
+    print "familiarity label mean:", np.mean(familiarity_labels)
     model = LogisticRegression()
-    model.fit(features, labels)
-    print "familiarity model score:", model.score(features, labels)
-    fpr, tpr, thresholds = roc_curve(labels, model.predict_proba(features)[:, 1])
+    model.fit(features, familiarity_labels)
+    print "familiarity model score:", model.score(features, familiarity_labels)
+    fpr, tpr, thresholds = roc_curve(familiarity_labels, model.predict_proba(features)[:, 1])
 
     plt.subplot(1, 2, 1)
     plt.title("Familiarity Model (%s samples)" % len(features))
@@ -240,12 +324,15 @@ def main():
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
 
-    decision_features = []
-    decision_labels = []
-    for i in range(len(labels)):
-        if labels[i]:
-            decision_features.append(features[i, :])
-            decision_labels.append(raw_targets[i].inline.long_term > raw_targets[i].no_inline)
+    plot_lda(familiarity_features, familiarity_labels,
+            title="LDA Scatter Plot of Familiarity Points (B = %f)" % minimal,
+            legend=["Familiar", "Not Familiar"],
+            fname="report_plots/machine_learning/familiarity_lda_scatter_plot.pdf")
+    plot_pca(familiarity_features, familiarity_labels,
+            title="PCA Scatter Plot of Familiarity Points (B = %f)" % minimal,
+            legend=["Familiar", "Not Familiar"],
+            fname="report_plots/machine_learning/familiarity_pca_scatter_plot.pdf")
+
     decision_features = np.array(decision_features)
     decision_labels = np.array(decision_labels)
     print "decision training examples:", len(decision_labels)
@@ -253,6 +340,15 @@ def main():
     decision_model = LogisticRegression()
     decision_model.fit(decision_features, decision_labels)
     print "decision model score:", decision_model.score(decision_features, decision_labels)
+
+    plot_lda(decision_features, decision_labels,
+            title="LDA Scatter Plot of Decision Points (B = %f)" % minimal,
+            legend=["Inline", "Terminate"],
+            fname="report_plots/machine_learning/decision_lda_scatter_plot.pdf")
+    plot_pca(decision_features, decision_labels,
+            title="PCA Scatter Plot of Decision Points (B = %f)" % minimal,
+            legend=["Inline", "Terminate"],
+            fname="report_plots/machine_learning/decision_pca_scatter_plot.pdf")
 
     fpr, tpr, thresholds = roc_curve(decision_labels, model.predict_proba(decision_features)[:, 1])
     plt.subplot(1, 2, 2)
@@ -262,27 +358,13 @@ def main():
     plt.grid()
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
-
-    # plt.show()
     plt.tight_layout()
     plt.savefig(fname=os.path.join("roc_plots", ("%.4f" % minimal)) + ".pdf", format='pdf')
 
-    return
-
-    # pca = PCA(n_components=2, svd_solver='full')
-    # pca.fit(features)
-    # transformed = pca.transform(features)
-
-    # fig = plt.figure()
-    # plt.title("PCA")
-
-    # plt.scatter(transformed[np.logical_not(labels), 0], transformed[np.logical_not(labels), 1], color='b', marker='x', s=4)
-    # plt.scatter(transformed[labels, 0], transformed[labels, 1], color='r', marker='x', s=4)
-
-    # plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    # plt.grid()
-    # plt.show()
-    # plt.savefig(fname=os.path.join(PLOT_DIR, filename) + ".pdf", format='pdf')
+    plot_lda_3_classes(features, thorough_labels,
+            title="LDA Scatter Plot of Decision Points (B = %f)" % minimal,
+            legend=["I Don't Know", "Inline", "Terminate"],
+            fname="report_plots/machine_learning/all_lda_scatter_plot.pdf")
 
 if __name__ == "__main__":
     main()
