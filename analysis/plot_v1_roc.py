@@ -3,6 +3,7 @@ import collections
 import sys
 import math
 import cPickle as pickle
+import csv
 
 import scipy
 import scipy.stats
@@ -339,6 +340,8 @@ def plot_pca_density(features, title, fname):
     ax.set_yticklabels(ylabels)
     plt.savefig(fname)
 
+ROC_DIR = "report_plots/machine_learning/roc_plots"
+
 
 def main():
     # args = parser.parse_args()
@@ -347,9 +350,6 @@ def main():
 
     # with open("./report_plots/machine_learning/v1_data.pickle", "wb") as f:
     #     pickle.dump(all_data, f)
-
-    minimal = float(sys.argv[1])
-    print "Minimal:", minimal
     with open("./report_plots/machine_learning/v1_data.pickle", "rb") as f:
         all_data = pickle.load(f)
 
@@ -375,81 +375,157 @@ def main():
 
     features = np.concatenate([normalised_numeric_features, relevant_bool_features], axis=1)
 
-    thorough_labels = []
-    familiarity_labels = []
-    decision_features = []
-    decision_labels = []
+    print "All numeric features", all_numeric_features.shape
+    print "All bool features", all_bool_features.shape
+    print "relevant numeric features", relevant_numeric_features.shape
+    print "relevant bool features", relevant_bool_features.shape
 
-    assert len(features) == len(raw_targets)
+    minimal_candidates = []
+    for i in range(19):
+        minimal_candidates.append(0.005 * (i + 1))
 
-    for i, t in enumerate(raw_targets):
-        familiarity_labels.append(
-                t is not None
-                and t.inline is not None
-                and t.no_inline is not None
-                and (abs(t.inline.long_term) > minimal or abs(t.no_inline) > minimal)
-        )
+    csv_dump = []
 
-        if not familiarity_labels[-1]:
-            thorough_labels.append(0)
-        else:
-            decision_features.append(features[i, :])
-            decision_labels.append(raw_targets[i].inline.long_term > raw_targets[i].no_inline)
-            if not decision_labels[-1]:
-                thorough_labels.append(1)
+    for minimal in minimal_candidates:
+        thorough_labels = []
+        familiarity_labels = []
+        decision_features = []
+        decision_labels = []
+
+        assert len(features) == len(raw_targets)
+
+        for i, t in enumerate(raw_targets):
+            familiarity_labels.append(
+                    t is not None
+                    and t.inline is not None
+                    and t.no_inline is not None
+                    and (abs(t.inline.long_term) > minimal or abs(t.no_inline) > minimal)
+            )
+
+            if not familiarity_labels[-1]:
+                thorough_labels.append(0)
             else:
-                thorough_labels.append(2)
+                decision_features.append(features[i, :])
+                decision_labels.append(raw_targets[i].inline.long_term > raw_targets[i].no_inline)
+                if not decision_labels[-1]:
+                    thorough_labels.append(1)
+                else:
+                    thorough_labels.append(2)
 
-    familiarity_features = np.array(features)
-    familiarity_labels = np.array(familiarity_labels)
+        familiarity_features = np.array(features)
+        familiarity_labels = np.array(familiarity_labels)
+        familiarity_model = LogisticRegression()
+        familiarity_model.fit(features, familiarity_labels)
 
-    print "familiarity label mean:", np.mean(familiarity_labels)
-    model = LogisticRegression()
-    model.fit(features, familiarity_labels)
-    print "familiarity model score:", model.score(features, familiarity_labels)
-    fpr, tpr, thresholds = roc_curve(familiarity_labels, model.predict_proba(features)[:, 1])
+        decision_features = np.array(decision_features)
+        decision_labels = np.array(decision_labels)
+        decision_model = LogisticRegression()
+        decision_model.fit(decision_features, decision_labels)
 
-    plot_lda(familiarity_features, familiarity_labels,
-            title="LDA Scatter Plot of Familiarity Points (B = %f)" % minimal,
-            legend=["Familiar", "Not Familiar"],
-            fname="report_plots/machine_learning/familiarity_lda_scatter_plot.pdf")
-    plot_pca(familiarity_features, familiarity_labels,
-            title="PCA Scatter Plot of Familiarity Points (B = %f)" % minimal,
-            legend=["Familiar", "Not Familiar"],
-            fname="report_plots/machine_learning/familiarity_pca_scatter_plot.pdf")
+        csv_dump.append((
+                "%.4f" % minimal,
+                len(familiarity_labels),
+                "%.4f" % np.mean(familiarity_labels),
+                "%.4f" % familiarity_model.score(features, familiarity_labels),
 
-    decision_features = np.array(decision_features)
-    decision_labels = np.array(decision_labels)
-    print "decision training examples:", len(decision_labels)
-    print "decision label mean:", np.mean(decision_labels)
-    decision_model = LogisticRegression()
-    decision_model.fit(decision_features, decision_labels)
-    print "decision model score:", decision_model.score(decision_features, decision_labels)
+                len(decision_labels),
+                "%.4f" % np.mean(decision_labels),
+                "%.4f" % decision_model.score(decision_features, decision_labels)))
 
-    plot_lda(decision_features, decision_labels,
-            title="LDA Scatter Plot of Decision Points (B = %f)" % minimal,
-            legend=["Inline", "Terminate"],
-            fname="report_plots/machine_learning/decision_lda_scatter_plot.pdf")
-    plot_pca(decision_features, decision_labels,
-            title="PCA Scatter Plot of Decision Points (B = %f)" % minimal,
-            legend=["Inline", "Terminate"],
-            fname="report_plots/machine_learning/decision_pca_scatter_plot.pdf")
+        print "B = %f" % minimal
+        print "  familiarity training examples", len(familiarity_labels)
+        print "  familiarity label mean:", np.mean(familiarity_labels)
+        print "  familiarity model score:", familiarity_model.score(features, familiarity_labels)
+        print "  decision training examples:", len(decision_labels)
+        print "  decision label mean:", np.mean(decision_labels)
+        print "  decision model score:", decision_model.score(decision_features, decision_labels)
 
-    plot_lda_3_classes(features, thorough_labels,
-            title="LDA Scatter Plot of Decision Points (B = %f)" % minimal,
-            legend=["I Don't Know", "Inline", "Terminate"],
-            fname="report_plots/machine_learning/all_lda_scatter_plot.pdf")
-    plot_lda_density(features, thorough_labels,
-            title="Heat Map of LDA Scatter Plot",
-            fname="report_plots/machine_learning/all_lda_heat_map.pdf")
 
-    plot_pca_3_classes(features, thorough_labels,
-            title="PCA Scatter Plot of Decision Points (B = %f)" % minimal,
-            legend=["I Don't Know", "Inline", "Terminate"],
-            fname="report_plots/machine_learning/all_pca_scatter_plot.pdf")
-    plot_pca_density(features,
-            title="Heat Map of PCA Scatter Plot",
-            fname="report_plots/machine_learning/all_pca_heat_map.pdf")
+        fpr, tpr, thresholds = roc_curve(familiarity_labels, familiarity_model.predict_proba(features)[:, 1])
+        plt.figure()
+        plt.subplot(1, 2, 1)
+        plt.title("Familiarity Model (%s samples)" % len(familiarity_features))
+        plt.plot(fpr, tpr)
+        plt.plot([0, 1], [0, 1],'r--')
+        plt.grid()
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+
+        fpr, tpr, thresholds = roc_curve(decision_labels, decision_model.predict_proba(decision_features)[:, 1])
+        plt.subplot(1, 2, 2)
+        plt.plot(fpr, tpr)
+        plt.plot([0, 1], [0, 1],'r--')
+        plt.title("Decision Model (%s samples)" % len(decision_features))
+        plt.grid()
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.tight_layout()
+
+        plt.savefig(fname=os.path.join(ROC_DIR, ("%.4f" % minimal).replace(".", "_")) + ".pdf", format='pdf')
+
+    with open(os.path.join(ROC_DIR, "results.csv"), "wb") as f:
+        wrt = csv.writer(f)
+        wrt.writerow(["B", "Familiar Training Examples", "Mean Decision Familiar Examples", "Familiarity Training Score",
+            "Decision Training Examples", "Mean Decision Positive Examples", "Decision Training Score"])
+        for row in csv_dump:
+            wrt.writerow(row)
+
+    Bs                       = [float(r[0]) for r in csv_dump]
+    familiarity_num_examples = [float(r[1]) for r in csv_dump]
+    familiarity_means        = [float(r[2]) for r in csv_dump]
+    familiarity_accuracies   = [float(r[3]) for r in csv_dump]
+    decision_num_examples    = [float(r[4]) for r in csv_dump]
+    decision_means           = [float(r[5]) for r in csv_dump]
+    decision_accuracies      = [float(r[6]) for r in csv_dump]
+
+
+    familiarity_baseline     = []
+    decision_baseline        = []
+
+    for a in familiarity_means:
+        familiarity_baseline.append(max(a, 1 - a))
+    for a in decision_means:
+        decision_baseline.append(max(a, 1 - a))
+
+    # Means
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+
+    plt.title("Proportion of Positive Classification Examples")
+    ax1.set_xlabel("B")
+    ax1.plot(Bs, familiarity_means, color='#1985FF')
+    ax1.set_ylabel('Familiarity', color='#1985FF')
+    ax1.tick_params('y', color='#1985FF')
+    ax1.grid()
+
+    ax2 = ax1.twinx()
+    ax2.plot(Bs, decision_means, color='#303030')
+    ax2.set_ylabel('Decision', color='#303030')
+    ax2.tick_params('y', color='#303030')
+    ax2.grid()
+    plt.savefig(os.path.join(ROC_DIR, "means.pdf"))
+
+    # Accuracies
+    fig = plt.figure()
+    plt.xlabel("B")
+    plt.title("Logistic Regression Training Classification Accuracies")
+    l1, = plt.plot(Bs, familiarity_accuracies, color='#1985FF')
+    l1_, = plt.plot(Bs, familiarity_baseline, '--', color='#1985FF')
+
+    l2, = plt.plot(Bs, decision_accuracies, color='#303030')
+    l2_, = plt.plot(Bs, decision_baseline, '--', color='#303030')
+
+    plt.grid()
+    plt.legend((l1, l1_, l2, l2_), ["Familiarity", "Familiarity (baseline)", "Decision", "Decision (baseline)"])
+    plt.savefig(os.path.join(ROC_DIR, "accuracies.pdf"))
+
+    # Num Examples
+    fig = plt.figure()
+    plt.xlabel("B")
+    plt.title("Number of Decision Examples")
+    plt.plot(Bs, decision_num_examples, color='#303030')
+    plt.grid()
+    plt.savefig(os.path.join(ROC_DIR, "num_decision_examples.pdf"))
 
 
 if __name__ == "__main__":
