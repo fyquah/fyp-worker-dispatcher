@@ -129,19 +129,11 @@ def count_nodes(tree):
     return acc
 
 
-def filling_sparse_matrices(tree, tree_path_to_ids, sparse_matrices, level):
-    assert isinstance(tree, inlining_tree.Node)
-
-    src_path = tree.value
-    src = tree_path_to_ids[src_path]
-
+def get_tree_depth(tree):
+    d = 0
     for child in tree.children:
-        if child.name == "Inlined" or child.name == "Apply":
-            dest_path = child.value
-            dest = tree_path_to_ids[dest_path]
-            sparse_matrices[level][src, dest] += 1
-
-        filling_sparse_matrices(child, tree_path_to_ids, sparse_matrices, level+1)
+        d = max(d, 1 + get_tree_depth(child))
+    return d
 
 
 def filling_vertices(tree, tree_path_to_ids, vertices):
@@ -161,56 +153,56 @@ def filling_vertices(tree, tree_path_to_ids, vertices):
         filling_vertices(child, tree_path_to_ids, vertices)
 
 
-def populate_edge_list(edge_list, tree_path_to_ids, tree):
+def populate_edge_list(edge_list, tree):
 
     for child in tree.children:
         dest_path = child.value
-        dest = tree_path_to_ids[dest_path]
-        src = tree_path_to_ids[tree.value]
-        edge_list.append((src, dest, child.name))
+        dest = dest_path
+        src = tree.value
+        edge_list.append((hash(src), hash(dest), child.name))  # use hash here to save memory
 
-        populate_edge_list(edge_list, tree_path_to_ids, child)
+        populate_edge_list(edge_list, child)
 
 
-def formulate_problem(raw_trees, execution_times, execution_directories):
+def formulate_problem(results):
+    execution_times = []
+    execution_directories = []
 
     tree_paths = set()
     tree_path_to_ids = {}
+    tree_path_hash_to_id = {}
+    edge_lists = []
+    tree_depth = 0
 
-    for tree in raw_trees:
-        collect_unique_nodes(tree_paths, [], tree)
+    print type(results)
+
+    for execution_directory, raw_tree, execution_time in results:
+        collect_unique_nodes(tree_paths, [], raw_tree)
+        tree = relabel_to_paths(raw_tree, [])
+        edges = []
+        populate_edge_list(edges, tree)
+        edge_lists.append(edges)
+        tree_depth = max(get_tree_depth(tree), tree_depth)
+
+        execution_directories.append(execution_directory)
+        execution_times.append(execution_time)
 
     for i, tree_path in enumerate(tree_paths):
         tree_path_to_ids[tree_path] = i
+        tree_path_hash_to_id[hash(tree_path)] = i
 
-    trees_with_path_labels = [relabel_to_paths(tree, []) for tree in raw_trees]
-    num_unique_paths = len(tree_paths)
+    for edge_list in edge_lists:
+        for i, edge in enumerate(edge_list):
+            edge_list[i] = (
+                    tree_path_hash_to_id[edge[0]],
+                    tree_path_hash_to_id[edge[1]]
+            )
 
-    # TODO: We really want to extract only the depth, not a bunch of useless
-    #       sparse matrices.
-    matrices = collections.defaultdict(
-            lambda : scipy.sparse.lil_matrix(
-                (num_unique_paths, num_unique_paths),
-                dtype=np.int32)
-    )
-
-    for tree in trees_with_path_labels:
-        vertices = np.zeros((len(tree_paths), 4))
-        filling_sparse_matrices(tree, tree_path_to_ids, matrices, level=0)
-        # filling_vertices(tree, tree_path_to_ids, vertices)
-        # train_x.append(vertices)
-
-    matrices = {k: scipy.sparse.csr_matrix(v) for k, v in matrices.items()}
-    edge_lists = []
-
-    for tree in trees_with_path_labels:
-        edges = []
-        populate_edge_list(edges, tree_path_to_ids, tree)
-        edge_lists.append(edges)
+    print "Loaded %d training examples" % len(execution_directories)
 
     return inlining_tree.Problem(
             tree_path_to_ids=tree_path_to_ids,
-            depth=len(matrices),
+            depth=tree_depth,
             node_labels=None,
             execution_times=execution_times,
             execution_directories=execution_directories,
@@ -280,7 +272,8 @@ def main():
     rundirs.extend(read_log_file(
       args.experiment_name, "../important-logs/batch_executor_before_specialise_for.log"))
 
-    tasks = list(iterate_rundirs(rundirs))
+    tasks = list(set(list(iterate_rundirs(rundirs))))
+    tasks.sort()
 
     if args.dry_run:
         print "Rundirs:"
@@ -288,8 +281,6 @@ def main():
         print "Tasks:"
         print "\n".join(str(x) for x in tasks)
         return 0
-
-    np.random.shuffle(rundirs)
 
     if args.debug:
         tasks = tasks[:10]
@@ -299,12 +290,12 @@ def main():
         #       partially -- why?
         num_threads = 1
 
-    tasks = list(set(tasks))  # Unlikely, but possible, to get duplicates
     bin_name = py_common.EXPERIMENT_TO_PARAMETERS[args.experiment_name].bin_name
     exp_subdir = py_common.EXPERIMENT_TO_PARAMETERS[args.experiment_name].subdir
     logging.info("Found %d tasks to perform data extraction" % len(tasks))
     logging.info("bin_name = %s" % bin_name)
     logging.info("exp_subdir = %s" % exp_subdir)
+    tasks.sort()
 
     if num_threads > 1:
         pool = concurrent.futures.ThreadPoolExecutor(num_threads)
@@ -315,26 +306,24 @@ def main():
         ]
         results = [r.result() for r in concurrent.futures.as_completed(futures)]
     elif num_threads == 1:
-        results = []
-        for task, rel_output_dir in tasks:
-            output_dir = os.path.join(
-                    "/media/usb/home/fyquah/fyp/prod/processed-data",
-                    args.experiment_name,
-                    rel_output_dir)
-            if not os.path.exists(output_dir):
-                os.makedirs(output_dir)
-            results.append(
-                    inlining_tree.load_tree_from_rundir(
+        def _loop():
+            for task, rel_output_dir in tasks:
+                output_dir = os.path.join(
+                        "/media/usb/home/fyquah/fyp/prod/processed-data",
+                        args.experiment_name,
+                        rel_output_dir)
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
+                result = inlining_tree.load_tree_from_rundir(
                         task,
                         bin_name,
                         preprocessing=("path_patching", exp_subdir),
-                        output_dir=output_dir
-                    )
-            )
+                        output_dir=output_dir)
+                if result is not None:
+                    yield (task, result[0], result[1])
+        results = _loop()
     else:
         assert False
-
-    results = [(d, r[0], r[1]) for d, r in zip(tasks, results) if r is not None]
 
     # loop = asyncio.get_event_loop()
     # done, pending = loop.run_until_complete(asyncio.wait(tasks))
@@ -344,11 +333,7 @@ def main():
     #     if result is not None:
     #         results.append(result)
     # loop.close()
-
-    logging.info("Loaded %d samples to train on" % len(results))
-    execution_directories, trees, execution_times = zip(*results)
-
-    problem = formulate_problem(trees, execution_times, execution_directories)
+    problem = formulate_problem(results)
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     problem.dump(args.output_dir)
