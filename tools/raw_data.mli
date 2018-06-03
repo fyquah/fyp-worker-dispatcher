@@ -10,7 +10,7 @@ module Reward : sig
   [@@deriving sexp]
 
   type t =
-    { path             : Protocol.Absolute_path.t;
+    { path             : Protocol.Absolute_path.t;  (* Path here is the expanded path .. *)
       inline_reward    : dual_reward option;
       no_inline_reward : float option
     }

@@ -11,6 +11,12 @@ module Feature_list = struct
   let to_map a =
     String.Map.of_alist_exn (to_list a)
   ;;
+
+  let sexp_of_t f t =
+    List.sexp_of_t (fun (a, b) ->
+        Sexp.List [ String.sexp_of_t a; f b; ])
+      (to_list t)
+  ;;
 end
 
 module Features = struct
@@ -24,6 +30,15 @@ module Features = struct
         |> to_array
         |> (fun a -> Owl.Mat.of_array a 1 (Array.length a))
     )
+  ;;
+
+  let sexp_of_t { int_features; numeric_features; bool_features; } =
+    let open Sexp in
+    List [
+      List [ Atom "int_features";     (Feature_list.sexp_of_t Int.sexp_of_t   int_features)];
+      List [ Atom "numeric_features"; (Feature_list.sexp_of_t Float.sexp_of_t numeric_features)];
+      List [ Atom "bool_features";    (Feature_list.sexp_of_t Bool.sexp_of_t  bool_features)];
+    ]
   ;;
 end
 

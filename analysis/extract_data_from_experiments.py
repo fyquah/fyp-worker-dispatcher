@@ -275,10 +275,10 @@ def main():
 
     rundirs.extend(read_log_file(
         args.experiment_name, "../important-logs/batch_executor_before_proof.log"))
-    # rundirs.extend(read_log_file(
-    #     args.experiment_name, "../important-logs/batch_executor_before_module_paths.log"))
-    # rundirs.extend(read_log_file(
-    #   args.experiment_name, "../important-logs/batch_executor_before_specialise_for.log"))
+    rundirs.extend(read_log_file(
+        args.experiment_name, "../important-logs/batch_executor_before_module_paths.log"))
+    rundirs.extend(read_log_file(
+      args.experiment_name, "../important-logs/batch_executor_before_specialise_for.log"))
 
     tasks = list(iterate_rundirs(rundirs))
 
@@ -350,7 +350,7 @@ def main():
 
     problem = formulate_problem(trees, execution_times, execution_directories)
     if not os.path.exists(args.output_dir):
-        os.mkdir(args.output_dir)
+        os.makedirs(args.output_dir)
     problem.dump(args.output_dir)
 
 

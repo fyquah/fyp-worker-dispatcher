@@ -97,15 +97,15 @@ def load(check):
 
 
 def main():
-    labelsize = 5
+    labelsize = 10
     matplotlib.rc('font',**{
         'family':'sans-serif',
         'sans-serif':['Helvetica'],
     })
-    matplotlib.rcParams.update({'font.size': 8, "font.family": "serif"})
+    matplotlib.rcParams.update({'font.size': 12, "font.family": "serif"})
     matplotlib.rc('xtick', labelsize=labelsize)
     matplotlib.rc('ytick', labelsize=labelsize)
-    matplotlib.rc('figure', figsize=(11.69,8.27))
+    matplotlib.rc('figure', figsize=(11.69,17.27))
 
     try:
         check = sys.argv[1]
@@ -123,13 +123,26 @@ def main():
         print "Not loading from cache"
         (exec_times, initial_exec_times) = load(check)
 
+    if os.path.exists(CACHE_FILE % check):
+        print "Loading initial exec times from cache"
+        with open(CACHE_FILE % None, 'rb') as f:
+            (_, initial_exec_times) = pickle.load(f)
+    else:
+        print "Not loading initial exec times from cache"
+        (_, initial_exec_times) = load(None)
+
     print "Done with reading heavy-lifting"
 
-    ncols = 3
+    ncols = 2
     nrows = int(math.ceil(len(all_experiments) / float(ncols)))
     fig, axes = plt.subplots(nrows, ncols)
 
-    fig.suptitle("Histogram of Execution Times in Experiments")
+    if check is None:
+        strategy = ""
+    else:
+        strategy = "(%s)" % check
+
+    fig.suptitle("Histogram of Execution Times in Experiments %s" % strategy)
     print "Num rows =", nrows, "; num cols =", ncols
 
     for r in range(nrows):

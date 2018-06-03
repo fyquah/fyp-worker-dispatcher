@@ -87,7 +87,7 @@ module Specification_file = struct
   [@@deriving sexp]
 end
 
-let load_call_site_examples ~version
+let load_call_site_examples_raw ~version
     (specification_entries: Specification_file.entry list) =
   Deferred.List.concat_map specification_entries ~f:(fun specification_entry ->
       let%bind (features_trace_pair_list : (Feature_extractor.trace_item list * [`raw] Features.t) list) =
@@ -109,6 +109,8 @@ let load_call_site_examples ~version
               (features.trace, Feature_engineering.convert_v0_features features))
         | `V1 ->
           read_marshal_exn (prefix ^/ "queries-v0.bin")
+          >>| List.filter ~f:(fun (query : Inlining_query.query) ->
+              (query.env.round = 0))
           >>| List.map ~f:(fun (query : Inlining_query.query) ->
               (query_trace query, Manual_features_v1.process query))
       in
@@ -130,13 +132,12 @@ let load_call_site_examples ~version
         |> Protocol.Absolute_path.Map.of_alist_exn
       in
       let examples =
-        List.filter_map features_trace_pair_list ~f:(fun (trace, features) ->
+        List.map features_trace_pair_list ~f:(fun (trace, features) ->
             let trace =
               Protocol.Absolute_path.of_trace trace
               |> Absolute_path.compress
             in
-            Option.map (Absolute_path.Map.find rewards trace)
-              ~f:(fun r -> (features, r)))
+            (features, (Absolute_path.Map.find rewards trace)))
         in
       Log.Global.info "%s | Loaded %d reward entries"
         specification_entry.name (Absolute_path.Map.length rewards);
@@ -146,12 +147,22 @@ let load_call_site_examples ~version
         specification_entry.name (List.length examples);
       examples)
   >>| fun examples ->
-  Log.Global.info "Loaded a total of %d training examples"
+  Log.Global.info "Loaded a total of raw %d training examples"
     (List.length examples);
   List.permute examples
 ;;
 
 let load_from_specification ~version specification =
+  let load_call_site_examples ~version spec =
+    let filter_valid l =
+      List.filter_map l ~f:(fun (a, b) ->
+        match b with
+        | None -> None
+        | Some b -> Some (a, b))
+    in
+    load_call_site_examples_raw ~version spec
+    >>| filter_valid
+  in
   match specification with
   | Specification_file.Segmented { training; test; } -> 
     Deferred.both
