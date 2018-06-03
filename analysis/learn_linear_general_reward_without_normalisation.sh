@@ -17,9 +17,9 @@ fi
 # RIDGE_FACTORS="0.003 0.005 0.009 0.03 0.05 0.09 0.3 0.5 0.9"
 
 ## Simple parameters
-DECAY_FACTORS="0.3 0.7 0.93 0.97 0.993 0.997 1.0"
-RIDGE_FACTORS="0.003 0.007 0.03 0.07 0.3 0.7"
-BENEFIT_FUNCTIONS="sigmoid_speedup_over_mean linear_speedup_over_mean log_speedup_over_mean tanh_speedup_over_mean sigmoid_speedup_over_baseline linear_speedup_over_baseline log_speedup_over_baseline tanh_speedup_over_baseline"
+DECAY_FACTORS="0.4 0.9 1.0"
+RIDGE_FACTORS="0.005 0.05 0.5"
+BENEFIT_FUNCTIONS="linear_speedup_over_mean log_speedup_over_mean tanh_speedup_over_mean linear_speedup_over_baseline log_speedup_over_baseline tanh_speedup_over_baseline"
 
 ### (1) Hyperparameter sweep
 TASK_FILE=$(mktemp)
