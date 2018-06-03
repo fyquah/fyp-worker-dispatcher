@@ -52,7 +52,7 @@ def main():
     plot_data = []
     initial_exec_time_by_bench = {}
     best_times_by_bench = {}
-    for benchmark in py_common.EXPERIMENT_TO_PARAMETERS.keys():
+    for benchmark in py_common.INITIAL_EXPERIMENTS:
         initial_exec_times = []
         best_time = None
         with open("../pca-data/%s.csv" % benchmark, "rb") as f:
@@ -69,7 +69,7 @@ def main():
     del best_time
     all_records = collections.defaultdict(list)
 
-    for benchmark in py_common.EXPERIMENT_TO_PARAMETERS.keys():
+    for benchmark in py_common.INITIAL_EXPERIMENTS:
         bench_dir = (
             "../results/%s/%s/"
             % (benchmark, args.model))
@@ -77,6 +77,8 @@ def main():
         initial_exec_time = initial_exec_time_by_bench[benchmark]
         best_time = best_times_by_bench[benchmark]
         for filename in csv_files:
+            if not matches_filter(filename, args):
+                continue
             with open(os.path.join(bench_dir, filename), "rb") as f:
                 times = []
                 for line in csv.reader(f):
@@ -84,27 +86,65 @@ def main():
                 if len(times) >= 1:
                     time = geometric_mean(times)
                     ratio = (time - best_time) / (initial_exec_time - best_time)
-                    all_records[benchmark].append((filename, time, ratio))
+                    speedup = (initial_exec_time - time) / initial_exec_time
+                    all_records[filename].append((benchmark, time, ratio, speedup))
 
     collected_ratios = collections.defaultdict(list)
+    NUM_ENTRIES = 3
 
-    for benchmark in py_common.EXPERIMENT_TO_PARAMETERS.keys():
-        best_ratio = None
-        worst_ratio = None
-        active_ratio = None
+    arr = []
+    for k, v in all_records.iteritems():
+        arr.append((k, v))
 
-        for filename, time, ratio in all_records[benchmark]:
-            collected_ratios[filename].append(max(0, ratio))
+    # arr.sort(key=lambda (_k, v): max(e[3] for e in v))
+    arr.sort(key=lambda (_k, v): min(-e[3] for e in v))
+    header = ", ".join([
+        "Benchmark", 
+        "Best Seen",
+        "Best Hyperparams",
+        ] + ["Hyperparams %d" % i for i in range(NUM_ENTRIES)])
+    print header
 
-    for k in collected_ratios.keys():
-        if len(collected_ratios[k]) < len(py_common.EXPERIMENT_TO_PARAMETERS.keys()):
-            del collected_ratios[k]
+    best_source = []
 
-    for k, v in collected_ratios.iteritems():
-        print k, sum(v)
+    for benchmark in py_common.INITIAL_EXPERIMENTS:
+        out = [benchmark]
 
-    print min([(k, v) for k, v in collected_ratios.iteritems()],
-            key=lambda a: sum(a[1]))
+        out.append("%.3f%% (0.000)" % ((initial_exec_time_by_bench[benchmark] - best_times_by_bench[benchmark]) / (initial_exec_time_by_bench[benchmark]) * 100))
+
+        all_seen_for_benchmark = []
+        for i in range(len(arr)):
+            for entry in arr[i][1]:
+                if entry[0] != benchmark:
+                    continue
+                all_seen_for_benchmark.append(entry)
+        best = max(all_seen_for_benchmark, key=lambda v:v[3])
+        param_name = arr[all_seen_for_benchmark.index(best)][0]
+        best_source.append("- %s : %s" % (benchmark, param_name))
+        out.append("%.3f%% (%.3f)" % (best[3] * 100, best[2]))
+
+        # The best set of hyperparams
+        for i in range(NUM_ENTRIES):
+            found = False
+            for entry in arr[i][1]:
+                if entry[0] != benchmark:
+                    continue
+                speedup = entry[3]
+                ratio = entry[2]
+                out.append("%.3f%% (%.3f)" % (speedup * 100, ratio))
+                found = True
+                break
+            assert found
+        print ", ".join(out)
+
+    for i in range(NUM_ENTRIES):
+        print "\\textit{Hyperparams} %d & %s \\\\" % (i, arr[i][0])
+
+    for line in best_source:
+        print line
+
+        
+
 
 if __name__ == "__main__":
     main()
