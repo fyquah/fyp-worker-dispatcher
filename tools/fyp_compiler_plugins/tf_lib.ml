@@ -144,3 +144,24 @@ let merge a b =
   | a, Nothing -> a
   | _, _ -> assert false
 ;;
+
+
+let features_to_t
+    ~int_features ~numeric_features ~bool_features
+    ~numeric_feature_indices ~bool_feature_indices
+    ~numeric_feature_means ~numeric_feature_std =
+  let to_array x =
+    Feature_list.to_list x |> List.map (fun (_, a) -> a ) |> Array.of_list
+  in
+  let bool_to_float x = if x then 1.0 else 0.0 in
+  let numeric_features =
+    let arr = to_array numeric_features in
+    Array.mapi (fun i j ->
+        (arr.(j) - numeric_feature_means.(i)) / numeric_feature_std.(i))
+      numeric_feature_indices
+  in
+  let bool_features = to_array bool_features |> bool_to_float
+  let features =
+    tf_lib.Vec (Array.concat [ numeric_features; bool_features; ])
+  in
+  matmul (Vec weights) features

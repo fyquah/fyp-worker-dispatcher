@@ -28,3 +28,13 @@ val mul        : float t -> float t -> float t
 (* loading from other things *)
 val get_variable : string -> int array -> float t
 val merge        : 'a t -> 'a t -> 'a t
+
+let features_to_t 
+   : int_features: (string * int) list
+  -> numeric_features: (string * float) list
+  -> bool_features: (string * bool) list
+  -> numeric_feature_indices: int array
+  -> bool_feature_indices: int array
+  -> numeric_feature_means: float list
+  -> numeric_feature_std: float list
+  -> float t
