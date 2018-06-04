@@ -145,11 +145,18 @@ let merge a b =
   | _, _ -> assert false
 ;;
 
+module Feature_list = Feature_utils.Feature_list
+
+let unpack_scalar_exn = function
+  | Scalar a -> a
+  | _ -> assert false
+;;
 
 let features_to_t
-    ~int_features ~numeric_features ~bool_features
-    ~numeric_feature_indices ~bool_feature_indices
-    ~numeric_feature_means ~numeric_feature_std =
+    ~(int_features: int Feature_list.t)
+    ~numeric_features ~bool_features
+    ~numeric_features_indices ~bool_features_indices
+    ~numeric_features_means ~numeric_features_std =
   let to_array x =
     Feature_list.to_list x |> List.map (fun (_, a) -> a ) |> Array.of_list
   in
@@ -157,11 +164,12 @@ let features_to_t
   let numeric_features =
     let arr = to_array numeric_features in
     Array.mapi (fun i j ->
-        (arr.(j) - numeric_feature_means.(i)) / numeric_feature_std.(i))
-      numeric_feature_indices
+        (arr.(j) -. numeric_features_means.(i)) /. numeric_features_std.(i))
+      numeric_features_indices
   in
-  let bool_features = to_array bool_features |> bool_to_float
+  let bool_features = to_array bool_features |> Array.map bool_to_float in
   let features =
-    tf_lib.Vec (Array.concat [ numeric_features; bool_features; ])
+    Vec (Array.concat [ numeric_features; bool_features; ])
   in
-  matmul (Vec weights) features
+  features
+;;

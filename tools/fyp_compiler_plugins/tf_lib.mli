@@ -28,13 +28,14 @@ val mul        : float t -> float t -> float t
 (* loading from other things *)
 val get_variable : string -> int array -> float t
 val merge        : 'a t -> 'a t -> 'a t
+val unpack_scalar_exn : 'a t -> 'a
 
-let features_to_t 
-   : int_features: (string * int) list
-  -> numeric_features: (string * float) list
-  -> bool_features: (string * bool) list
-  -> numeric_feature_indices: int array
-  -> bool_feature_indices: int array
-  -> numeric_feature_means: float list
-  -> numeric_feature_std: float list
+val features_to_t 
+   : int_features: int Feature_utils.Feature_list.t
+  -> numeric_features: float Feature_utils.Feature_list.t
+  -> bool_features: bool Feature_utils.Feature_list.t
+  -> numeric_features_indices: int array
+  -> bool_features_indices: int array
+  -> numeric_features_means: float array
+  -> numeric_features_std: float array
   -> float t
