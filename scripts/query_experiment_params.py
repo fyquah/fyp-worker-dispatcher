@@ -8,6 +8,7 @@ group1.add_argument("--bin-name", action="store_true")
 group1.add_argument("--subdir", action="store_true")
 group1.add_argument("--bin-args", action="store_true")
 group1.add_argument("--all", action="store_true")
+group1.add_argument("--all-old", action="store_true")
 group1.add_argument("--methods", action="store_true")
 group1.add_argument("--module-paths", action="store_true")
 
@@ -17,6 +18,10 @@ def main():
 
     if args.all:
         print " ".join(py_common.EXPERIMENT_TO_PARAMETERS.keys())
+        return
+
+    if args.all_old:
+        print " ".join(py_common.INITIAL_EXPERIMENTS)
         return
 
     d = py_common.EXPERIMENT_TO_PARAMETERS[name]

@@ -112,6 +112,8 @@ def main():
 
         out.append("%.3f%%" % ((initial_exec_time_by_bench[benchmark] - best_times_by_bench[benchmark]) / (initial_exec_time_by_bench[benchmark]) * 100))
 
+        # AAAAA: bdd ('bdd', 12.579324946812703, -0.15538934235601762, 0.04276107403823157) decay-0.300000-ridge-0.003000-benefit-log_speedup_over_mean.csv [('kahan-sum', 8.627332007101767, 0.0906675710143047, 0.013002210856812734), ('lens', 4.491999999999999, 0.00402666060794026, 0.5420957908099022)]
+
         all_seen_for_benchmark = []
         for i in range(len(arr)):
             for entry in arr[i][1]:
@@ -119,8 +121,12 @@ def main():
                     continue
                 all_seen_for_benchmark.append(entry)
         best = max(all_seen_for_benchmark, key=lambda v:v[3])
-        param_name = arr[all_seen_for_benchmark.index(best)][0]
-        best_source.append("- %s : %s" % (benchmark, param_name))
+        param_name = None
+        for k, v in arr:
+            if best in v:
+                param_name = k
+        assert param_name is not None
+        best_source.append(" (%s  %s)" % (benchmark, os.path.splitext(os.path.basename(param_name))[0]))
         out.append("%.3f%% (%.3f)" % (best[3] * 100, best[2]))
 
         # The best set of hyperparams
@@ -141,10 +147,11 @@ def main():
     for i in range(min(len(arr), NUM_ENTRIES)):
         print "\\textit{Hyperparams} %d & %s \\\\" % (i, arr[i][0])
 
-    for line in best_source:
-        print line
-
-        
+    with open("best-hyperparams.sexp", "w") as f:
+        f.write("(\n")
+        for line in best_source:
+            f.write(line + "\n")
+        f.write(")\n")
 
 
 if __name__ == "__main__":
