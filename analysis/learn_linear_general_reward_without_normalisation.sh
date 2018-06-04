@@ -34,4 +34,14 @@ for decay_factor in $DECAY_FACTORS; do
     done
   done
 done
+
+
+for benefit_function in $BENEFIT_FUNCTIONS; do
+  echo "--skip-normalisation $BENCHMARK_OUT_DIR --decay-factor 1.0 --ridge-factor 2.0  --benefit-function $benefit_function" >>$TASK_FILE
+done
+
+echo "--skip-normalisation $BENCHMARK_OUT_DIR --decay-factor 0.3 --ridge-factor 0.003  --benefit-function sigmoid_speedup_over_mean" >>$TASK_FILE
+echo "--skip-normalisation $BENCHMARK_OUT_DIR --decay-factor 0.3 --ridge-factor 0.003  --benefit-function linear_speedup_over_mean" >>$TASK_FILE
+echo "--skip-normalisation $BENCHMARK_OUT_DIR --decay-factor 0.3 --ridge-factor 0.003  --benefit-function tanh_speedup_over_baseline" >>$TASK_FILE
+
 python2 batch_execute.py learn_linear_general_reward $ADDITIONAL_FLAGS <$TASK_FILE

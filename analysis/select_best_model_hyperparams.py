@@ -90,14 +90,14 @@ def main():
                     all_records[filename].append((benchmark, time, ratio, speedup))
 
     collected_ratios = collections.defaultdict(list)
-    NUM_ENTRIES = 3
+    NUM_ENTRIES = 10
 
     arr = []
     for k, v in all_records.iteritems():
         arr.append((k, v))
 
     # arr.sort(key=lambda (_k, v): max(e[3] for e in v))
-    arr.sort(key=lambda (_k, v): min(-e[3] for e in v))
+    arr.sort(key=lambda (_k, v): sum(e[2] for e in v))
     header = ", ".join([
         "Benchmark", 
         "Best Seen",
@@ -110,7 +110,7 @@ def main():
     for benchmark in py_common.INITIAL_EXPERIMENTS:
         out = [benchmark]
 
-        out.append("%.3f%% (0.000)" % ((initial_exec_time_by_bench[benchmark] - best_times_by_bench[benchmark]) / (initial_exec_time_by_bench[benchmark]) * 100))
+        out.append("%.3f%%" % ((initial_exec_time_by_bench[benchmark] - best_times_by_bench[benchmark]) / (initial_exec_time_by_bench[benchmark]) * 100))
 
         all_seen_for_benchmark = []
         for i in range(len(arr)):
@@ -124,7 +124,7 @@ def main():
         out.append("%.3f%% (%.3f)" % (best[3] * 100, best[2]))
 
         # The best set of hyperparams
-        for i in range(NUM_ENTRIES):
+        for i in range(min(len(arr), NUM_ENTRIES)):
             found = False
             for entry in arr[i][1]:
                 if entry[0] != benchmark:
@@ -134,10 +134,11 @@ def main():
                 out.append("%.3f%% (%.3f)" % (speedup * 100, ratio))
                 found = True
                 break
-            assert found
+            if not found:
+                out.append("N/A")
         print ", ".join(out)
 
-    for i in range(NUM_ENTRIES):
+    for i in range(min(len(arr), NUM_ENTRIES)):
         print "\\textit{Hyperparams} %d & %s \\\\" % (i, arr[i][0])
 
     for line in best_source:
