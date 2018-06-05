@@ -48,20 +48,28 @@ def main():
         csv_files = os.listdir(bench_dir)
         initial_exec_time = initial_exec_time_by_bench[benchmark]
         best_time = best_times_by_bench[benchmark]
-        with open(os.path.join(bench_dir, "plugin_%s.csv" % plugin_name), "rb") as f:
-            times = []
-            for line in csv.reader(f):
-                for i in range(4, len(line)):
-                    times.append(parse_time(line[i]))
-            if len(times) >= 1:
-                time = geometric_mean(times)
-                ratio = (time - best_time) / (initial_exec_time - best_time)
-                speedup = (initial_exec_time - time) / initial_exec_time
-                all_records[benchmark] = (time, ratio, speedup)
+        try:
+            with open(os.path.join(bench_dir, "plugin_%s.csv" % plugin_name), "rb") as f:
+                times = []
+                for line in csv.reader(f):
+                    for i in range(4, len(line)):
+                        times.append(parse_time(line[i]))
+                if len(times) >= 1:
+                    time = geometric_mean(times)
+                    ratio = (time - best_time) / (initial_exec_time - best_time)
+                    speedup = (initial_exec_time - time) / initial_exec_time
+                    all_records[benchmark] = (time, ratio, speedup)
+                else:
+                    all_records[benchmark] = (None, None, None)
+        except IOError:
+            all_records[benchmark] = (None, None, None)
 
     arr = []
     for bench, (_time, _ratio, speedup) in all_records.iteritems():
-        print "%s: %f%%" % (bench, speedup * 100)
+        if speedup is None:
+            print "%s: N/A" % (bench)
+        else:
+            print "%s: %f%%" % (bench, speedup * 100)
 
 if __name__ == "__main__":
     main()
