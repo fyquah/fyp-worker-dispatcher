@@ -42,6 +42,96 @@ let command_dump_rewards =
     ]
 ;;
 
+let command_describe_rewards =
+  let open Command.Let_syntax in
+  Command.async ~summary:"describe the path in features"
+  [%map_open
+    let filename = anon ("filename" %: string) in
+    fun () ->
+      let open Deferred.Let_syntax in
+      let%bind examples =
+        Reader.load_sexp_exn filename [%of_sexp: Raw_data.Reward.t list]
+        >>| fun rewards ->
+        List.map rewards ~f:(fun reward ->
+          { reward with path = Absolute_path.expand reward.path })
+      in
+      List.iter examples ~f:(fun (reward : Raw_data.Reward.t) ->
+        let path = reward.path in
+        let termination =
+          match reward.no_inline_reward with
+          | None -> "-INF"
+          | Some term ->
+            if term >= 0.0 then
+              sprintf "-%4f" term
+            else
+              sprintf " %4f" (abs_float term)
+        in
+        let long_term =
+          match reward.inline_reward with
+          | None -> " -INF "
+          | Some x ->
+            if x.long_term >= 0.0 then
+              sprintf "-%.4f" x.long_term
+            else
+              sprintf " %.4f" (abs_float x.long_term)
+        in
+        printf "- (%s | %s)\t" long_term termination;
+        List.iter path ~f:(function
+          | Decl co ->
+            printf "%s" (Format.asprintf "/Decl(%a)" Closure_origin.print co)
+          | Apply app ->
+            printf "%s" (sprintf "/Apply(%s)" (Apply_id.Node_id.to_string (List.last_exn app))));
+        printf "\n";
+      );
+      Deferred.unit
+  ]
+;;
+
+let command_describe_features =
+  let open Command.Let_syntax in
+  Command.async ~summary:"describe the path in features"
+  [%map_open
+    let filename =
+      flag "-filename" (required file) ~doc:"FILE specification file"
+    and feature_version =
+      flag "-feature-version" (required string) ~doc:"Feature version"
+    in
+    fun () ->
+      let open Deferred.Let_syntax in
+      let%bind examples =
+        read_marshal_exn filename
+        >>| List.filter ~f:(fun (query : Inlining_query.query) ->
+            (query.env.round = 0))
+        >>| List.map ~f:(fun (query : Inlining_query.query) ->
+            (query_trace query, Manual_features_v1.process query))
+      in
+      let names =
+        List.hd_exn examples |> snd |> Features.names
+      in
+      printf "Path ";
+      List.iter names ~f:(fun name -> printf "%s " name);
+      printf "\n";
+      List.iter examples ~f:(fun (trace, (features : 'a Features.t)) ->
+        List.iter (Absolute_path.(expand (of_trace trace))) ~f:(function
+          | Decl co ->
+            printf "%s" (Format.asprintf "/Decl(%a)" Closure_origin.print co)
+          | Apply app ->
+            printf "%s" (sprintf "/Apply(%s)" (Apply_id.Node_id.to_string (List.last_exn app))));
+        printf " ";
+
+        List.iter names ~f:(fun name ->
+          match Features.find_exn features name with
+          | `Int d     -> printf "%d " d
+          | `Numeric f -> printf "%f " f
+          | `Bool b    -> printf "%b " b);
+
+        printf "\n";
+      );
+      printf "Number of examples = %d\n" (List.length examples);
+      Deferred.unit
+    ]
+;;
+
 let command_dump_v1_data =
   let open Command.Let_syntax in
   Command.async ~summary:"v1 features"
@@ -79,6 +169,8 @@ let command_dump_v1_data =
 let command =
   Command.group ~summary:"Binary to generate plot data"
   [("dump-rewards", command_dump_rewards);
+   ("describe-features", command_describe_features);
+   ("describe-rewards", command_describe_rewards);
    ("dump-v1-data", command_dump_v1_data);
   ]
 ;;
