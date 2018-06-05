@@ -485,6 +485,7 @@ def codegen_model(
     f.write("    Tf_lib.matmul (Tf_lib.Vec weights) features\n")
     f.write("    |> Tf_lib.add (Tf_lib.Scalar intercept)\n")
     f.write("    |> Tf_lib.unpack_scalar_exn\n")
+    f.write("    |> Tf_lib.sigmoid\n")
     f.write("  in\n")
     f.write("  Tf_lib.Vec [| 1.0 -. output; output; |]\n")
     f.write(";;")
