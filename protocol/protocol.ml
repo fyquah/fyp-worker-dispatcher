@@ -19,7 +19,8 @@ module Absolute_path = struct
     type t = item list [@@deriving sexp, compare]
 
     let of_trace (trace : Feature_extractor.trace_item list) =
-      List.map trace ~f:(fun item ->
+      (* TRACE is reversed, absolute path isn't *)
+      List.rev_map trace ~f:(fun item ->
         match item with
         | Feature_extractor.Apply app ->
           Apply (Apply_id.to_path app)
@@ -27,20 +28,50 @@ module Absolute_path = struct
           Decl co)
     ;;
 
-    let compress path =
-      let last_seen : [ `Decl | `Apply ] ref  = ref `Decl in
-      List.filter_map (List.rev path) ~f:(fun p ->
+    let rec trim_prefix ~prefix path =
+      match prefix, path with
+      | [], path -> path
+      | prefix_hd :: prefix_tl, hd :: tl ->
+        if not (Apply_id.Node_id.equal prefix_hd hd) then begin
+          failwithf "prefix don't match! prefix=(%s) and (%s)"
+            (Apply_id.Path.to_string prefix)
+            (Apply_id.Path.to_string path)
+            ();
+        end;
+        trim_prefix ~prefix:prefix_tl tl
+      | _, [] -> assert false
+    ;;
+
+    let expand path =
+      let (last_seen : [ `Decl | `Apply of Apply_id.Path.t ] ref) =
+        ref `Decl
+      in
+      List.concat_map path ~f:(fun p ->
           match p with
-          | Decl  _ -> 
+          | Decl _ -> 
             last_seen := `Decl;
-            Some p
-          | Apply _ -> 
-            match !last_seen with
-            | `Apply -> None
-            | `Decl -> 
-              last_seen := `Apply;
-              Some p)
-      |> List.rev
+            [ p ]
+          | Apply this_inlining_path -> 
+            let path_prefix =
+              match !last_seen with
+              | `Apply history -> history
+              | `Decl -> []
+            in
+            let ret =
+              let trimmed = trim_prefix ~prefix:path_prefix this_inlining_path in
+              begin match trimmed with
+              | [] ->
+                failwithf
+                  !"trimed is empty this = %{Apply_id.Path} prefix = %{Apply_id.Path}" 
+                  this_inlining_path path_prefix ()
+              | _ -> ()
+              end;
+              List.init (List.length trimmed) ~f:(fun i ->
+                path_prefix @ List.take trimmed (i + 1)
+              )
+            in
+            last_seen := (`Apply (List.last_exn ret));
+            List.map ret ~f:(fun p -> Apply p))
     ;;
   end
 

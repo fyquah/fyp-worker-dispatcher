@@ -87,20 +87,21 @@ module Specification_file = struct
   [@@deriving sexp]
 end
 
+let read_marshal_exn filename =
+  match%bind Async.Sys.file_exists filename with
+  | `Unknown
+  | `No -> return []
+  | `Yes ->
+    Reader.with_file filename ~f:(fun rdr ->
+        Reader.read_marshal rdr >>= function
+        | `Eof -> failwith "Cannot read somethign like this"
+        | `Ok value -> return value)
+;;
+
 let load_call_site_examples_raw ~version
     (specification_entries: Specification_file.entry list) =
   Deferred.List.concat_map specification_entries ~f:(fun specification_entry ->
       let%bind (features_trace_pair_list : (Feature_extractor.trace_item list * [`raw] Features.t) list) =
-        let read_marshal_exn filename =
-          match%bind Async.Sys.file_exists filename with
-          | `Unknown
-          | `No -> return []
-          | `Yes ->
-            Reader.with_file filename ~f:(fun rdr ->
-                Reader.read_marshal rdr >>= function
-                | `Eof -> failwith "Cannot read somethign like this"
-                | `Ok value -> return value)
-        in  
         let prefix = specification_entry.features_file in
         match version with
         | `V0 ->
@@ -122,7 +123,8 @@ let load_call_site_examples_raw ~version
         | `Yes ->
           Reader.load_sexp_exn rewards_file [%of_sexp: Raw_data.Reward.t list]
           >>| List.map ~f:(fun (reward : Raw_data.Reward.t) ->
-              { reward with path = Absolute_path.compress reward.path })
+              (* expansion probably unnecessary, but oh well :p *)
+              { reward with path = Absolute_path.expand reward.path })
       in
       let rewards =
         List.map raw_rewards ~f:(fun entry ->
@@ -135,7 +137,7 @@ let load_call_site_examples_raw ~version
         List.map features_trace_pair_list ~f:(fun (trace, features) ->
             let trace =
               Protocol.Absolute_path.of_trace trace
-              |> Absolute_path.compress
+              |> Absolute_path.expand
             in
             (features, (Absolute_path.Map.find rewards trace)))
         in

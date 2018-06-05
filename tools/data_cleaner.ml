@@ -104,17 +104,18 @@ let command_concat_features =
         in
         let%bind () =
           loop_lines stdin ~f:(fun ~idx:_ filename ->
-            let (extracted_features : Feature_extractor.t list) =
+            let (queries : Inlining_query.query list) =
               let ic = Caml.open_in filename in
               let value = Caml.input_value ic in
               Caml.close_in ic;
               value
             in
-            List.iter extracted_features ~f:(fun feature_vector -> 
+            List.iter queries ~f:(fun query -> 
               let key =
-                Protocol.Absolute_path.of_trace feature_vector.trace
+                Protocol.Absolute_path.of_trace (Common.query_trace query)
+                |> Protocol.Absolute_path.expand
               in
-              let data = feature_vector in
+              let data = query in
               ref_features :=
                 Protocol.Absolute_path.Map.update !ref_features key ~f:(fun _ -> data));
             return ())

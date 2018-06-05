@@ -77,6 +77,22 @@ module Apply_id = struct
       Compilation_unit.equal (fst a) (fst b) &&
       Stamp.compare (snd a) (snd b) = 0
     ;;
+
+    let to_string (compilation_unit, stamp) =
+      let compilation_unit =
+        Fyp_compiler_lib.Linkage_name.to_string (
+          Compilation_unit.get_linkage_name compilation_unit)
+      in
+      let stamp =
+        match stamp with
+        | Fyp_compiler_lib.Apply_id.Plain_apply x ->
+          sprintf "Apply[%d]" x
+        | Fyp_compiler_lib.Apply_id.Over_application x ->
+          sprintf "Over[%d]" x
+        | Fyp_compiler_lib.Apply_id.Stub -> "Stub"
+      in
+      sprintf "%s__%s" compilation_unit stamp
+    ;;
   end
 
   module Path = struct

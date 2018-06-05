@@ -149,12 +149,37 @@ module Features = struct
   ;;
 end
 
-let query_trace (data : Inlining_query.query) =
-  List.map (fun (_, item) ->
-      match item with
-      | Data_collector.Trace_item.Enter_decl { declared; _ } ->
+let query_trace (query : Inlining_query.query) =
+  let call_site =
+    let apply_id = query.apply_id in
+    let applied =  (* HACK *)
+      { Data_collector.Function_metadata.
+        closure_id = Some query.closure_id_being_applied;
+        set_of_closures_id = None;
+        closure_origin = query.function_decl.closure_origin;
+        opt_closure_origin = None;
+        specialised_for = None;
+      }
+    in
+    match query.env.current_closure with
+    | None ->
+      Data_collector.Trace_item.At_call_site { source = None; apply_id; applied; }
+    | Some (source_closure : Data_collector.Function_metadata.t) ->
+      let source_closure_id =
+        match source_closure.closure_id with
+        | Some x -> x
+        | None -> assert false
+      in
+      Data_collector.Trace_item.At_call_site
+        { source = Some source_closure; applied; apply_id; }
+  in
+  let to_trace_item item =
+    match item with
+    | Data_collector.Trace_item.Enter_decl { declared; _ } ->
         Feature_extractor.Decl declared.closure_origin
-      | Data_collector.Trace_item.At_call_site acs ->
-        Feature_extractor.Apply acs.apply_id)
-    data.env.inlining_stack
+    | Data_collector.Trace_item.At_call_site acs ->
+        Feature_extractor.Apply acs.apply_id
+  in
+  to_trace_item call_site
+  :: (List.map (fun (_, item) -> to_trace_item item) query.env.inlining_stack)
 ;;

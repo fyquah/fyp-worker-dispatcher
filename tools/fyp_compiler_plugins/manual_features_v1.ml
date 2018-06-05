@@ -164,21 +164,21 @@ let process (query : Inlining_query.query) =
       | None -> 0
       | Some descr ->
         match (descr : Simple_value_approx.descr) with
-        | Value_block _ -> 1
-        | Value_int _ -> 1
-        | Value_char _ -> 2
-        | Value_constptr _ -> 3
-        | Value_float _ -> 4
+        | Value_int _                           -> 1
+        | Value_char _                          -> 2
+        | Value_constptr _                      -> 3
+        | Value_float _                         -> 4
         | Simple_value_approx.Value_boxed_int _ -> 5
-        | Value_set_of_closures _ -> 6
-        | Value_closure _ -> 7
-        | Value_string _ -> 8
-        | Value_float_array _ -> 9
-        | Value_unknown _ -> 10
-        | Value_bottom -> 11
-        | Value_extern _ -> 12
-        | Value_symbol _ -> 13
-        | Value_unresolved _ -> 14
+        | Value_set_of_closures _               -> 6
+        | Value_closure _                       -> 7
+        | Value_string _                        -> 8
+        | Value_float_array _                   -> 9
+        | Value_unknown _                       -> 10
+        | Value_bottom                          -> 11
+        | Value_extern _                        -> 12
+        | Value_symbol _                        -> 13
+        | Value_unresolved _                    -> 14
+        | Value_block _                         -> 15
     in
     let bool_features =
       List.init 7 (fun i ->
@@ -194,7 +194,7 @@ let process (query : Inlining_query.query) =
           opt_descr
           |> classify_arg
           |> (fun label ->
-              bounded_discretise ~lo:0 ~hi:14
+              bounded_discretise ~lo:0 ~hi:15
                 (Format.asprintf "approx_arg_%d" i, label)))
       |> List.concat
       |> Feature_list.of_list
