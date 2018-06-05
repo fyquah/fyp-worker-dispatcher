@@ -419,6 +419,16 @@ def main():
     print "familiarity model score:", familiarity_model.score(features, familiarity_labels)
     fpr, tpr, thresholds = roc_curve(familiarity_labels, familiarity_model.predict_proba(features)[:, 1])
 
+    if args.familiarity_model_file:
+        with open(args.familiarity_model_file, "w") as f:
+            codegen_model(
+                    f=f,
+                    model=familiarity_model,
+                    numeric_feature_indices=relevant_numeric_features_indices,
+                    bool_feature_indices=relevant_bool_features_indices,
+                    numeric_feature_means=np.mean(relevant_numeric_features, axis=0),
+                    numeric_feature_std=np.std(relevant_numeric_features, axis=0))
+
     decision_features = np.array(decision_features)
     decision_labels = np.array(decision_labels)
     print "decision training examples:", len(decision_labels)
@@ -432,16 +442,6 @@ def main():
             codegen_model(
                     f=f,
                     model=decision_model,
-                    numeric_feature_indices=relevant_numeric_features_indices,
-                    bool_feature_indices=relevant_bool_features_indices,
-                    numeric_feature_means=np.mean(relevant_numeric_features, axis=0),
-                    numeric_feature_std=np.std(relevant_numeric_features, axis=0))
-
-    if args.familiarity_model_file:
-        with open(args.familiarity_model_file, "w") as f:
-            codegen_model(
-                    f=f,
-                    model=familiarity_model,
                     numeric_feature_indices=relevant_numeric_features_indices,
                     bool_feature_indices=relevant_bool_features_indices,
                     numeric_feature_means=np.mean(relevant_numeric_features, axis=0),
