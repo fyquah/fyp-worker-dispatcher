@@ -34,6 +34,12 @@ option_of_sexp = inlining_tree.option_of_sexp
 
 B = 5.0
 
+I_DONT_KNOW = 0
+ONLY_KNOW_INLINE = 1
+ONLY_KNOW_APPLY = 2
+BETTER_INLINE = 3
+BETTER_APPLY  = 4
+
 def sgn(x):
     if x < 0:
         return -1
@@ -353,6 +359,21 @@ def train_models(features, labels):
     familiarity_features = np.array(features)
     familiarity_labels = np.array(familiarity_labels)
 
+    decision_features = np.array(features)[labels > 0, :]
+    decision_labels = []
+
+    for x in labels:
+        if x == I_DONT_KNOW:
+            pass
+        elif x == ONLY_KNOW_APPLY or x == BETTER_APPLY:
+            decision_labels.append(False)
+        elif x == ONLY_KNOW_INLINE or x == BETTER_INLINE:
+            decision_labels.append(True)
+        else:
+            assert False
+
+    assert len(decision_features) == len(decision_labels)
+
     print "- familiarity label mean:", np.mean(familiarity_labels)
     familiarity_model = MLPClassifier(
             solver='lbfgs', alpha=1e-5,
@@ -363,20 +384,10 @@ def train_models(features, labels):
     print "- familiarity model score:", familiarity_model.score(features, familiarity_labels)
     fpr, tpr, thresholds = roc_curve(familiarity_labels, familiarity_model.predict_proba(features)[:, 1])
 
-    decision_features = np.array(features)[labels > 0, :]
-    decision_labels = []
-
-    for x in labels:
-        if x == 0:
-            pass
-        elif x == 1:
-            decision_labels.append(False)
-        elif x == 2:
-            decision_labels.append(True)
-        else:
-            assert False
-
-    assert len(decision_features) == len(decision_labels)
+    if np.mean(familiarity_labels) < 0.05:
+        print "- USING CONSTANT FAMILIARITY MODEL TO PREDICT UNFAMILIAR"
+        familiarity_model.coefs_ = [np.zeros((1, features.shape[1]))]
+        familiarity_model.intercepts_ = [(20.0,)]
 
     print "- decision number of training examples:", len(decision_labels)
     print "- decision label mean:", np.mean(decision_labels)
@@ -436,32 +447,24 @@ def main():
     normalised_numeric_features = normalised_numeric_features / np.std(relevant_numeric_features, axis=0)
 
     features = np.concatenate([normalised_numeric_features, relevant_bool_features], axis=1)
-
     thorough_labels = []
-    familiarity_labels = []
-    decision_features = []
-    decision_labels = []
-
     assert len(features) == len(raw_targets)
 
     for i, t in enumerate(raw_targets):
-        familiar = (t is not None
-                and t.inline is not None
-                and t.no_inline is not None
-                and (abs(t.inline.long_term) > minimal or abs(t.no_inline) > minimal))
-
-        if not familiar:
-            thorough_labels.append(0)
+        if t is None:
+            thorough_labels.append(I_DONT_KNOW)
+        elif t.inline is None:
+            thorough_labels.append(ONLY_KNOW_APPLY)
+        elif t.no_inline is None:
+            thorough_labels.append(ONLY_KNOW_INLINE)
+        elif raw_targets[i].inline.long_term > raw_targets[i].no_inline:
+            thorough_labels.append(BETTER_INLINE)
         else:
-            decision_features.append(features[i, :])
-            should_inline = raw_targets[i].inline.long_term > raw_targets[i].no_inline
-            if not should_inline:
-                thorough_labels.append(1)
-            else:
-                thorough_labels.append(2)
+            thorough_labels.append(BETTER_APPLY)
+
     thorough_labels = np.array(thorough_labels)
     features = np.array(features)
-    n_clusters = 3
+    n_clusters = 5
 
     # best = None
     # for random_state in range(50):
@@ -472,7 +475,7 @@ def main():
     #         best = kmeans
     # kmeans = best
 
-    kmeans = KMeans(n_clusters=n_clusters , random_state=10)
+    kmeans = KMeans(n_clusters=n_clusters)
     kmeans.fit(features)
 
     print "Best random state =", kmeans.random_state, "inertia = ", kmeans.inertia_
@@ -483,6 +486,7 @@ def main():
 
     for c in range(n_clusters):
         print "Cluster %d :" % c
+        print "- Number of points:", len(features[kmeans.labels_ == c, :])
         model = train_models(features[kmeans.labels_ == c, :], thorough_labels[kmeans.labels_ == c])
 
         cluster_means.append(kmeans.cluster_centers_[c, :])
