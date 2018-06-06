@@ -423,6 +423,8 @@ def main():
         with open(args.familiarity_model_file, "w") as f:
             codegen_model(
                     f=f,
+                    numeric_feature_names=numeric_feature_names,
+                    bool_feature_names=bool_feature_names,
                     model=familiarity_model,
                     numeric_feature_indices=relevant_numeric_features_indices,
                     bool_feature_indices=relevant_bool_features_indices,
@@ -442,6 +444,8 @@ def main():
             codegen_model(
                     f=f,
                     model=decision_model,
+                    numeric_feature_names=numeric_feature_names,
+                    bool_feature_names=bool_feature_names,
                     numeric_feature_indices=relevant_numeric_features_indices,
                     bool_feature_indices=relevant_bool_features_indices,
                     numeric_feature_means=np.mean(relevant_numeric_features, axis=0),
@@ -456,6 +460,8 @@ def float_to_string(x):
 
 def codegen_model(
         f, model,
+        numeric_feature_names,
+        bool_feature_names,
         numeric_feature_indices,
         bool_feature_indices,
         numeric_feature_means,
@@ -471,11 +477,17 @@ def codegen_model(
     f.write("let intercept = %s\n" % float_to_string(intercept[0]))
     f.write("let numeric_features_means   = [| %s |]\n" % "; ".join(float_to_string(x) for x in numeric_feature_means))
 
-    f.write("let numeric_features_std    = [| %s |]\n" % "; ".join(str(x) for x in numeric_feature_std))
+    f.write("let numeric_features_std     = [| %s |]\n" % "; ".join(str(x) for x in numeric_feature_std))
     f.write("let numeric_features_indices = [| %s |]\n" % "; ".join(str(x) for x in np.where(numeric_feature_indices)[0]))
     f.write("let bool_features_indices    = [| %s |]\n" % "; ".join(str(x) for x in np.where(bool_feature_indices)[0]))
+    f.write("let numeric_feature_names    = [| %s |]\n"
+            % "; ".join('"' + x + '"' for x in numeric_feature_names))
+    f.write("let bool_feature_names       = [| %s |]\n"
+            % "; ".join('"' + x + '"' for x in bool_feature_names))
     f.write("\n")
     f.write("let model ~int_features ~numeric_features ~bool_features =\n")
+    f.write("  Tf_lib.check_names ~names:numeric_feature_names numeric_features;")
+    f.write("  Tf_lib.check_names ~names:bool_feature_names bool_features;")
     f.write("  let features = Tf_lib.features_to_t\n")
     f.write("    ~int_features ~numeric_features ~bool_features\n")
     f.write("    ~numeric_features_indices ~bool_features_indices\n")

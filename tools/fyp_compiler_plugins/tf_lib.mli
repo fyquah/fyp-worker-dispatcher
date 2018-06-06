@@ -39,3 +39,7 @@ val features_to_t
   -> numeric_features_means: float array
   -> numeric_features_std: float array
   -> float t
+
+val sigmoid : float -> float
+
+val check_names : names : string array -> 'a Feature_utils.Feature_list.t -> unit
