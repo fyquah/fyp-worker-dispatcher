@@ -17,6 +17,7 @@ import os
 
 import numpy as np
 import inlining_tree
+import py_common
 
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
@@ -185,11 +186,6 @@ def remove_annomalises(all_data):
     return ret
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument("name", type=str, help="output file name")
-parser.add_argument("--pdf", type=str, help="pdf output file name (optional)")
-
-
 def plot_pca(features, labels, title, fname, legend):
     pca = PCA(n_components=2)
     pca.fit(features)
@@ -341,9 +337,10 @@ def plot_pca_density(features, title, fname):
 
 
 def main():
-    # args = parser.parse_args()
-    # with open(args.name, "r") as f:
-    #     all_data = parse(sexpdata.load(f))
+    # all_data = []
+    # for exp in py_common.INITIAL_EXPERIMENTS:
+    #     with open("./report_plots/reward_assignment/data/%s/feature_reward_pair.sexp" % exp, "r") as f:
+    #         all_data.extend(parse(sexpdata.load(f)))
 
     # with open("./report_plots/machine_learning/v1_data.pickle", "wb") as f:
     #     pickle.dump(all_data, f)
