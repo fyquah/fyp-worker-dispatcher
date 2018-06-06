@@ -44,3 +44,4 @@ val features_to_t
 val sigmoid : float -> float
 
 val check_names : names : string array -> 'a Feature_utils.Feature_list.t -> unit
+val choose_cluster : means: float array array -> float t -> int

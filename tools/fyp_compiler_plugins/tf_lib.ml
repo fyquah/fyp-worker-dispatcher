@@ -198,3 +198,27 @@ let check_names ~names feature_list  =
   in
   Array.iter2 (fun a b -> assert (String.equal a b)) a names
 ;;
+
+let choose_cluster ~means features =
+  let best = ref 0 in
+  let lowest_distance = ref infinity in
+
+  Array.iteri (fun i cluster_mean ->
+      let dist =
+        Array.map2 (fun a b -> (a -. b) ** 2.0) cluster_mean features
+        |> Array.fold_left (+.) 0.0
+      in
+      if dist < !lowest_distance then begin
+        lowest_distance := dist;
+        best := i
+      end)
+    means;
+
+  !best
+;;
+
+let choose_cluster ~means features =
+  match features with
+  | Vec features -> choose_cluster ~means features
+  | _ -> assert false
+;;

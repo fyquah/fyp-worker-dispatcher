@@ -380,12 +380,17 @@ def train_models(features, labels):
 
     print "- decision number of training examples:", len(decision_labels)
     print "- decision label mean:", np.mean(decision_labels)
-    decision_model = MLPClassifier(
-            solver='lbfgs', alpha=1e-5,
-            hidden_layer_sizes=(15,),
-            activation="relu",
-            random_state=1)
-    decision_model.fit(decision_features, decision_labels)
+
+    if len(decision_labels) < 50:
+        decision_model = LogisticRegression()
+        decision_model.fit(decision_features, decision_labels)
+    else:
+        decision_model = MLPClassifier(
+                solver='lbfgs', alpha=1e-5,
+                hidden_layer_sizes=(15,4),
+                activation="relu",
+                random_state=1)
+        decision_model.fit(decision_features, decision_labels)
     print "- decision model score:", decision_model.score(decision_features, decision_labels)
 
     return { "familiarity": familiarity_model, "decision": decision_model }
@@ -456,10 +461,21 @@ def main():
                 thorough_labels.append(2)
     thorough_labels = np.array(thorough_labels)
     features = np.array(features)
-
     n_clusters = 3
-    kmeans = KMeans(n_clusters=n_clusters)
+
+    # best = None
+    # for random_state in range(50):
+    #     kmeans = KMeans(n_clusters=n_clusters, random_state=random_state)
+    #     kmeans.fit(features)
+
+    #     if best is None or best.inertia_ > kmeans.inertia_:
+    #         best = kmeans
+    # kmeans = best
+
+    kmeans = KMeans(n_clusters=n_clusters , random_state=10)
     kmeans.fit(features)
+
+    print "Best random state =", kmeans.random_state, "inertia = ", kmeans.inertia_
 
     cluster_means = []
     decision_models = []
@@ -547,7 +563,7 @@ def codegen_single_model(f, model, module_name):
 
         for i in range(len(weights)):
             f.write("      |> (fun v -> Tf_lib.matmul v (Tf_lib.Mat weights_%d))\n" % i)
-            f.write("      |> Tf_lib.add (Tf_lib.Vector intercept_%d)\n" % i)
+            f.write("      |> Tf_lib.add (Tf_lib.Vec intercept_%d)\n" % i)
 
             if i == len(weights) - 1:
                 f.write("      |> Tf_lib.%s\n" % model.out_activation_)
@@ -594,20 +610,17 @@ def codegen_model(
     f.write("      ~numeric_features_indices ~bool_features_indices\n")
     f.write("      ~numeric_features_means ~numeric_features_std\n")
     f.write("  in\n")
-    f.write("  let cluster = Tf_lib.choose_cluster ~means:cluster_means features in")
-    f.write("  let output =\n")
-
+    f.write("  let cluster = Tf_lib.choose_cluster ~means:cluster_means features in\n")
+    f.write("  Printf.eprintf \"Deciding based on cluster %d\\n\" cluster;\n")
     for i in range(len(cluster_means)):
         if i == 0:
-            f.write("    if cluster == 0 then\n")
+            f.write("  if cluster == 0 then\n")
         else:
-            f.write("    else if cluster == %d then\n" % i)
-        f.write("      Cluster_%d.model features\n" % i)
+            f.write("  else if cluster == %d then\n" % i)
+        f.write("    Cluster_%d.model features\n" % i)
 
-    f.write("    else\n")
-    f.write("      assert false\n")
-    f.write("  in\n")
-    f.write("  Tf_lib.Vec [| 1.0 -. output; output; |]\n")
+    f.write("  else\n")
+    f.write("    assert false\n")
 
 
 if __name__ == "__main__":
