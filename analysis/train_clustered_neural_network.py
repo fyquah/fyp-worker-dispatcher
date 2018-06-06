@@ -3,6 +3,7 @@ import collections
 import sys
 import math
 import cPickle as pickle
+from StringIO import StringIO
 
 import scipy
 import scipy.stats
@@ -12,18 +13,18 @@ import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.backends import backend_pdf
+from sklearn.neural_network import MLPClassifier
 
 import os
 
 import numpy as np
 import inlining_tree
-import py_common
 
+from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.metrics import roc_curve
-from sklearn.cluster import KMeans
 
 Features = collections.namedtuple("Features", ["int_features", "bool_features", "numeric_features"])
 Reward = collections.namedtuple("Reward", ["inline", "no_inline"])
@@ -187,7 +188,7 @@ def remove_annomalises(all_data):
     return ret
 
 
-def plot_pca(features, labels, title, fname, legend, num_classes):
+def plot_pca(features, labels, title, fname, legend):
     pca = PCA(n_components=2)
     pca.fit(features)
     transformed = pca.transform(features)
@@ -196,11 +197,9 @@ def plot_pca(features, labels, title, fname, legend, num_classes):
     plt.title(title)
     plt.xlabel("PCA Component 0")
     plt.ylabel("PCA Component 1")
-    ls = []
-
-    for cls in range(num_classes):
-        ls.append(plt.scatter(transformed[labels == cls, 0], transformed[labels == cls, 1], marker='x', s=4))
-    plt.legend(ls, legend)
+    l1 = plt.scatter(transformed[np.array(labels), 0], transformed[np.array(labels), 1], color='r', marker='x', s=4)
+    l2 = plt.scatter(transformed[np.logical_not(labels), 0], transformed[np.logical_not(labels), 1], color='b', marker='x', s=4)
+    plt.legend([l1, l2], legend)
     plt.tight_layout()
     plt.grid()
     plt.savefig(fname)
@@ -236,16 +235,15 @@ def plot_lda_3_classes(features, labels, title, fname, legend):
     plt.title(title)
     labels = np.array(labels)
 
-    if transformed.shape[1] >= 2:
-        l1 = plt.scatter(transformed[labels == 0, 0], transformed[labels == 0, 1], color='r', marker='x', s=4)
-        l2 = plt.scatter(transformed[labels == 1, 0], transformed[labels == 1, 1], color='g', marker='x', s=4)
-        l3 = plt.scatter(transformed[labels == 2, 0], transformed[labels == 2, 1], color='b', marker='x', s=4)
-    
-        plt.legend([l1, l2, l3], legend)
-        plt.tight_layout()
-        plt.grid()
-        plt.savefig(fname)
-    
+    l1 = plt.scatter(transformed[labels == 0, 0], transformed[labels == 0, 1], color='r', marker='x', s=4)
+    l2 = plt.scatter(transformed[labels == 1, 0], transformed[labels == 1, 1], color='g', marker='x', s=4)
+    l3 = plt.scatter(transformed[labels == 2, 0], transformed[labels == 2, 1], color='b', marker='x', s=4)
+
+    plt.legend([l1, l2, l3], legend)
+    plt.tight_layout()
+    plt.grid()
+    plt.savefig(fname)
+
 
 def compute_heatmap(transformed, side_bins):
     x_min = transformed[:, 0].min()
@@ -340,19 +338,72 @@ def plot_pca_density(features, title, fname):
     plt.savefig(fname)
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument("minimal", type=str, help="output file name")
+parser.add_argument("--decision-model-file", type=str,
+        help="file for decision model")
+parser.add_argument("--familiarity-model-file", type=str,
+        help="file to familiarity model")
+
+
+def train_models(features, labels):
+
+    labels = np.array(labels)
+    familiarity_labels = np.array(labels) > 0
+    familiarity_features = np.array(features)
+    familiarity_labels = np.array(familiarity_labels)
+
+    print "- familiarity label mean:", np.mean(familiarity_labels)
+    familiarity_model = MLPClassifier(
+            solver='lbfgs', alpha=1e-5,
+            hidden_layer_sizes=(15,),
+            activation="relu",
+            random_state=1)
+    familiarity_model.fit(features, familiarity_labels)
+    print "- familiarity model score:", familiarity_model.score(features, familiarity_labels)
+    fpr, tpr, thresholds = roc_curve(familiarity_labels, familiarity_model.predict_proba(features)[:, 1])
+
+    decision_features = np.array(features)[labels > 0, :]
+    decision_labels = []
+
+    for x in labels:
+        if x == 0:
+            pass
+        elif x == 1:
+            decision_labels.append(False)
+        elif x == 2:
+            decision_labels.append(True)
+        else:
+            assert False
+
+    assert len(decision_features) == len(decision_labels)
+
+    print "- decision number of training examples:", len(decision_labels)
+    print "- decision label mean:", np.mean(decision_labels)
+    decision_model = MLPClassifier(
+            solver='lbfgs', alpha=1e-5,
+            hidden_layer_sizes=(15,),
+            activation="relu",
+            random_state=1)
+    decision_model.fit(decision_features, decision_labels)
+    print "- decision model score:", decision_model.score(decision_features, decision_labels)
+
+    return { "familiarity": familiarity_model, "decision": decision_model }
+
+
 def main():
-    # all_data = []
-    # for exp in py_common.INITIAL_EXPERIMENTS:
-    #     with open("./report_plots/reward_assignment/data/%s/feature_reward_pair.sexp" % exp, "r") as f:
-    #         all_data.extend(parse(sexpdata.load(f)))
-    #
+    # with open("./report_plots/machine_learning/v1_data.sexp", "r") as f:
+    #     all_data = parse(sexpdata.load(f))
+
     # with open("./report_plots/machine_learning/v1_data.pickle", "wb") as f:
     #     pickle.dump(all_data, f)
 
-    minimal = float(sys.argv[1])
-    print "Minimal:", minimal
+    args = parser.parse_args()
+
     with open("./report_plots/machine_learning/v1_data.pickle", "rb") as f:
         all_data = pickle.load(f)
+    minimal = float(args.minimal)
+    print "Minimal:", minimal
 
     print "No Information about rewards", len([t for (_, t) in all_data if t is None])
     print "Both inline and termination", len([t for (_, t) in all_data if t is not None and t.inline is not None and t.no_inline is not None])
@@ -363,13 +414,18 @@ def main():
     all_numeric_features  = np.zeros((len(all_data), len(all_data[0][0].numeric_features)))
     all_bool_features     = np.zeros((len(all_data), len(all_data[0][0].bool_features)))
     raw_targets           = [b for (_, b) in all_data]
+    numeric_feature_names = [a for (a, _) in all_data[0][0].numeric_features]
+    bool_feature_names    = [a for (a, _) in all_data[0][0].bool_features]
 
     for i, (features, raw_target) in enumerate(all_data):
         all_numeric_features[i, :] = [a for (_, a) in features.numeric_features]
         all_bool_features[i, :]    = [a for (_, a) in features.bool_features]
 
-    relevant_numeric_features = all_numeric_features[:, (np.std(all_numeric_features,  axis=0) > 0.0001)]
-    relevant_bool_features    = all_bool_features[:, (np.mean(all_bool_features,  axis=0) > 0.0001)]
+    relevant_numeric_features_indices = np.std(all_numeric_features,  axis=0) > 0.0001
+    relevant_bool_features_indices    = np.mean(all_bool_features,  axis=0) > 0.0001
+
+    relevant_numeric_features = all_numeric_features[:, relevant_numeric_features_indices]
+    relevant_bool_features    = all_bool_features[:, relevant_bool_features_indices]
 
     normalised_numeric_features = (relevant_numeric_features - np.mean(relevant_numeric_features, axis=0))
     normalised_numeric_features = normalised_numeric_features / np.std(relevant_numeric_features, axis=0)
@@ -384,109 +440,174 @@ def main():
     assert len(features) == len(raw_targets)
 
     for i, t in enumerate(raw_targets):
-        familiarity_labels.append(
-                t is not None
+        familiar = (t is not None
                 and t.inline is not None
                 and t.no_inline is not None
-                and (abs(t.inline.long_term) > minimal or abs(t.no_inline) > minimal)
-        )
+                and (abs(t.inline.long_term) > minimal or abs(t.no_inline) > minimal))
 
-        if not familiarity_labels[-1]:
+        if not familiar:
             thorough_labels.append(0)
         else:
             decision_features.append(features[i, :])
-            decision_labels.append(raw_targets[i].inline.long_term > raw_targets[i].no_inline)
-            if not decision_labels[-1]:
+            should_inline = raw_targets[i].inline.long_term > raw_targets[i].no_inline
+            if not should_inline:
                 thorough_labels.append(1)
             else:
                 thorough_labels.append(2)
-
-    familiarity_features = np.array(features)
-    familiarity_labels = np.array(familiarity_labels)
-
-    print "familiarity label mean:", np.mean(familiarity_labels)
-    model = LogisticRegression()
-    model.fit(features, familiarity_labels)
-    print "familiarity model score:", model.score(features, familiarity_labels)
-    fpr, tpr, thresholds = roc_curve(familiarity_labels, model.predict_proba(features)[:, 1])
-
-    plot_lda(familiarity_features, familiarity_labels,
-            title="LDA Scatter Plot of Familiarity Points (B = %f)" % minimal,
-            legend=["Familiar", "Not Familiar"],
-            fname="report_plots/machine_learning/familiarity_lda_scatter_plot.pdf")
-    plot_pca(familiarity_features, familiarity_labels, num_classes=2,
-            title="PCA Scatter Plot of Familiarity Points (B = %f)" % minimal,
-            legend=["Familiar", "Not Familiar"],
-            fname="report_plots/machine_learning/familiarity_pca_scatter_plot.pdf")
-
-    decision_features = np.array(decision_features)
-    decision_labels = np.array(decision_labels)
-    print "decision training examples:", len(decision_labels)
-    print "decision label mean:", np.mean(decision_labels)
-    decision_model = LogisticRegression()
-    decision_model.fit(decision_features, decision_labels)
-    print "decision model score:", decision_model.score(decision_features, decision_labels)
-
-    # inertias = []
-    # for n_clusters in range(2, 20):
-    #     kmeans = KMeans(n_clusters=n_clusters)
-    #     kmeans.fit(features)
-    #     inertias.append(kmeans.inertia_)
-    #     print "- kmeans %f clusters: %f" % (n_clusters, kmeans.inertia_)
-
-    # fig = plt.figure()
-    # plt.plot(clusters, inertias)
-    # plt.show()
-    # return
+    thorough_labels = np.array(thorough_labels)
+    features = np.array(features)
 
     n_clusters = 3
     kmeans = KMeans(n_clusters=n_clusters)
     kmeans.fit(features)
-    clusters = np.array(kmeans.labels_, dtype=np.int32)
 
-    plot_pca(decision_features, decision_labels, num_classes=2,
-            title="PCA Scatter Plot of Decision Points (B = %f)" % minimal,
-            legend=["Inline", "Terminate"],
-            fname="report_plots/machine_learning/decision_pca_scatter_plot.pdf")
+    cluster_means = []
+    decision_models = []
+    familiarity_models = []
 
-    plot_pca(features, kmeans.labels_, num_classes=kmeans.n_clusters,
-            title="PCA Scatter Plot of Decision Points (B = %f)" % minimal,
-            legend=[str(x) for x in range(kmeans.n_clusters)],
-            fname="report_plots/machine_learning/decision_cluster_scatter_plot.pdf")
+    for c in range(n_clusters):
+        print "Cluster %d :" % c
+        model = train_models(features[kmeans.labels_ == c, :], thorough_labels[kmeans.labels_ == c])
 
-    for i in range(100):
-        fname = "report_plots/machine_learning/all_lda_scatter_plot-cluster_%d.pdf" % i
-        if os.path.exists(fname):
-            os.unlink(fname)
+        cluster_means.append(kmeans.cluster_centers_[c, :])
+        decision_models.append(model["decision"])
+        familiarity_models.append(model["familiarity"])
 
-    for i in range(n_clusters):
-        cluster_features = features[clusters == i, :]
-        cluster_labels = np.array(thorough_labels)[clusters == i]
-        print "Cluster %d: %d points" % (i, len(cluster_features))
-        plot_lda_3_classes(cluster_features, cluster_labels,
-                title="LDA Scatter Plot of Decision Points (B = %f, cluster = %d) [%d points]" % (minimal, i, len(cluster_features)),
-                legend=["I Don't Know", "Inline", "Terminate"],
-                fname="report_plots/machine_learning/all_lda_scatter_plot-cluster_%d.pdf" % i)
-        plot_pca_3_classes(cluster_features, cluster_labels,
-                title="PCA Scatter Plot of Decision Points (B = %f, cluster = %d) [%d points]" % (minimal, i, len(cluster_features)),
-                legend=["I Don't Know", "Inline", "Terminate"],
-                fname="report_plots/machine_learning/all_pca_scatter_plot-cluster_%d.pdf" % i)
+    if args.familiarity_model_file:
+        with open(args.familiarity_model_file, "w") as f:
+            codegen_model(
+                    f=f,
+                    cluster_means=cluster_means,
+                    models=familiarity_models,
+                    numeric_feature_indices=relevant_numeric_features_indices,
+                    bool_feature_indices=relevant_bool_features_indices,
+                    numeric_feature_means=np.mean(relevant_numeric_features, axis=0),
+                    numeric_feature_std=np.std(relevant_numeric_features, axis=0))
 
-    plot_lda_3_classes(features, thorough_labels,
-            title="LDA Scatter Plot of Decision Points (B = %f)" % minimal,
-            legend=["I Don't Know", "Inline", "Terminate"],
-            fname="report_plots/machine_learning/all_lda_scatter_plot.pdf")
-    plot_lda_density(features, thorough_labels,
-            title="Heat Map of LDA Scatter Plot",
-            fname="report_plots/machine_learning/all_lda_heat_map.pdf")
 
-    plot_pca_3_classes(features, thorough_labels,
-            title="PCA Scatter Plot of Decision Points (B = %f)" % minimal,
-            legend=["I Don't Know", "Inline", "Terminate"],
-            fname="report_plots/machine_learning/all_pca_scatter_plot.pdf")
-    plot_pca_density(features,
-            title="Heat Map of PCA Scatter Plot",
-            fname="report_plots/machine_learning/all_pca_heat_map.pdf")
+    if args.decision_model_file:
+        with open(args.decision_model_file, "w") as f:
+            codegen_model(
+                    f=f,
+                    cluster_means=cluster_means,
+                    models=decision_models,
+                    numeric_feature_indices=relevant_numeric_features_indices,
+                    bool_feature_indices=relevant_bool_features_indices,
+                    numeric_feature_means=np.mean(relevant_numeric_features, axis=0),
+                    numeric_feature_std=np.std(relevant_numeric_features, axis=0))
+
+def float_to_string(x):
+    if x < 0:
+        return "(-." + str(abs(x)) + ")"
+    else:
+        return str(x)
+
+
+def codegen_single_model(f, model, module_name):
+    f.write("module %s = struct\n" % module_name)
+
+    if isinstance(model, LogisticRegression):
+        weights = model.coef_
+        intercept = model.intercept_
+
+        assert weights.shape[0] == 1
+        assert intercept.shape == (1,)
+
+        f.write("  let weights = [| " + "; ".join(float_to_string(x) for x in weights[0]) + " |]\n")
+        f.write("  let intercept = %s\n" % float_to_string(intercept[0]))
+        f.write("\n")
+        f.write("  let model features =\n")
+        f.write("    let output = \n")
+        f.write("      Tf_lib.matmul (Tf_lib.Vec weights) features\n")
+        f.write("      |> Tf_lib.add (Tf_lib.Scalar intercept)\n")
+        f.write("      |> Tf_lib.unpack_scalar_exn\n")
+        f.write("      |> Tf_lib.sigmoid\n")
+        f.write("    in\n")
+        f.write("    Tf_lib.Vec [| 1.0 -. output; output; |]\n")
+        f.write("  ;;\n")
+
+    elif isinstance(model, MLPClassifier):
+        weights = model.coefs_
+        intercepts = model.intercepts_
+        activation = model.activation
+        print activation
+
+        for i, (weight, intercept) in enumerate(zip(weights, intercepts)):
+            f.write("  let weights_%d = [|\n" % i)
+            for weight_vector in weight:
+                f.write("    [|" + "; ".join(float_to_string(x) for x in weight_vector) + " |];\n")
+            f.write("    |]\n")
+            f.write("  ;;\n")
+            f.write("  let intercept_%d = [| %s |]\n" % (i, "; ".join(float_to_string(x) for x in intercept)))
+
+        f.write("\n")
+        f.write("  let model features =\n")
+        f.write("    let output = \n")
+        f.write("      features\n")
+
+        for i in range(len(weights)):
+            f.write("      |> (fun v -> Tf_lib.matmul v (Tf_lib.Mat weights_%d))\n" % i)
+            f.write("      |> Tf_lib.add (Tf_lib.Vector intercept_%d)\n" % i)
+
+            if i == len(weights) - 1:
+                f.write("      |> Tf_lib.%s\n" % model.out_activation_)
+            else:
+                f.write("      |> Tf_lib.%s\n" % activation)
+
+        f.write("      |> Tf_lib.unpack_scalar_exn\n")
+        f.write("    in\n")
+        f.write("    Tf_lib.Vec [| 1.0 -. output; output; |]\n")
+        f.write(";;")
+
+    else:
+        assert False
+
+    f.write("end\n\n")
+
+def codegen_model(
+        f, cluster_means, models,
+        numeric_feature_indices,
+        bool_feature_indices,
+        numeric_feature_means,
+        numeric_feature_std):
+
+    assert len(cluster_means) == len(models)
+
+    for i, model in enumerate(models):
+        codegen_single_model(f, model, module_name="Cluster_%d" % i)
+
+    f.write("let cluster_means = [|\n")
+    for vector in cluster_means:
+        f.write("  [|" + "; ".join(float_to_string(x) for x in vector) + " |];\n")
+    f.write("  |]\n")
+    f.write(";;\n\n")
+    f.write("let numeric_features_means   = [| %s |]\n" % "; ".join(float_to_string(x) for x in numeric_feature_means))
+
+    f.write("let numeric_features_std    = [| %s |]\n" % "; ".join(str(x) for x in numeric_feature_std))
+    f.write("let numeric_features_indices = [| %s |]\n" % "; ".join(str(x) for x in np.where(numeric_feature_indices)[0]))
+    f.write("let bool_features_indices    = [| %s |]\n" % "; ".join(str(x) for x in np.where(bool_feature_indices)[0]))
+    f.write("\n\n")
+    f.write("let model ~int_features ~numeric_features ~bool_features =\n")
+    f.write("  let features =\n")
+    f.write("    Tf_lib.features_to_t\n")
+    f.write("      ~int_features ~numeric_features ~bool_features\n")
+    f.write("      ~numeric_features_indices ~bool_features_indices\n")
+    f.write("      ~numeric_features_means ~numeric_features_std\n")
+    f.write("  in\n")
+    f.write("  let cluster = Tf_lib.choose_cluster ~means:cluster_means features in")
+    f.write("  let output =\n")
+
+    for i in range(len(cluster_means)):
+        if i == 0:
+            f.write("    if cluster == 0 then\n")
+        else:
+            f.write("    else if cluster == %d then\n" % i)
+        f.write("      Cluster_%d.model features\n" % i)
+
+    f.write("    else\n")
+    f.write("      assert false\n")
+    f.write("  in\n")
+    f.write("  Tf_lib.Vec [| 1.0 -. output; output; |]\n")
 
 
 if __name__ == "__main__":
