@@ -417,7 +417,7 @@ def main():
     print "familiarity label mean:", np.mean(familiarity_labels)
     familiarity_model = MLPClassifier(
             solver='lbfgs', alpha=1e-5,
-            hidden_layer_sizes=(16,8),
+            hidden_layer_sizes=(8, 4),
             activation="relu",
             random_state=1)
     familiarity_model.fit(features, familiarity_labels)
@@ -429,6 +429,8 @@ def main():
             codegen_model(
                     f=f,
                     model=familiarity_model,
+                    numeric_feature_names=numeric_feature_names,
+                    bool_feature_names=bool_feature_names,
                     numeric_feature_indices=relevant_numeric_features_indices,
                     bool_feature_indices=relevant_bool_features_indices,
                     numeric_feature_means=np.mean(relevant_numeric_features, axis=0),
@@ -451,6 +453,8 @@ def main():
             codegen_model(
                     f=f,
                     model=decision_model,
+                    numeric_feature_names=numeric_feature_names,
+                    bool_feature_names=bool_feature_names,
                     numeric_feature_indices=relevant_numeric_features_indices,
                     bool_feature_indices=relevant_bool_features_indices,
                     numeric_feature_means=np.mean(relevant_numeric_features, axis=0),
@@ -465,11 +469,18 @@ def float_to_string(x):
 
 def codegen_model(
         f, model,
+        numeric_feature_names,
+        bool_feature_names,
         numeric_feature_indices,
         bool_feature_indices,
         numeric_feature_means,
         numeric_feature_std):
 
+    f.write("let numeric_features_names    = [| %s |]\n"
+                % "; ".join('"' + x + '"' for x in numeric_feature_names))
+    f.write("let bool_features_names       = [| %s |]\n"
+            % "; ".join('"' + x + '"' for x in bool_feature_names))
+    f.write("\n\n")
     if isinstance(model, LogisticRegression):
         weights = model.coef_
         intercept = model.intercept_
@@ -484,8 +495,9 @@ def codegen_model(
         f.write("let numeric_features_std    = [| %s |]\n" % "; ".join(str(x) for x in numeric_feature_std))
         f.write("let numeric_features_indices = [| %s |]\n" % "; ".join(str(x) for x in np.where(numeric_feature_indices)[0]))
         f.write("let bool_features_indices    = [| %s |]\n" % "; ".join(str(x) for x in np.where(bool_feature_indices)[0]))
-        f.write("\n")
         f.write("let model ~int_features ~numeric_features ~bool_features =\n")
+        f.write("  Tf_lib.check_names ~names:numeric_features_names numeric_features;")
+        f.write("  Tf_lib.check_names ~names:bool_features_names bool_features;")
         f.write("  let features = Tf_lib.features_to_t\n")
         f.write("    ~int_features ~numeric_features ~bool_features\n")
         f.write("    ~numeric_features_indices ~bool_features_indices\n")
@@ -520,6 +532,8 @@ def codegen_model(
         f.write("let bool_features_indices    = [| %s |]\n" % "; ".join(str(x) for x in np.where(bool_feature_indices)[0]))
         f.write("\n")
         f.write("let model ~int_features ~numeric_features ~bool_features =\n")
+        f.write("  Tf_lib.check_names ~names:numeric_features_names numeric_features;")
+        f.write("  Tf_lib.check_names ~names:bool_features_names bool_features;")
         f.write("  let features = Tf_lib.features_to_t\n")
         f.write("    ~int_features ~numeric_features ~bool_features\n")
         f.write("    ~numeric_features_indices ~bool_features_indices\n")
@@ -530,7 +544,7 @@ def codegen_model(
 
         for i in range(len(weights)):
             f.write("    |> (fun v -> Tf_lib.matmul v (Tf_lib.Mat weights_%d))\n" % i)
-            f.write("    |> Tf_lib.add (Tf_lib.Vector intercept_%d)\n" % i)
+            f.write("    |> Tf_lib.add (Tf_lib.Vec intercept_%d)\n" % i)
 
             if i == len(weights) - 1:
                 f.write("    |> Tf_lib.%s\n" % model.out_activation_)

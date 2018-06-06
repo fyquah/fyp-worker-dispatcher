@@ -84,6 +84,8 @@ let floor a = map floor a
 
 let relu a = map (fun x -> if x > 0.0 then x else 0.0) a
 
+let logistic a = map (fun x -> 1.0 /. (1.0 +. 2.71818284 ** (-.x))) a
+
 let reciprocal a = map (fun x -> 1.0 /. x) a
 
 let softmax t =
@@ -152,6 +154,11 @@ module Feature_list = Feature_utils.Feature_list
 
 let unpack_scalar_exn = function
   | Scalar a -> a
+  | Vec v ->
+    if Array.length v = 1 then
+      v.(0)
+    else
+     assert false
   | _ -> assert false
 ;;
 

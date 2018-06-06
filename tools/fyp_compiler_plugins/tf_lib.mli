@@ -19,6 +19,7 @@ val notequal  : 'a t -> 'a t -> bool t
 val matmul     : float t -> float t -> float t
 val add        : float t -> float t -> float t
 val relu       : float t -> float t
+val logistic   : float t -> float t
 val softmax    : float t -> float t
 val reciprocal : float t -> float t
 val softmax    : float t -> float t
