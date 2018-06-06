@@ -147,6 +147,9 @@ let load_call_site_examples_raw ~version
         specification_entry.name (List.length features_trace_pair_list);
       Log.Global.info "%s | Loaded %d training examples"
         specification_entry.name (List.length examples);
+      Log.Global.info "%s | Loaded %d training examples with rewards"
+        specification_entry.name
+        (List.length (List.filter ~f:(fun (_, b) -> Option.is_some b) examples));
       examples)
   >>| fun examples ->
   Log.Global.info "Loaded a total of raw %d training examples"
