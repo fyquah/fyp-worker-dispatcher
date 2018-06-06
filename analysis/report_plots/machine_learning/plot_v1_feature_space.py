@@ -53,7 +53,7 @@ def parse(sexp):
         return Reward(inline=inline, no_inline=no_inline)
 
     def parse_feature_list(sexp, f):
-        return {inlining_tree.unpack_atom(k) : f(inlining_tree.unpack_atom(v)) for k, v in sexp}
+        return [(inlining_tree.unpack_atom(k), f(inlining_tree.unpack_atom(v))) for k, v in sexp]
 
     def parse_bool(s):
         if s == "true":
@@ -337,13 +337,13 @@ def plot_pca_density(features, title, fname):
 
 
 def main():
-    # all_data = []
-    # for exp in py_common.INITIAL_EXPERIMENTS:
-    #     with open("./report_plots/reward_assignment/data/%s/feature_reward_pair.sexp" % exp, "r") as f:
-    #         all_data.extend(parse(sexpdata.load(f)))
+    all_data = []
+    for exp in py_common.INITIAL_EXPERIMENTS:
+        with open("./report_plots/reward_assignment/data/%s/feature_reward_pair.sexp" % exp, "r") as f:
+            all_data.extend(parse(sexpdata.load(f)))
 
-    # with open("./report_plots/machine_learning/v1_data.pickle", "wb") as f:
-    #     pickle.dump(all_data, f)
+    with open("./report_plots/machine_learning/v1_data.pickle", "wb") as f:
+        pickle.dump(all_data, f)
 
     minimal = float(sys.argv[1])
     print "Minimal:", minimal
@@ -361,8 +361,8 @@ def main():
     raw_targets           = [b for (_, b) in all_data]
 
     for i, (features, raw_target) in enumerate(all_data):
-        all_numeric_features[i, :] = [a for (_, a) in features.numeric_features.iteritems()]
-        all_bool_features[i, :]    = [a for (_, a) in features.bool_features.iteritems()]
+        all_numeric_features[i, :] = [a for (_, a) in features.numeric_features]
+        all_bool_features[i, :]    = [a for (_, a) in features.bool_features]
 
     relevant_numeric_features = all_numeric_features[:, (np.std(all_numeric_features,  axis=0) > 0.0001)]
     relevant_bool_features    = all_bool_features[:, (np.mean(all_bool_features,  axis=0) > 0.0001)]
