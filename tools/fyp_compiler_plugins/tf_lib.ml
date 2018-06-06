@@ -144,3 +144,32 @@ let merge a b =
   | a, Nothing -> a
   | _, _ -> assert false
 ;;
+
+module Feature_list = Feature_utils.Feature_list
+
+let unpack_scalar_exn = function
+  | Scalar a -> a
+  | _ -> assert false
+;;
+
+let features_to_t
+    ~(int_features: int Feature_list.t)
+    ~numeric_features ~bool_features
+    ~numeric_features_indices ~bool_features_indices
+    ~numeric_features_means ~numeric_features_std =
+  let to_array x =
+    Feature_list.to_list x |> List.map (fun (_, a) -> a ) |> Array.of_list
+  in
+  let bool_to_float x = if x then 1.0 else 0.0 in
+  let numeric_features =
+    let arr = to_array numeric_features in
+    Array.mapi (fun i j ->
+        (arr.(j) -. numeric_features_means.(i)) /. numeric_features_std.(i))
+      numeric_features_indices
+  in
+  let bool_features = to_array bool_features |> Array.map bool_to_float in
+  let features =
+    Vec (Array.concat [ numeric_features; bool_features; ])
+  in
+  features
+;;

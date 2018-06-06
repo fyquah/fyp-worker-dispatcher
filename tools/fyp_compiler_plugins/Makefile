@@ -25,13 +25,31 @@ build/decision_normaliser.ml: build/decision_normaliser.bin
 build/plugin_v0.cmxs: \
   tf_lib.mli tf_lib.ml \
   import.ml feature_utils.mli feature_utils.ml \
-  build/familiarity_weights.ml build/familiarity_model.ml build/familiarity_normaliser.ml \
-  build/decision_weights.ml build/decision_model.ml build/decision_normaliser.ml \
+  build/familiarity_weights_v0.ml build/familiarity_model_v0.ml build/familiarity_normaliser_v0.ml \
+  build/decision_weights_v0.ml build/decision_model_v0.ml build/decision_normaliser_v0.ml \
+  model_loader_v0.ml \
   manual_features_v1.mli manual_features_v1.ml \
   plugin_v0.ml
 	echo "" >build/fyp_compiler_lib.ml
+	cp model_loader_v0.ml build/model_loader.ml
 	$(OCAMLOPT) -I build/ -I +compiler-libs -shared -o $@ \
-	  build/fyp_compiler_lib.ml $^
+	  build/fyp_compiler_lib.ml \
+	  $(subst model_loader_v0,build/model_loader,$^)
+
+build/plugin_v0_logistic_regression.cmxs: \
+  import.ml \
+  feature_utils.mli feature_utils.ml \
+  tf_lib.mli tf_lib.ml \
+  build/familiarity_model_v0_logistic_regression.ml \
+  build/decision_model_v0_logistic_regression.ml \
+  model_loader_v0_logistic_regression.ml \
+  manual_features_v1.mli manual_features_v1.ml \
+  plugin_v0.ml
+	echo "" >build/fyp_compiler_lib.ml
+	cp model_loader_v0_logistic_regression.ml build/model_loader.ml
+	$(OCAMLOPT) -I build/ -I +compiler-libs -shared -o $@ \
+	  build/fyp_compiler_lib.ml \
+	  $(subst model_loader_v0_logistic_regression,build/model_loader,$^)
 
 test: test.ml build/plugin_v0.cmxs
 	$(OCAMLOPT) -O3 -plugin build/plugin_v0.cmxs -inlining-report $<

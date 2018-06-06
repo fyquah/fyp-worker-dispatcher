@@ -6,6 +6,7 @@ out/
 fast.so
 
 out-v0-reproduce
+out-v0-reproduce-incorrect
 out-v0
 out-v1
 out-v1-incorrect
