@@ -16,29 +16,23 @@ let command_dump_rewards =
   let open Command.Let_syntax in
   Command.async ~summary:"something something"
     [%map_open
-      let specification_file =
-        flag "-spec" (required file) ~doc:"FILE specification file"
-      and feature_version =
-        flag "-feature-version" (required string) ~doc:"STRING feature version"
-      in
+      let filename = anon ("filename" %: string) in
       fun () ->
         let open Deferred.Let_syntax in
-        let version = Option.value_exn (parse_version feature_version) in
-        let%bind specification =
-          Reader.load_sexp_exn specification_file
-            Specification_file.t_of_sexp
+        let%bind examples =
+          Reader.load_sexp_exn filename [%of_sexp: Raw_data.Reward.t list]
+          >>| fun rewards ->
+          List.map rewards ~f:(fun reward ->
+            { reward with path = Absolute_path.expand reward.path })
         in
-        let%map examples =
-          load_from_specification ~version specification
-          >>| fun (a, b) -> a @ b
-        in
-        List.map examples ~f:(fun (_, (target : Raw_data.target)) ->
-          let inline = fst target in
-          let no_inline = snd target in
+        List.map examples ~f:(fun (reward : Raw_data.Reward.t) ->
+          let inline = reward.inline_reward in
+          let no_inline = reward.no_inline_reward in
           { Reward_dump. inline; no_inline; })
         |> [%sexp_of: Reward_dump.t list]
         |> Sexp.to_string
-        |> printf "%s"
+        |> printf "%s";
+        Deferred.unit
     ]
 ;;
 
