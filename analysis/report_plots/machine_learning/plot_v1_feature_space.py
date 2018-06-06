@@ -23,6 +23,7 @@ from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.metrics import roc_curve
+from sklearn.cluster import KMeans
 
 Features = collections.namedtuple("Features", ["int_features", "bool_features", "numeric_features"])
 Reward = collections.namedtuple("Reward", ["inline", "no_inline"])
@@ -186,7 +187,7 @@ def remove_annomalises(all_data):
     return ret
 
 
-def plot_pca(features, labels, title, fname, legend):
+def plot_pca(features, labels, title, fname, legend, num_classes):
     pca = PCA(n_components=2)
     pca.fit(features)
     transformed = pca.transform(features)
@@ -195,9 +196,11 @@ def plot_pca(features, labels, title, fname, legend):
     plt.title(title)
     plt.xlabel("PCA Component 0")
     plt.ylabel("PCA Component 1")
-    l1 = plt.scatter(transformed[np.array(labels), 0], transformed[np.array(labels), 1], color='r', marker='x', s=4)
-    l2 = plt.scatter(transformed[np.logical_not(labels), 0], transformed[np.logical_not(labels), 1], color='b', marker='x', s=4)
-    plt.legend([l1, l2], legend)
+    ls = []
+
+    for cls in range(num_classes):
+        ls.append(plt.scatter(transformed[labels == cls, 0], transformed[labels == cls, 1], marker='x', s=4))
+    plt.legend(ls, legend)
     plt.tight_layout()
     plt.grid()
     plt.savefig(fname)
@@ -233,15 +236,16 @@ def plot_lda_3_classes(features, labels, title, fname, legend):
     plt.title(title)
     labels = np.array(labels)
 
-    l1 = plt.scatter(transformed[labels == 0, 0], transformed[labels == 0, 1], color='r', marker='x', s=4)
-    l2 = plt.scatter(transformed[labels == 1, 0], transformed[labels == 1, 1], color='g', marker='x', s=4)
-    l3 = plt.scatter(transformed[labels == 2, 0], transformed[labels == 2, 1], color='b', marker='x', s=4)
-
-    plt.legend([l1, l2, l3], legend)
-    plt.tight_layout()
-    plt.grid()
-    plt.savefig(fname)
-
+    if transformed.shape[1] >= 2:
+        l1 = plt.scatter(transformed[labels == 0, 0], transformed[labels == 0, 1], color='r', marker='x', s=4)
+        l2 = plt.scatter(transformed[labels == 1, 0], transformed[labels == 1, 1], color='g', marker='x', s=4)
+        l3 = plt.scatter(transformed[labels == 2, 0], transformed[labels == 2, 1], color='b', marker='x', s=4)
+    
+        plt.legend([l1, l2, l3], legend)
+        plt.tight_layout()
+        plt.grid()
+        plt.savefig(fname)
+    
 
 def compute_heatmap(transformed, side_bins):
     x_min = transformed[:, 0].min()
@@ -337,13 +341,13 @@ def plot_pca_density(features, title, fname):
 
 
 def main():
-    all_data = []
-    for exp in py_common.INITIAL_EXPERIMENTS:
-        with open("./report_plots/reward_assignment/data/%s/feature_reward_pair.sexp" % exp, "r") as f:
-            all_data.extend(parse(sexpdata.load(f)))
-
-    with open("./report_plots/machine_learning/v1_data.pickle", "wb") as f:
-        pickle.dump(all_data, f)
+    # all_data = []
+    # for exp in py_common.INITIAL_EXPERIMENTS:
+    #     with open("./report_plots/reward_assignment/data/%s/feature_reward_pair.sexp" % exp, "r") as f:
+    #         all_data.extend(parse(sexpdata.load(f)))
+    #
+    # with open("./report_plots/machine_learning/v1_data.pickle", "wb") as f:
+    #     pickle.dump(all_data, f)
 
     minimal = float(sys.argv[1])
     print "Minimal:", minimal
@@ -410,7 +414,7 @@ def main():
             title="LDA Scatter Plot of Familiarity Points (B = %f)" % minimal,
             legend=["Familiar", "Not Familiar"],
             fname="report_plots/machine_learning/familiarity_lda_scatter_plot.pdf")
-    plot_pca(familiarity_features, familiarity_labels,
+    plot_pca(familiarity_features, familiarity_labels, num_classes=2,
             title="PCA Scatter Plot of Familiarity Points (B = %f)" % minimal,
             legend=["Familiar", "Not Familiar"],
             fname="report_plots/machine_learning/familiarity_pca_scatter_plot.pdf")
@@ -423,14 +427,50 @@ def main():
     decision_model.fit(decision_features, decision_labels)
     print "decision model score:", decision_model.score(decision_features, decision_labels)
 
-    plot_lda(decision_features, decision_labels,
-            title="LDA Scatter Plot of Decision Points (B = %f)" % minimal,
-            legend=["Inline", "Terminate"],
-            fname="report_plots/machine_learning/decision_lda_scatter_plot.pdf")
-    plot_pca(decision_features, decision_labels,
+    # inertias = []
+    # for n_clusters in range(2, 20):
+    #     kmeans = KMeans(n_clusters=n_clusters)
+    #     kmeans.fit(features)
+    #     inertias.append(kmeans.inertia_)
+    #     print "- kmeans %f clusters: %f" % (n_clusters, kmeans.inertia_)
+
+    # fig = plt.figure()
+    # plt.plot(clusters, inertias)
+    # plt.show()
+    # return
+
+    n_clusters = 3
+    kmeans = KMeans(n_clusters=n_clusters)
+    kmeans.fit(features)
+    clusters = np.array(kmeans.labels_, dtype=np.int32)
+
+    plot_pca(decision_features, decision_labels, num_classes=2,
             title="PCA Scatter Plot of Decision Points (B = %f)" % minimal,
             legend=["Inline", "Terminate"],
             fname="report_plots/machine_learning/decision_pca_scatter_plot.pdf")
+
+    plot_pca(features, kmeans.labels_, num_classes=kmeans.n_clusters,
+            title="PCA Scatter Plot of Decision Points (B = %f)" % minimal,
+            legend=[str(x) for x in range(kmeans.n_clusters)],
+            fname="report_plots/machine_learning/decision_cluster_scatter_plot.pdf")
+
+    for i in range(100):
+        fname = "report_plots/machine_learning/all_lda_scatter_plot-cluster_%d.pdf" % i
+        if os.path.exists(fname):
+            os.unlink(fname)
+
+    for i in range(n_clusters):
+        cluster_features = features[clusters == i, :]
+        cluster_labels = np.array(thorough_labels)[clusters == i]
+        print "Cluster %d: %d points" % (i, len(cluster_features))
+        plot_lda_3_classes(cluster_features, cluster_labels,
+                title="LDA Scatter Plot of Decision Points (B = %f, cluster = %d) [%d points]" % (minimal, i, len(cluster_features)),
+                legend=["I Don't Know", "Inline", "Terminate"],
+                fname="report_plots/machine_learning/all_lda_scatter_plot-cluster_%d.pdf" % i)
+        plot_pca_3_classes(cluster_features, cluster_labels,
+                title="PCA Scatter Plot of Decision Points (B = %f, cluster = %d) [%d points]" % (minimal, i, len(cluster_features)),
+                legend=["I Don't Know", "Inline", "Terminate"],
+                fname="report_plots/machine_learning/all_pca_scatter_plot-cluster_%d.pdf" % i)
 
     plot_lda_3_classes(features, thorough_labels,
             title="LDA Scatter Plot of Decision Points (B = %f)" % minimal,
