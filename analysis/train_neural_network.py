@@ -25,14 +25,15 @@ from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.metrics import roc_curve
-
-Features = collections.namedtuple("Features", ["int_features", "bool_features", "numeric_features"])
-Reward = collections.namedtuple("Reward", ["inline", "no_inline"])
-DualReward = collections.namedtuple("DualReward", ["long_term", "immediate"])
-
-option_of_sexp = inlining_tree.option_of_sexp
+from feature_loader import Features, Reward, DualReward
 
 B = 5.0
+
+I_DONT_KNOW = 0
+ONLY_KNOW_INLINE = 1
+ONLY_KNOW_APPLY = 2
+BETTER_INLINE = 3
+BETTER_APPLY  = 4
 
 def sgn(x):
     if x < 0:
@@ -40,41 +41,6 @@ def sgn(x):
     else:
         return 1
 
-
-def parse(sexp):
-    def parse_dual_reward(sexp):
-        m = inlining_tree.sexp_to_map(sexp)
-        return DualReward(
-                long_term=float(m["long_term"]),
-                immediate=float(m["immediate"]))
-
-    def parse_reward(sexp):
-        m = inlining_tree.sexp_to_map(sexp)
-        inline = option_of_sexp(m["inline"], f=parse_dual_reward)
-        no_inline = option_of_sexp(m["no_inline"], f=float)
-        return Reward(inline=inline, no_inline=no_inline)
-
-    def parse_feature_list(sexp, f):
-        return [(inlining_tree.unpack_atom(k), f(inlining_tree.unpack_atom(v))) for k, v in sexp]
-
-    def parse_bool(s):
-        if s == "true":
-            return True
-        elif s == "false":
-            return False
-        else:
-            assert False
-
-
-    def parse_features(sexp):
-        m = inlining_tree.sexp_to_map(sexp)
-        int_features = parse_feature_list(m["int_features"], f=int)
-        numeric_features = parse_feature_list(m["numeric_features"], f=float)
-        bool_features = parse_feature_list(m["bool_features"], f=parse_bool)
-        return Features(int_features=int_features, bool_features=bool_features, numeric_features=numeric_features)
-
-    assert isinstance(sexp, list)
-    return [(parse_features(a), option_of_sexp(b, f=parse_reward)) for (a, b) in sexp]
 
 def fmap(x, f):
     if x is not None:
@@ -347,20 +313,8 @@ parser.add_argument("--familiarity-model-file", type=str,
 
 
 def main():
-    if os.path.exists("./report_plots/machine_learning/v2_data.pickle"):
-        print "LOADING CACHED VARIANT"
-        print "To invalidate cache, run `rm report_plots/machine_learning/v2_data.pickle`"
-        with open("./report_plots/machine_learning/v2_data.pickle", "rb") as f:
-            all_data = pickle.load(f)
-    else:
-        print "PARSING FROM SCRATCH"
-        all_data = []
-        for exp in py_common.INITIAL_EXPERIMENTS:
-            with open("./report_plots/reward_assignment/data/%s/feature_reward_pair.sexp" % exp, "r") as f:
-                all_data.extend(parse(sexpdata.load(f)))
-    
-    with open("./report_plots/machine_learning/v2_data.pickle", "wb") as f:
-        pickle.dump(all_data, f)
+    with open("./report_plots/machine_learning/v2_data.pickle", "rb") as f:
+        all_data = pickle.load(f)
 
     args = parser.parse_args()
     minimal = float(args.minimal)
@@ -394,32 +348,52 @@ def main():
     features = np.concatenate([normalised_numeric_features, relevant_bool_features], axis=1)
 
     thorough_labels = []
-    familiarity_labels = []
-    decision_features = []
-    decision_labels = []
-
     assert len(features) == len(raw_targets)
-
     for i, t in enumerate(raw_targets):
-        familiarity_labels.append(
-                t is not None
-                and t.inline is not None
-                and t.no_inline is not None
-                and (abs(t.inline.long_term) > minimal or abs(t.no_inline) > minimal)
-        )
-
-        if not familiarity_labels[-1]:
-            thorough_labels.append(0)
+        if t is None:
+            thorough_labels.append(I_DONT_KNOW)
+        elif t.inline is None:
+            thorough_labels.append(ONLY_KNOW_APPLY)
+        elif t.no_inline is None:
+            thorough_labels.append(ONLY_KNOW_INLINE)
+        elif raw_targets[i].inline.long_term > raw_targets[i].no_inline:
+            thorough_labels.append(BETTER_INLINE)
         else:
-            decision_features.append(features[i, :])
-            decision_labels.append(raw_targets[i].inline.long_term > raw_targets[i].no_inline)
-            if not decision_labels[-1]:
-                thorough_labels.append(1)
-            else:
-                thorough_labels.append(2)
+            thorough_labels.append(BETTER_APPLY)
+    thorough_labels = np.array(thorough_labels)
 
     familiarity_features = np.array(features)
+    familiarity_labels = []
+    for x in thorough_labels:
+        if x == I_DONT_KNOW or x == ONLY_KNOW_APPLY or x == ONLY_KNOW_INLINE:
+            familiarity_labels.append(False)
+        elif x == BETTER_APPLY or x == BETTER_INLINE:
+            familiarity_labels.append(True)
+        else:
+            assert False
     familiarity_labels = np.array(familiarity_labels)
+
+    decision_labels = []
+    decision_features = []
+    for i, x in enumerate(thorough_labels):
+        if x == I_DONT_KNOW:
+            pass
+        elif x == BETTER_APPLY or x == ONLY_KNOW_APPLY:
+            decision_features.append(familiarity_features[i, :])
+            decision_labels.append(False)
+        elif x == BETTER_INLINE or x == ONLY_KNOW_INLINE:
+            decision_features.append(familiarity_features[i, :])
+            decision_labels.append(True)
+        else:
+            assert (
+                    x == I_DONT_KNOW or
+                    x == ONLY_KNOW_APPLY or
+                    x == ONLY_KNOW_INLINE or
+                    x == BETTER_APPLY or
+                    x == BETTER_INLINE)
+    decision_features = np.array(decision_features)
+    decision_labels = np.array(decision_labels)
+
 
     print "familiarity label mean:", np.mean(familiarity_labels)
     familiarity_model = MLPClassifier(
@@ -448,10 +422,11 @@ def main():
     print "decision training examples:", len(decision_labels)
     print "decision label mean:", np.mean(decision_labels)
     decision_model = MLPClassifier(
-            solver='lbfgs', alpha=1e-5,
-            hidden_layer_sizes=(17, 8),
+            solver='lbfgs', alpha=1e-4,
+            hidden_layer_sizes=(25, 12),
             activation="relu",
-            random_state=1)
+            random_state=1,
+            max_iter=2000)
     decision_model.fit(decision_features, decision_labels)
     print "decision model score:", decision_model.score(decision_features, decision_labels)
 

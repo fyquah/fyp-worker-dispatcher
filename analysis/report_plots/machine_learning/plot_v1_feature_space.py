@@ -24,15 +24,12 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.metrics import roc_curve
 from sklearn.cluster import KMeans
+from sklearn.neural_network import MLPClassifier
 
-Features = collections.namedtuple("Features",
-        ["int_features", "bool_features", "numeric_features", "exp_name"])
-Reward = collections.namedtuple("Reward", ["inline", "no_inline"])
-DualReward = collections.namedtuple("DualReward", ["long_term", "immediate"])
-
-option_of_sexp = inlining_tree.option_of_sexp
+from feature_loader import Features, Reward, DualReward
 
 B = 5.0
+
 
 def sgn(x):
     if x < 0:
@@ -40,45 +37,6 @@ def sgn(x):
     else:
         return 1
 
-
-def parse(sexp, exp_name):
-    def parse_dual_reward(sexp):
-        m = inlining_tree.sexp_to_map(sexp)
-        return DualReward(
-                long_term=float(m["long_term"]),
-                immediate=float(m["immediate"]))
-
-    def parse_reward(sexp):
-        m = inlining_tree.sexp_to_map(sexp)
-        inline = option_of_sexp(m["inline"], f=parse_dual_reward)
-        no_inline = option_of_sexp(m["no_inline"], f=float)
-        return Reward(inline=inline, no_inline=no_inline)
-
-    def parse_feature_list(sexp, f):
-        return [(inlining_tree.unpack_atom(k), f(inlining_tree.unpack_atom(v))) for k, v in sexp]
-
-    def parse_bool(s):
-        if s == "true":
-            return True
-        elif s == "false":
-            return False
-        else:
-            assert False
-
-
-    def parse_features(sexp):
-        m = inlining_tree.sexp_to_map(sexp)
-        int_features = parse_feature_list(m["int_features"], f=int)
-        numeric_features = parse_feature_list(m["numeric_features"], f=float)
-        bool_features = parse_feature_list(m["bool_features"], f=parse_bool)
-        return Features(
-                exp_name=exp_name,
-                int_features=int_features,
-                bool_features=bool_features,
-                numeric_features=numeric_features)
-
-    assert isinstance(sexp, list)
-    return [(parse_features(a), option_of_sexp(b, f=parse_reward)) for (a, b) in sexp]
 
 def fmap(x, f):
     if x is not None:
@@ -211,20 +169,31 @@ def plot_pca(features, labels, title, fname, legend, num_classes):
     plt.savefig(fname)
 
 
-def plot_lda(features, labels, title, fname, legend):
-    lda = LDA(n_components=1)
+def plot_lda(features, labels, title, fname, legend, num_classes=2):
+    lda = LDA(n_components=num_classes - 1)
     lda.fit(features, labels)
     pca = PCA(n_components=1)
     pca.fit(features)
     transformed = np.hstack((pca.transform(features), lda.transform(features)))
 
     fig = plt.figure()
-    plt.xlabel("PCA primary component")
-    plt.ylabel("LDA component")
-    plt.title(title)
-    l1 = plt.scatter(transformed[np.array(labels), 0], transformed[np.array(labels), 1], color='r', marker='x', s=4)
-    l2 = plt.scatter(transformed[np.logical_not(labels), 0], transformed[np.logical_not(labels), 1], color='b', marker='x', s=4)
-    plt.legend([l1, l2], legend)
+
+    if num_classes <= 2:
+        plt.xlabel("PCA primary component")
+        plt.ylabel("LDA component")
+        plt.title(title)
+        l1 = plt.scatter(transformed[np.array(labels), 0], transformed[np.array(labels), 1], color='r', marker='x', s=4)
+        l2 = plt.scatter(transformed[np.logical_not(labels), 0], transformed[np.logical_not(labels), 1], color='b', marker='x', s=4)
+        plt.legend([l1, l2], legend)
+    else:
+        plt.xlabel("LDA component 0")
+        plt.ylabel("LDA component 1")
+        plt.title(title)
+        ls = []
+        for cls in range(num_classes):
+            ls.append(plt.scatter(transformed[np.array(labels) == cls, 0], transformed[np.array(labels) == cls, 1], marker='x', s=4))
+        plt.legend(ls, legend)
+
     plt.tight_layout()
     plt.grid()
     plt.savefig(fname)
@@ -346,14 +315,7 @@ def plot_pca_density(features, title, fname):
 
 
 def main():
-    # all_data = []
-    # for exp in py_common.INITIAL_EXPERIMENTS:
-    #     with open("./report_plots/reward_assignment/data/%s/feature_reward_pair.sexp" % exp, "r") as f:
-    #         all_data.extend(parse(sexpdata.load(f), exp_name=exp))
-    # with open("./report_plots/machine_learning/v2_data.pickle", "wb") as f:
-    #     pickle.dump(all_data, f)
-
-    with open("./report_plots/machine_learning/v2_data.pickle", "rb") as f:
+    with open("./report_plots/machine_learning/v3_data.pickle", "rb") as f:
         all_data = pickle.load(f)
 
     minimal = float(sys.argv[1])
@@ -412,6 +374,34 @@ def main():
     familiarity_features = np.array(features)
     familiarity_labels = np.array(familiarity_labels)
 
+    n_clusters = 3
+    kmeans = KMeans(n_clusters=n_clusters, random_state=100)
+    kmeans.fit(features)
+    clusters = np.array(kmeans.labels_, dtype=np.int32)
+
+    plot_pca(familiarity_features,
+            np.array([py_common.INITIAL_EXPERIMENTS.index(f.exp_name) for (f, _) in all_data]),
+            num_classes=len(py_common.INITIAL_EXPERIMENTS),
+            title="PCA Scatter Plot of All Features",
+            legend=py_common.INITIAL_EXPERIMENTS,
+            fname="report_plots/machine_learning/pca_exp_scatter_plot.pdf")
+
+    exp_labels = np.array([py_common.INITIAL_EXPERIMENTS.index(f.exp_name) for (f, _) in all_data])
+    model = MLPClassifier(
+            solver='lbfgs', alpha=1e-5,
+            hidden_layer_sizes=(10,),
+            activation="relu",
+            random_state=1)
+    model.fit(features, exp_labels)
+    print "exp model score:", model.score(features, exp_labels)
+
+    # plot_lda(familiarity_features,
+    #         np.array([py_common.INITIAL_EXPERIMENTS.index(f.exp_name) for (f, _) in all_data]),
+    #         num_classes=len(py_common.INITIAL_EXPERIMENTS),
+    #         title="PCA Scatter Plot of All Features",
+    #         legend=py_common.INITIAL_EXPERIMENTS,
+    #         fname="report_plots/machine_learning/lda_exp_scatter_plot.pdf")
+
     print "familiarity label mean:", np.mean(familiarity_labels)
     model = LogisticRegression()
     model.fit(features, familiarity_labels)
@@ -426,6 +416,16 @@ def main():
             title="PCA Scatter Plot of Familiarity Points (B = %f)" % minimal,
             legend=["Familiar", "Not Familiar"],
             fname="report_plots/machine_learning/familiarity_pca_scatter_plot.pdf")
+
+    plot_pca(features, kmeans.labels_, num_classes=kmeans.n_clusters,
+            title="PCA Scatter Plot of Decision Points (B = %f)" % minimal,
+            legend=[str(x) for x in range(kmeans.n_clusters)],
+            fname="report_plots/machine_learning/pca_cluster_scatter_plot.pdf")
+    plot_lda(features, kmeans.labels_, num_classes=kmeans.n_clusters,
+            title="LDA Scatter Plot of Decision Points (B = %f)" % minimal,
+            legend=[str(x) for x in range(kmeans.n_clusters)],
+            fname="report_plots/machine_learning/lda_cluster_scatter_plot.pdf")
+
 
     decision_features = np.array(decision_features)
     decision_labels = np.array(decision_labels)
@@ -446,11 +446,6 @@ def main():
     # plt.plot(clusters, inertias)
     # plt.show()
     # return
-
-    n_clusters = 2
-    kmeans = KMeans(n_clusters=n_clusters)
-    kmeans.fit(features)
-    clusters = np.array(kmeans.labels_, dtype=np.int32)
 
     plot_pca(decision_features, decision_labels, num_classes=2,
             title="PCA Scatter Plot of Decision Points (B = %f)" % minimal,

@@ -26,11 +26,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.metrics import roc_curve
 
-Features = collections.namedtuple("Features", ["int_features", "bool_features", "numeric_features"])
-Reward = collections.namedtuple("Reward", ["inline", "no_inline"])
-DualReward = collections.namedtuple("DualReward", ["long_term", "immediate"])
-
-option_of_sexp = inlining_tree.option_of_sexp
+from feature_loader import Features, Reward, DualReward
 
 B = 5.0
 
@@ -40,47 +36,23 @@ ONLY_KNOW_APPLY = 2
 BETTER_INLINE = 3
 BETTER_APPLY  = 4
 
+class ConstantClassifier(object):
+
+    def fit(self, _X, y):
+        if np.mean(y) >= 0.5:
+            self._pred = 1
+        else:
+            self._pred = 0
+
+    def score(self, _X, y):
+        return np.mean(np.array(y).astype(int) == self._pred)
+
 def sgn(x):
     if x < 0:
         return -1
     else:
         return 1
 
-
-def parse(sexp):
-    def parse_dual_reward(sexp):
-        m = inlining_tree.sexp_to_map(sexp)
-        return DualReward(
-                long_term=float(m["long_term"]),
-                immediate=float(m["immediate"]))
-
-    def parse_reward(sexp):
-        m = inlining_tree.sexp_to_map(sexp)
-        inline = option_of_sexp(m["inline"], f=parse_dual_reward)
-        no_inline = option_of_sexp(m["no_inline"], f=float)
-        return Reward(inline=inline, no_inline=no_inline)
-
-    def parse_feature_list(sexp, f):
-        return [(inlining_tree.unpack_atom(k), f(inlining_tree.unpack_atom(v))) for k, v in sexp]
-
-    def parse_bool(s):
-        if s == "true":
-            return True
-        elif s == "false":
-            return False
-        else:
-            assert False
-
-
-    def parse_features(sexp):
-        m = inlining_tree.sexp_to_map(sexp)
-        int_features = parse_feature_list(m["int_features"], f=int)
-        numeric_features = parse_feature_list(m["numeric_features"], f=float)
-        bool_features = parse_feature_list(m["bool_features"], f=parse_bool)
-        return Features(int_features=int_features, bool_features=bool_features, numeric_features=numeric_features)
-
-    assert isinstance(sexp, list)
-    return [(parse_features(a), option_of_sexp(b, f=parse_reward)) for (a, b) in sexp]
 
 def fmap(x, f):
     if x is not None:
@@ -355,22 +327,40 @@ parser.add_argument("--familiarity-model-file", type=str,
 def train_models(features, labels):
 
     labels = np.array(labels)
-    familiarity_labels = np.array(labels) > 0
     familiarity_features = np.array(features)
-    familiarity_labels = np.array(familiarity_labels)
 
-    decision_features = np.array(features)[labels > 0, :]
-    decision_labels = []
-
+    familiarity_labels = []
     for x in labels:
-        if x == I_DONT_KNOW:
-            pass
-        elif x == ONLY_KNOW_APPLY or x == BETTER_APPLY:
-            decision_labels.append(False)
-        elif x == ONLY_KNOW_INLINE or x == BETTER_INLINE:
-            decision_labels.append(True)
+        if x == I_DONT_KNOW or x == ONLY_KNOW_APPLY or x == ONLY_KNOW_INLINE:
+            familiarity_labels.append(False)
+        elif x == BETTER_APPLY or x == BETTER_INLINE:
+            familiarity_labels.append(True)
         else:
             assert False
+    familiarity_labels = np.array(familiarity_labels)
+
+    decision_labels = []
+    decision_features = []
+    for i, x in enumerate(labels):
+        if x == I_DONT_KNOW:
+            pass
+        # elif x == BETTER_APPLY:
+        elif x == ONLY_KNOW_APPLY or x == BETTER_INLINE:
+            decision_features.append(familiarity_features[i, :])
+            decision_labels.append(False)
+        # elif x == BETTER_INLINE:
+        elif x == ONLY_KNOW_INLINE or x == BETTER_INLINE:
+            decision_features.append(familiarity_features[i, :])
+            decision_labels.append(True)
+        else:
+            assert (
+                    x == I_DONT_KNOW or
+                    x == ONLY_KNOW_APPLY or
+                    x == ONLY_KNOW_INLINE or
+                    x == BETTER_APPLY or
+                    x == BETTER_INLINE)
+    decision_features = np.array(decision_features)
+    decision_labels = np.array(decision_labels)
 
     assert len(decision_features) == len(decision_labels)
 
@@ -384,15 +374,16 @@ def train_models(features, labels):
     print "- familiarity model score:", familiarity_model.score(features, familiarity_labels)
     fpr, tpr, thresholds = roc_curve(familiarity_labels, familiarity_model.predict_proba(features)[:, 1])
 
-    if np.mean(familiarity_labels) < 0.05:
-        print "- USING CONSTANT FAMILIARITY MODEL TO PREDICT UNFAMILIAR"
-        familiarity_model.coefs_ = [np.zeros((features.shape[1], 1))]
-        familiarity_model.intercepts_ = [(20.0,)]
-
     print "- decision number of training examples:", len(decision_labels)
     print "- decision label mean:", np.mean(decision_labels)
 
-    if len(decision_labels) < 50:
+    if np.mean(familiarity_labels) < 0.05:
+        print "- USING CONSTANT FAMILIARITY MODEL TO PREDICT UNFAMILIAR"
+        familiarity_model = ConstantClassifier()
+        familiarity_model.fit(features, familiarity_labels)
+        decision_model = ConstantClassifier()
+        decision_model.fit(decision_features, decision_labels)
+    elif len(decision_labels) < 50:
         decision_model = LogisticRegression()
         decision_model.fit(decision_features, decision_labels)
     else:
@@ -402,21 +393,16 @@ def train_models(features, labels):
                 activation="relu",
                 random_state=1)
         decision_model.fit(decision_features, decision_labels)
+
     print "- decision model score:", decision_model.score(decision_features, decision_labels)
 
     return { "familiarity": familiarity_model, "decision": decision_model }
 
 
 def main():
-    # with open("./report_plots/machine_learning/v1_data.sexp", "r") as f:
-    #     all_data = parse(sexpdata.load(f))
-
-    # with open("./report_plots/machine_learning/v1_data.pickle", "wb") as f:
-    #     pickle.dump(all_data, f)
-
     args = parser.parse_args()
 
-    with open("./report_plots/machine_learning/v1_data.pickle", "rb") as f:
+    with open("./report_plots/machine_learning/v3_data.pickle", "rb") as f:
         all_data = pickle.load(f)
     minimal = float(args.minimal)
     print "Minimal:", minimal
@@ -447,9 +433,9 @@ def main():
     normalised_numeric_features = normalised_numeric_features / np.std(relevant_numeric_features, axis=0)
 
     features = np.concatenate([normalised_numeric_features, relevant_bool_features], axis=1)
+
     thorough_labels = []
     assert len(features) == len(raw_targets)
-
     for i, t in enumerate(raw_targets):
         if t is None:
             thorough_labels.append(I_DONT_KNOW)
@@ -461,10 +447,9 @@ def main():
             thorough_labels.append(BETTER_INLINE)
         else:
             thorough_labels.append(BETTER_APPLY)
-
     thorough_labels = np.array(thorough_labels)
-    features = np.array(features)
-    n_clusters = 5
+
+    n_clusters = 3
 
     # best = None
     # for random_state in range(50):
@@ -475,7 +460,7 @@ def main():
     #         best = kmeans
     # kmeans = best
 
-    kmeans = KMeans(n_clusters=n_clusters)
+    kmeans = KMeans(n_clusters=n_clusters, random_state=100)
     kmeans.fit(features)
 
     print "Best random state =", kmeans.random_state, "inertia = ", kmeans.inertia_
@@ -525,8 +510,16 @@ def float_to_string(x):
 
 def codegen_single_model(f, model, module_name):
     f.write("module %s = struct\n" % module_name)
+    
+    if isinstance(model, ConstantClassifier):
+        f.write("  let model _features =\n")
+        f.write("    let output = \n")
+        f.write("      %.3f\n" % model._pred)
+        f.write("    in\n")
+        f.write("    Tf_lib.Vec [| 1.0 -. output; output; |]\n")
+        f.write("  ;;\n")
 
-    if isinstance(model, LogisticRegression):
+    elif isinstance(model, LogisticRegression):
         weights = model.coef_
         intercept = model.intercept_
 
