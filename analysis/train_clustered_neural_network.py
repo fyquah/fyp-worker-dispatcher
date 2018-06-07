@@ -324,6 +324,8 @@ parser.add_argument("--decision-model-file", type=str,
         help="file for decision model")
 parser.add_argument("--familiarity-model-file", type=str,
         help="file to familiarity model")
+parser.add_argument("--feature-version", type=str,
+        help="feature version")
 
 
 def train_models(features, labels):
@@ -400,12 +402,15 @@ def train_models(features, labels):
 
     return { "familiarity": familiarity_model, "decision": decision_model }
 
+feature_version = "v3"
 
 feature_version = "v3"
 
 def main():
     global feature_version
     args = parser.parse_args()
+    global feature_version
+
     if args.feature_version is not None:
         feature_version = args.feature_version
 

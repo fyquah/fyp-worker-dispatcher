@@ -311,13 +311,20 @@ parser.add_argument("--decision-model-file", type=str,
         help="file for decision model")
 parser.add_argument("--familiarity-model-file", type=str,
         help="file to familiarity model")
+parser.add_argument("--feature-version", type=str,
+        help="feature version")
 
+feature_version = "v3"
 
 def main():
+    args = parser.parse_args()
+    global feature_version
+    if args.feature_version is not None:
+        feature_version = args.feature_version
+
     with open("./report_plots/machine_learning/v2_data.pickle", "rb") as f:
         all_data = pickle.load(f)
 
-    args = parser.parse_args()
     minimal = float(args.minimal)
     print "Minimal:", minimal
 
@@ -446,7 +453,7 @@ def codegen_model(
         numeric_feature_means,
         numeric_feature_std):
 
-    f.write("let feature_version = `V2\n")
+    f.write("let feature_version = `%s\n" % feature_version.upper())
     f.write("let numeric_features_names    = [| %s |]\n"
                 % "; ".join('"' + x + '"' for x in numeric_feature_names))
     f.write("let bool_features_names       = [| %s |]\n"
