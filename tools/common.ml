@@ -1,9 +1,10 @@
 open Core
 
-type feature_versions = [ `V0 | `V1 | `V2 ]
+type feature_versions = [ `V0 | `V1 | `V2 | `V3 ]
 
 module Manual_features_v1 = Fyp_compiler_plugins.Manual_features_v1
 module Manual_features_v2 = Fyp_compiler_plugins.Manual_features_v2
+module Manual_features_v3 = Fyp_compiler_plugins.Manual_features_v3
 module Feature_utils = Fyp_compiler_plugins.Feature_utils
 
 module Feature_list = struct
@@ -50,5 +51,6 @@ let parse_version v =
   | "V0" -> Some `V0
   | "V1" -> Some `V1
   | "V2" -> Some `V2
+  | "V3" -> Some `V3
   | _    -> None
 ;;
