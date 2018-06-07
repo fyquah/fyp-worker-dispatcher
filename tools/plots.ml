@@ -126,7 +126,7 @@ let command_describe_features =
     ]
 ;;
 
-let command_dump_v1_data =
+let command_dump_data =
   let open Command.Let_syntax in
   Command.async ~summary:"v1 features"
     [%map_open
@@ -165,6 +165,6 @@ let command =
   [("dump-rewards", command_dump_rewards);
    ("describe-features", command_describe_features);
    ("describe-rewards", command_describe_rewards);
-   ("dump-v1-data", command_dump_v1_data);
+   ("dump-data", command_dump_data);
   ]
 ;;
