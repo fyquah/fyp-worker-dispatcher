@@ -25,7 +25,8 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.metrics import roc_curve
 from sklearn.cluster import KMeans
 
-Features = collections.namedtuple("Features", ["int_features", "bool_features", "numeric_features"])
+Features = collections.namedtuple("Features",
+        ["int_features", "bool_features", "numeric_features", "exp_name"])
 Reward = collections.namedtuple("Reward", ["inline", "no_inline"])
 DualReward = collections.namedtuple("DualReward", ["long_term", "immediate"])
 
@@ -40,7 +41,7 @@ def sgn(x):
         return 1
 
 
-def parse(sexp):
+def parse(sexp, exp_name):
     def parse_dual_reward(sexp):
         m = inlining_tree.sexp_to_map(sexp)
         return DualReward(
@@ -70,7 +71,11 @@ def parse(sexp):
         int_features = parse_feature_list(m["int_features"], f=int)
         numeric_features = parse_feature_list(m["numeric_features"], f=float)
         bool_features = parse_feature_list(m["bool_features"], f=parse_bool)
-        return Features(int_features=int_features, bool_features=bool_features, numeric_features=numeric_features)
+        return Features(
+                exp_name=exp_name,
+                int_features=int_features,
+                bool_features=bool_features,
+                numeric_features=numeric_features)
 
     assert isinstance(sexp, list)
     return [(parse_features(a), option_of_sexp(b, f=parse_reward)) for (a, b) in sexp]
@@ -344,15 +349,18 @@ def main():
     # all_data = []
     # for exp in py_common.INITIAL_EXPERIMENTS:
     #     with open("./report_plots/reward_assignment/data/%s/feature_reward_pair.sexp" % exp, "r") as f:
-    #         all_data.extend(parse(sexpdata.load(f)))
-    #
-    # with open("./report_plots/machine_learning/v1_data.pickle", "wb") as f:
+    #         all_data.extend(parse(sexpdata.load(f), exp_name=exp))
+    # with open("./report_plots/machine_learning/v2_data.pickle", "wb") as f:
     #     pickle.dump(all_data, f)
 
-    minimal = float(sys.argv[1])
-    print "Minimal:", minimal
-    with open("./report_plots/machine_learning/v1_data.pickle", "rb") as f:
+    with open("./report_plots/machine_learning/v2_data.pickle", "rb") as f:
         all_data = pickle.load(f)
+
+    minimal = float(sys.argv[1])
+    if len(sys.argv) >= 3:
+        all_data = [(a, b) for (a, b) in all_data if a.exp_name == sys.argv[2]]
+
+    print "Minimal:", minimal
 
     print "No Information about rewards", len([t for (_, t) in all_data if t is None])
     print "Both inline and termination", len([t for (_, t) in all_data if t is not None and t.inline is not None and t.no_inline is not None])
@@ -439,7 +447,7 @@ def main():
     # plt.show()
     # return
 
-    n_clusters = 3
+    n_clusters = 2
     kmeans = KMeans(n_clusters=n_clusters)
     kmeans.fit(features)
     clusters = np.array(kmeans.labels_, dtype=np.int32)
