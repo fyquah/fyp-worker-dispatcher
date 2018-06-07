@@ -596,6 +596,7 @@ def codegen_model(
     for i, model in enumerate(models):
         codegen_single_model(f, model, module_name="Cluster_%d" % i)
 
+    f.write("let feature_version = `V2\n")
     f.write("let cluster_means = [|\n")
     for vector in cluster_means:
         f.write("  [|" + "; ".join(float_to_string(x) for x in vector) + " |];\n")
