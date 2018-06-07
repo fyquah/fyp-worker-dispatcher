@@ -35,6 +35,12 @@ option_of_sexp = inlining_tree.option_of_sexp
 
 B = 5.0
 
+I_DONT_KNOW = 0
+ONLY_KNOW_INLINE = 1
+ONLY_KNOW_APPLY = 2
+BETTER_INLINE = 3
+BETTER_APPLY  = 4
+
 def sgn(x):
     if x < 0:
         return -1
@@ -80,16 +86,15 @@ def parse(sexp, exp_name):
     assert isinstance(sexp, list)
     return [(parse_features(a), option_of_sexp(b, f=parse_reward)) for (a, b) in sexp]
 
-def target_to_thorough_labels(raw_targets):
+def target_to_thorough_labels(raw_targets, minimal):
     thorough_labels = []
-    assert len(features) == len(raw_targets)
     for i, ta in enumerate(raw_targets):
         apply_reward  = None
         inline_reward = None
 
-        if ta.inline.long_term is not None and abs(ta.inline.long_term) > minimal:
+        if ta is not None and ta.inline is not None and abs(ta.inline.long_term) > minimal:
             inline_reward = ta.inline.long_term
-        if ta.no_inline is not None and abs(ta.no_inline) > minimal:
+        if ta is not None and ta.no_inline is not None and abs(ta.no_inline) > minimal:
             apply_reward = ta.no_inline
 
         if apply_reward is None and inline_reward is None:

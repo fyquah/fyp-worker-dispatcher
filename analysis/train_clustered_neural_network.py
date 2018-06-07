@@ -26,16 +26,10 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.metrics import roc_curve
 
-from feature_loader import Features, Reward, DualReward
+from feature_loader import *
 import feature_loader
 
 B = 5.0
-
-I_DONT_KNOW = 0
-ONLY_KNOW_INLINE = 1
-ONLY_KNOW_APPLY = 2
-BETTER_INLINE = 3
-BETTER_APPLY  = 4
 
 class ConstantClassifier(object):
 
@@ -319,7 +313,6 @@ def plot_pca_density(features, title, fname):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("minimal", type=str, help="output file name")
-parser.add_argument("--feature-version", type=str, help="output file name")
 parser.add_argument("--decision-model-file", type=str,
         help="file for decision model")
 parser.add_argument("--familiarity-model-file", type=str,
@@ -370,7 +363,7 @@ def train_models(features, labels):
 
     print "- familiarity label mean:", np.mean(familiarity_labels)
     familiarity_model = MLPClassifier(
-            solver='lbfgs', alpha=1e-5,
+            solver='lbfgs', alpha=1e-4,
             hidden_layer_sizes=(32, 16),
             activation="relu",
             random_state=1)
@@ -445,7 +438,8 @@ def main():
     normalised_numeric_features = normalised_numeric_features / np.std(relevant_numeric_features, axis=0)
 
     features = np.concatenate([normalised_numeric_features, relevant_bool_features], axis=1)
-    thorough_labels = feature_loader.target_to_thorough_labels(raw_targets)
+    assert len(features) == len(raw_targets)
+    thorough_labels = feature_loader.target_to_thorough_labels(raw_targets, minimal=minimal)
 
     n_clusters = 2
 

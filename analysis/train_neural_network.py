@@ -25,16 +25,10 @@ from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.metrics import roc_curve
-from feature_loader import Features, Reward, DualReward
+from feature_loader import *
 import feature_loader
 
 B = 5.0
-
-I_DONT_KNOW = 0
-ONLY_KNOW_INLINE = 1
-ONLY_KNOW_APPLY = 2
-BETTER_INLINE = 3
-BETTER_APPLY  = 4
 
 def sgn(x):
     if x < 0:
@@ -354,7 +348,7 @@ def main():
     normalised_numeric_features = normalised_numeric_features / np.std(relevant_numeric_features, axis=0)
 
     features = np.concatenate([normalised_numeric_features, relevant_bool_features], axis=1)
-    thorough_labels = feature_loader.target_to_thorough_labels(raw_targets)
+    thorough_labels = feature_loader.target_to_thorough_labels(raw_targets, minimal=minimal)
 
     familiarity_features = np.array(features)
     familiarity_labels = []
