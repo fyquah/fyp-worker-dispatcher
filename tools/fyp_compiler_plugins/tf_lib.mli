@@ -19,6 +19,7 @@ val notequal  : 'a t -> 'a t -> bool t
 val matmul     : float t -> float t -> float t
 val add        : float t -> float t -> float t
 val relu       : float t -> float t
+val logistic   : float t -> float t
 val softmax    : float t -> float t
 val reciprocal : float t -> float t
 val softmax    : float t -> float t
@@ -39,3 +40,8 @@ val features_to_t
   -> numeric_features_means: float array
   -> numeric_features_std: float array
   -> float t
+
+val sigmoid : float -> float
+
+val check_names : names : string array -> 'a Feature_utils.Feature_list.t -> unit
+val choose_cluster : means: float array array -> float t -> int

@@ -84,6 +84,8 @@ let floor a = map floor a
 
 let relu a = map (fun x -> if x > 0.0 then x else 0.0) a
 
+let logistic a = map (fun x -> 1.0 /. (1.0 +. 2.71818284 ** (-.x))) a
+
 let reciprocal a = map (fun x -> 1.0 /. x) a
 
 let softmax t =
@@ -128,6 +130,9 @@ let rec matmul ta tb =
     | Mat ret -> Vec ret.(0)
     | _ -> assert false
     end
+  | Vec v_a, Vec v_b ->
+    Scalar ((Array.map2 ( *. ) v_a v_b) |> Array.fold_left (+.) 0.0)
+
   | _, _ -> assert false
 ;;
 
@@ -149,6 +154,11 @@ module Feature_list = Feature_utils.Feature_list
 
 let unpack_scalar_exn = function
   | Scalar a -> a
+  | Vec v ->
+    if Array.length v = 1 then
+      v.(0)
+    else
+     assert false
   | _ -> assert false
 ;;
 
@@ -167,9 +177,48 @@ let features_to_t
         (arr.(j) -. numeric_features_means.(i)) /. numeric_features_std.(i))
       numeric_features_indices
   in
-  let bool_features = to_array bool_features |> Array.map bool_to_float in
+  let bool_features =
+    let arr = to_array bool_features in
+    Array.map (fun j -> arr.(j)) bool_features_indices
+    |> Array.map bool_to_float
+  in
   let features =
     Vec (Array.concat [ numeric_features; bool_features; ])
   in
   features
+;;
+
+let sigmoid x = 1.0 /. (1.0 +. (2.7182818284 ** (-.x)))
+
+let check_names ~names feature_list  =
+  let a =
+    Feature_list.to_list feature_list
+    |> List.map fst
+    |> Array.of_list
+  in
+  Array.iter2 (fun a b -> assert (String.equal a b)) a names
+;;
+
+let choose_cluster ~means features =
+  let best = ref 0 in
+  let lowest_distance = ref infinity in
+
+  Array.iteri (fun i cluster_mean ->
+      let dist =
+        Array.map2 (fun a b -> (a -. b) ** 2.0) cluster_mean features
+        |> Array.fold_left (+.) 0.0
+      in
+      if dist < !lowest_distance then begin
+        lowest_distance := dist;
+        best := i
+      end)
+    means;
+
+  !best
+;;
+
+let choose_cluster ~means features =
+  match features with
+  | Vec features -> choose_cluster ~means features
+  | _ -> assert false
 ;;
