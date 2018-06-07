@@ -322,6 +322,8 @@ parser.add_argument("--decision-model-file", type=str,
         help="file for decision model")
 parser.add_argument("--familiarity-model-file", type=str,
         help="file to familiarity model")
+parser.add_argument("--feature-version", type=str,
+        help="feature version")
 
 
 def train_models(features, labels):
@@ -398,11 +400,15 @@ def train_models(features, labels):
 
     return { "familiarity": familiarity_model, "decision": decision_model }
 
+feature_version = "v3"
 
 def main():
     args = parser.parse_args()
+    global feature_version
+    if args.feature_version is not None:
+        feature_version = args.feature_version
 
-    with open("./report_plots/machine_learning/v3_data.pickle", "rb") as f:
+    with open("./report_plots/machine_learning/%s_data.pickle" % feature_version.lower(), "rb") as f:
         all_data = pickle.load(f)
     minimal = float(args.minimal)
     print "Minimal:", minimal
@@ -589,7 +595,7 @@ def codegen_model(
     for i, model in enumerate(models):
         codegen_single_model(f, model, module_name="Cluster_%d" % i)
 
-    f.write("let feature_version = `V2\n")
+    f.write("let feature_version = `%s\n" % feature_version.upper())
     f.write("let cluster_means = [|\n")
     for vector in cluster_means:
         f.write("  [|" + "; ".join(float_to_string(x) for x in vector) + " |];\n")
