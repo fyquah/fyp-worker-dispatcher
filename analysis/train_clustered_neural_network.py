@@ -386,7 +386,7 @@ def train_models(features, labels):
 
     if np.mean(familiarity_labels) < 0.05:
         print "- USING CONSTANT FAMILIARITY MODEL TO PREDICT UNFAMILIAR"
-        familiarity_model.coefs_ = [np.zeros((1, features.shape[1]))]
+        familiarity_model.coefs_ = [np.zeros((features.shape[1], 1))]
         familiarity_model.intercepts_ = [(20.0,)]
 
     print "- decision number of training examples:", len(decision_labels)

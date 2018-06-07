@@ -65,11 +65,11 @@ def main():
             all_records[benchmark] = (None, None, None)
 
     arr = []
-    for bench, (_time, _ratio, speedup) in all_records.iteritems():
+    for bench, (time, _ratio, speedup) in all_records.iteritems():
         if speedup is None:
             print "%s: N/A" % (bench)
         else:
-            print "%s: %f%%" % (bench, speedup * 100)
+            print "%s: %f%% (%.3fs)" % (bench, speedup * 100, time)
 
 if __name__ == "__main__":
     main()
