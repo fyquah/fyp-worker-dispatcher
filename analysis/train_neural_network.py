@@ -394,13 +394,14 @@ def main():
     decision_features = np.array(decision_features)
     decision_labels = np.array(decision_labels)
 
-
+    print "Number of features that matter:", features.shape[1]
     print "familiarity label mean:", np.mean(familiarity_labels)
     familiarity_model = MLPClassifier(
             solver='lbfgs', alpha=1e-5,
-            hidden_layer_sizes=(8, 4),
+            hidden_layer_sizes=(25, 12),
             activation="relu",
-            random_state=1)
+            random_state=1,
+            max_iter=2000)
     familiarity_model.fit(features, familiarity_labels)
     print "familiarity model score:", familiarity_model.score(features, familiarity_labels)
     fpr, tpr, thresholds = roc_curve(familiarity_labels, familiarity_model.predict_proba(features)[:, 1])
@@ -423,7 +424,7 @@ def main():
     print "decision label mean:", np.mean(decision_labels)
     decision_model = MLPClassifier(
             solver='lbfgs', alpha=1e-4,
-            hidden_layer_sizes=(25, 12),
+            hidden_layer_sizes=(32, 16),
             activation="relu",
             random_state=1,
             max_iter=2000)

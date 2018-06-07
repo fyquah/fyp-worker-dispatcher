@@ -367,7 +367,7 @@ def train_models(features, labels):
     print "- familiarity label mean:", np.mean(familiarity_labels)
     familiarity_model = MLPClassifier(
             solver='lbfgs', alpha=1e-5,
-            hidden_layer_sizes=(15,),
+            hidden_layer_sizes=(32, 16),
             activation="relu",
             random_state=1)
     familiarity_model.fit(features, familiarity_labels)
@@ -449,7 +449,7 @@ def main():
             thorough_labels.append(BETTER_APPLY)
     thorough_labels = np.array(thorough_labels)
 
-    n_clusters = 3
+    n_clusters = 2
 
     # best = None
     # for random_state in range(50):
