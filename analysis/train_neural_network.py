@@ -26,6 +26,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.metrics import roc_curve
 from feature_loader import Features, Reward, DualReward
+import feature_loader
 
 B = 5.0
 
@@ -346,21 +347,7 @@ def main():
     normalised_numeric_features = normalised_numeric_features / np.std(relevant_numeric_features, axis=0)
 
     features = np.concatenate([normalised_numeric_features, relevant_bool_features], axis=1)
-
-    thorough_labels = []
-    assert len(features) == len(raw_targets)
-    for i, t in enumerate(raw_targets):
-        if t is None:
-            thorough_labels.append(I_DONT_KNOW)
-        elif t.inline is None:
-            thorough_labels.append(ONLY_KNOW_APPLY)
-        elif t.no_inline is None:
-            thorough_labels.append(ONLY_KNOW_INLINE)
-        elif raw_targets[i].inline.long_term > raw_targets[i].no_inline:
-            thorough_labels.append(BETTER_INLINE)
-        else:
-            thorough_labels.append(BETTER_APPLY)
-    thorough_labels = np.array(thorough_labels)
+    thorough_labels = feature_loader.target_to_thorough_labels(raw_targets)
 
     familiarity_features = np.array(features)
     familiarity_labels = []

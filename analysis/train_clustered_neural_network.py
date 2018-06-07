@@ -27,6 +27,7 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.metrics import roc_curve
 
 from feature_loader import Features, Reward, DualReward
+import feature_loader
 
 B = 5.0
 
@@ -318,6 +319,7 @@ def plot_pca_density(features, title, fname):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("minimal", type=str, help="output file name")
+parser.add_argument("--feature-version", type=str, help="output file name")
 parser.add_argument("--decision-model-file", type=str,
         help="file for decision model")
 parser.add_argument("--familiarity-model-file", type=str,
@@ -399,10 +401,15 @@ def train_models(features, labels):
     return { "familiarity": familiarity_model, "decision": decision_model }
 
 
-def main():
-    args = parser.parse_args()
+feature_version = "v3"
 
-    with open("./report_plots/machine_learning/v3_data.pickle", "rb") as f:
+def main():
+    global feature_version
+    args = parser.parse_args()
+    if args.feature_version is not None:
+        feature_version = args.feature_version
+
+    with open("./report_plots/machine_learning/%s_data.pickle" % feature_version.lower(), "rb") as f:
         all_data = pickle.load(f)
     minimal = float(args.minimal)
     print "Minimal:", minimal
@@ -433,21 +440,7 @@ def main():
     normalised_numeric_features = normalised_numeric_features / np.std(relevant_numeric_features, axis=0)
 
     features = np.concatenate([normalised_numeric_features, relevant_bool_features], axis=1)
-
-    thorough_labels = []
-    assert len(features) == len(raw_targets)
-    for i, t in enumerate(raw_targets):
-        if t is None:
-            thorough_labels.append(I_DONT_KNOW)
-        elif t.inline is None:
-            thorough_labels.append(ONLY_KNOW_APPLY)
-        elif t.no_inline is None:
-            thorough_labels.append(ONLY_KNOW_INLINE)
-        elif raw_targets[i].inline.long_term > raw_targets[i].no_inline:
-            thorough_labels.append(BETTER_INLINE)
-        else:
-            thorough_labels.append(BETTER_APPLY)
-    thorough_labels = np.array(thorough_labels)
+    thorough_labels = feature_loader.target_to_thorough_labels(raw_targets)
 
     n_clusters = 2
 
@@ -589,7 +582,7 @@ def codegen_model(
     for i, model in enumerate(models):
         codegen_single_model(f, model, module_name="Cluster_%d" % i)
 
-    f.write("let feature_version = `V2\n")
+    f.write("let feature_version = `%s\n" % feature_version.upper())
     f.write("let cluster_means = [|\n")
     for vector in cluster_means:
         f.write("  [|" + "; ".join(float_to_string(x) for x in vector) + " |];\n")

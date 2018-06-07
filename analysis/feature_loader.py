@@ -80,6 +80,30 @@ def parse(sexp, exp_name):
     assert isinstance(sexp, list)
     return [(parse_features(a), option_of_sexp(b, f=parse_reward)) for (a, b) in sexp]
 
+def target_to_thorough_labels(raw_targets):
+    thorough_labels = []
+    assert len(features) == len(raw_targets)
+    for i, ta in enumerate(raw_targets):
+        apply_reward  = None
+        inline_reward = None
+
+        if ta.inline.long_term is not None and abs(ta.inline.long_term) > minimal:
+            inline_reward = ta.inline.long_term
+        if ta.no_inline is not None and abs(ta.no_inline) > minimal:
+            apply_reward = ta.no_inline
+
+        if apply_reward is None and inline_reward is None:
+            thorough_labels.append(I_DONT_KNOW)
+        elif inline_reward is None:
+            thorough_labels.append(ONLY_KNOW_APPLY)
+        elif apply_reward is None:
+            thorough_labels.append(ONLY_KNOW_INLINE)
+        elif inline_reward > apply_reward:
+            thorough_labels.append(BETTER_INLINE)
+        else:
+            thorough_labels.append(BETTER_APPLY)
+    return np.array(thorough_labels)
+
 
 def main():
     version = sys.argv[1]
