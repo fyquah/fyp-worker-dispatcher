@@ -120,6 +120,12 @@ let load_call_site_examples_raw ~version
               (query.env.round = 0))
           >>| List.map ~f:(fun (query : Inlining_query.query) ->
               (query_trace query, Manual_features_v2.process query))
+        | `V3 ->
+          read_marshal_exn (prefix ^/ "queries-v0.bin")
+          >>| List.filter ~f:(fun (query : Inlining_query.query) ->
+              (query.env.round = 0))
+          >>| List.map ~f:(fun (query : Inlining_query.query) ->
+              (query_trace query, Manual_features_v3.process query))
       in
       let%map (raw_rewards : Raw_data.Reward.t list) =
         let rewards_file = specification_entry.rewards_file in
