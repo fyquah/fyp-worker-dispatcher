@@ -8,6 +8,7 @@ from StringIO import StringIO
 import scipy
 import scipy.stats
 
+import py_common
 import sexpdata
 import matplotlib
 import matplotlib.pyplot as plt
@@ -346,16 +347,22 @@ parser.add_argument("--familiarity-model-file", type=str,
 
 
 def main():
-    # with open("./report_plots/machine_learning/v1_data.sexp", "r") as f:
-    #     all_data = parse(sexpdata.load(f))
-
-    # with open("./report_plots/machine_learning/v1_data.pickle", "wb") as f:
-    #     pickle.dump(all_data, f)
+    if os.path.exists("./report_plots/machine_learning/v2_data.pickle"):
+        print "LOADING CACHED VARIANT"
+        print "To invalidate cache, run `rm report_plots/machine_learning/v2_data.pickle`"
+        with open("./report_plots/machine_learning/v2_data.pickle", "rb") as f:
+            all_data = pickle.load(f)
+    else:
+        print "PARSING FROM SCRATCH"
+        all_data = []
+        for exp in py_common.INITIAL_EXPERIMENTS:
+            with open("./report_plots/reward_assignment/data/%s/feature_reward_pair.sexp" % exp, "r") as f:
+                all_data.extend(parse(sexpdata.load(f)))
+    
+    with open("./report_plots/machine_learning/v2_data.pickle", "wb") as f:
+        pickle.dump(all_data, f)
 
     args = parser.parse_args()
-
-    with open("./report_plots/machine_learning/v1_data.pickle", "rb") as f:
-        all_data = pickle.load(f)
     minimal = float(args.minimal)
     print "Minimal:", minimal
 
@@ -476,6 +483,7 @@ def codegen_model(
         numeric_feature_means,
         numeric_feature_std):
 
+    f.write("let feature_version = `V2\n")
     f.write("let numeric_features_names    = [| %s |]\n"
                 % "; ".join('"' + x + '"' for x in numeric_feature_names))
     f.write("let bool_features_names       = [| %s |]\n"

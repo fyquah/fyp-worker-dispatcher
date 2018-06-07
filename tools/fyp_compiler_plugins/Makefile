@@ -29,6 +29,7 @@ build/plugin_v0.cmxs: \
   build/decision_weights_v0.ml build/decision_model_v0.ml build/decision_normaliser_v0.ml \
   model_loader_v0.ml \
   manual_features_v1.mli manual_features_v1.ml \
+  manual_features_v2.mli manual_features_v2.ml \
   plugin_v0.ml
 	echo "" >build/fyp_compiler_lib.ml
 	cp model_loader_v0.ml build/model_loader.ml
@@ -44,6 +45,7 @@ build/plugin_v0_logistic_regression.cmxs: \
   build/decision_model_v0_logistic_regression.ml \
   model_loader_v0_logistic_regression.ml \
   manual_features_v1.mli manual_features_v1.ml \
+  manual_features_v2.mli manual_features_v2.ml \
   plugin_v0.ml
 	echo "" >build/fyp_compiler_lib.ml
 	cp model_loader_v0_logistic_regression.ml build/model_loader.ml
@@ -59,6 +61,7 @@ build/plugin_v0_neural_network.cmxs: \
   build/decision_model_v0_neural_network.ml \
   model_loader_v0_neural_network.ml \
   manual_features_v1.mli manual_features_v1.ml \
+  manual_features_v2.mli manual_features_v2.ml \
   plugin_v0.ml
 	echo "" >build/fyp_compiler_lib.ml
 	cp model_loader_v0_neural_network.ml build/model_loader.ml
@@ -74,6 +77,7 @@ build/plugin_v0_clustered_neural_network.cmxs: \
   build/decision_model_v0_clustered_neural_network.ml \
   model_loader_v0_clustered_neural_network.ml \
   manual_features_v1.mli manual_features_v1.ml \
+  manual_features_v2.mli manual_features_v2.ml \
   plugin_v0.ml
 	echo "" >build/fyp_compiler_lib.ml
 	cp model_loader_v0_clustered_neural_network.ml build/model_loader.ml

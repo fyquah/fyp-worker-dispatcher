@@ -18,10 +18,17 @@ let to_vec features = Tf_lib.Vec (Features.to_array features)
 
 
 let f_0 (query : Inlining_query.query) =
-  let (features : [`raw] Features.t) = Manual_features_v1.process query in
+  let (v1_features : [`raw] Features.t) = Manual_features_v1.process query in
+  let (v2_features : [`raw] Features.t) = Manual_features_v2.process query in
   (* assert (List.length (Feature_list.to_list features.int_features) = 0); *)
-  let { Features. int_features; numeric_features; bool_features; } = features in
+  let select = function
+    | `V1 -> v1_features
+    | `V2 -> v2_features
+  in
   let familiar =
+    let { Features. int_features; numeric_features; bool_features; } =
+      select Familiarity_model.feature_version
+    in
     let tau =
       match Sys.getenv_opt "FAMILIARITY_TAU" with
       | None -> 0.5
@@ -32,6 +39,9 @@ let f_0 (query : Inlining_query.query) =
   in
   if familiar then begin
     (* Some Data_collector.Action.Inline *)
+    let { Features. int_features; numeric_features; bool_features; } =
+      select Decision_model.feature_version
+    in
     let decision =
       let tau =
         match Sys.getenv_opt "DECISION_TAU" with
