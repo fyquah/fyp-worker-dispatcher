@@ -316,8 +316,9 @@ def main():
     if args.feature_version is not None:
         feature_version = args.feature_version
 
-    with open("./report_plots/machine_learning/v2_data.pickle", "rb") as f:
+    with open("./report_plots/machine_learning/%s_data.pickle" % feature_version.lower(), "rb") as f:
         all_data = pickle.load(f)
+    print len(all_data)
 
     minimal = float(args.minimal)
     print "Minimal:", minimal
@@ -386,7 +387,7 @@ def main():
     print "familiarity label mean:", np.mean(familiarity_labels)
     familiarity_model = MLPClassifier(
             solver='lbfgs', alpha=1e-5,
-            hidden_layer_sizes=(25, 12),
+            hidden_layer_sizes=(25,),
             activation="relu",
             random_state=1,
             max_iter=2000)
@@ -412,7 +413,7 @@ def main():
     print "decision label mean:", np.mean(decision_labels)
     decision_model = MLPClassifier(
             solver='lbfgs', alpha=1e-4,
-            hidden_layer_sizes=(32, 16),
+            hidden_layer_sizes=(32,),
             activation="relu",
             random_state=1,
             max_iter=2000)
