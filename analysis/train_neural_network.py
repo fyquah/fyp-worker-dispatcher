@@ -316,7 +316,7 @@ def main():
     if args.feature_version is not None:
         feature_version = args.feature_version
 
-    with open("./report_plots/machine_learning/v2_data.pickle", "rb") as f:
+    with open("./report_plots/machine_learning/%s_data.pickle" % feature_version.lower(), "rb") as f:
         all_data = pickle.load(f)
 
     minimal = float(args.minimal)
@@ -504,8 +504,8 @@ def codegen_model(
         f.write("let bool_features_indices    = [| %s |]\n" % "; ".join(str(x) for x in np.where(bool_feature_indices)[0]))
         f.write("\n")
         f.write("let model ~int_features ~numeric_features ~bool_features =\n")
-        f.write("  Tf_lib.check_names ~names:numeric_features_names numeric_features;")
-        f.write("  Tf_lib.check_names ~names:bool_features_names bool_features;")
+        f.write("  Tf_lib.check_names ~names:numeric_features_names numeric_features;\n")
+        f.write("  Tf_lib.check_names ~names:bool_features_names bool_features;\n")
         f.write("  let features = Tf_lib.features_to_t\n")
         f.write("    ~int_features ~numeric_features ~bool_features\n")
         f.write("    ~numeric_features_indices ~bool_features_indices\n")
@@ -530,6 +530,19 @@ def codegen_model(
 
     else:
         assert False
+
+    for i in range(5):
+        f.write("(* Test case %d *)\n" % i)
+        feature_loader.codegen_single_test_case(
+                f=f,
+                model=model,
+                num_numeric_features=len(numeric_feature_names),
+                num_bool_features=len(bool_feature_names),
+                numeric_feature_indices=numeric_feature_indices,
+                bool_feature_indices=bool_feature_indices,
+                numeric_feature_means=numeric_feature_means,
+                numeric_feature_std=numeric_feature_std)
+    f.write("let () = Format.printf \"Passed all test cases!\\n\"\n")
 
 
 if __name__ == "__main__":

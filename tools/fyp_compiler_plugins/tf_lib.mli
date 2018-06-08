@@ -16,6 +16,7 @@ val randomuniform : int array -> float t
 
 (* neural net ops *)
 val notequal  : 'a t -> 'a t -> bool t
+val approx_equal : float t -> float t -> bool
 val matmul     : float t -> float t -> float t
 val add        : float t -> float t -> float t
 val relu       : float t -> float t

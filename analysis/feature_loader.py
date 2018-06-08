@@ -110,6 +110,63 @@ def target_to_thorough_labels(raw_targets, minimal):
     return np.array(thorough_labels)
 
 
+def float_to_string(x):
+    if x < 0:
+        return "(-." + str(abs(x)) + ")"
+    else:
+        return str(x)
+
+def float_to_bool(x):
+    if x > 0.5:
+        return "true"
+    else:
+        return "false"
+
+
+def codegen_single_test_case(
+        f, model,
+        num_numeric_features, num_bool_features,
+        numeric_feature_indices, bool_feature_indices,
+        numeric_feature_means, numeric_feature_std):
+
+    numeric_features = np.array([np.random.rand() * 2.0 - 1.0 for _ in range(num_numeric_features)])
+    bool_features    = np.array([True if np.random.rand() > 0.5 else False for _ in range(num_bool_features)])
+    relevant_numeric_features = numeric_features[numeric_feature_indices]
+    relevant_bool_features = bool_features[bool_feature_indices]
+    normalised_numeric_features = (relevant_numeric_features - numeric_feature_means) / numeric_feature_std
+    features = np.concatenate([normalised_numeric_features, relevant_bool_features])
+    p = model.predict_proba([features])[0]
+    expected_output = [ p[0], p[1] ]
+    print expected_output
+
+    def write(s):
+        f.write("  " + s + "\n")
+
+    f.write("let () =\n")
+    write("let numeric_features = [ %s ] in"
+            % "; ".join(float_to_string(x) for x in numeric_features))
+    write("let bool_features = [ %s ] in"
+            % "; ".join(float_to_bool(x) for x in bool_features))
+
+    write("let numeric_features =")
+    write("  List.map2 (fun a b -> (a, b))")
+    write("      (Array.to_list numeric_features_names) numeric_features")
+    write("  |> Feature_utils.Feature_list.of_list")
+    write("in")
+    write("let bool_features =")
+    write("  List.map2 (fun a b -> (a, b))")
+    write("      (Array.to_list bool_features_names) bool_features")
+    write("  |> Feature_utils.Feature_list.of_list")
+    write("in")
+    write("let int_features = Feature_utils.Feature_list.of_list [] in")
+    write("let output = model ~numeric_features ~int_features ~bool_features in")
+    write("let expected_output = Tf_lib.Vec [| %s |] in"
+        % "; ".join(float_to_string(x) for x in expected_output))
+    # write("let expected_output = Tf_lib.Vec [| 0.0; 0.0; |] in")
+    write("assert (Tf_lib.approx_equal output expected_output)")
+    f.write(";;\n\n")
+
+
 def main():
     version = sys.argv[1]
 
