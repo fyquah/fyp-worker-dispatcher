@@ -192,10 +192,11 @@ def formulate_problem(results):
         tree_path_hash_to_id[hash(tree_path)] = i
 
     for edge_list in edge_lists:
-        for i, edge in enumerate(edge_list):
+        for i, (src_hash, dest_hash, kind) in enumerate(edge_list):
             edge_list[i] = (
-                    tree_path_hash_to_id[edge[0]],
-                    tree_path_hash_to_id[edge[1]]
+                    tree_path_hash_to_id[src_hash],
+                    tree_path_hash_to_id[dest_hash],
+                    kind
             )
 
     print "Loaded %d training examples" % len(execution_directories)
@@ -264,13 +265,15 @@ def main():
     logging.getLogger().setLevel(logging.INFO)
     args = parser.parse_args()
     rundirs = []
+    rundirs.extend(
+            read_log_file(args.experiment_name, "../important-logs/v0-data.log"))
 
-    rundirs.extend(read_log_file(
-        args.experiment_name, "../important-logs/batch_executor_before_proof.log"))
-    rundirs.extend(read_log_file(
-        args.experiment_name, "../important-logs/batch_executor_before_module_paths.log"))
-    rundirs.extend(read_log_file(
-      args.experiment_name, "../important-logs/batch_executor_before_specialise_for.log"))
+    # rundirs.extend(read_log_file(
+    #     args.experiment_name, "../important-logs/batch_executor_before_proof.log"))
+    # rundirs.extend(read_log_file(
+    #     args.experiment_name, "../important-logs/batch_executor_before_module_paths.log"))
+    # rundirs.extend(read_log_file(
+    #   args.experiment_name, "../important-logs/batch_executor_before_specialise_for.log"))
 
     tasks = list(set(list(iterate_rundirs(rundirs))))
     tasks.sort()

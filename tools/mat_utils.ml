@@ -151,8 +151,20 @@ let load_call_site_examples_raw ~version
               Protocol.Absolute_path.of_trace trace
               |> Absolute_path.expand
             in
-            (features, (Absolute_path.Map.find rewards trace)))
-        in
+            let reward = Absolute_path.Map.find rewards trace in
+            begin match reward with
+            | None ->
+              eprintf "MISSING: ";
+              List.iter trace ~f:(function
+                | Decl co ->
+                  eprintf "%s" (Format.asprintf "/Decl(%a)" Closure_origin.print co)
+                | Apply app ->
+                  eprintf "%s" (sprintf "/Apply(%s)" (Apply_id.Node_id.to_string (List.last_exn app))));
+              eprintf "\n";
+            | Some _ -> ()
+            end;
+            (features, reward))
+      in
       Log.Global.info "%s | Loaded %d reward entries"
         specification_entry.name (Absolute_path.Map.length rewards);
       Log.Global.info "%s | Loaded %d query entries"

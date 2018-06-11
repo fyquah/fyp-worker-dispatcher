@@ -140,7 +140,7 @@ def geometric_mean(arr):
 def get_baseline_execution_time(problem):
     times = []
     for i, dir in enumerate(problem.execution_directories):
-        if "initial" in dir[1]:
+        if "initial" in dir:
             times.append(problem.execution_times[i])
     assert len(times) > 0
     logging.info("Geometric  mean initial time = %f" % geometric_mean(times))

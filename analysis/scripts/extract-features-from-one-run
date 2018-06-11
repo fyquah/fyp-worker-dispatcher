@@ -43,7 +43,7 @@ echo "Running make in $(pwd)"
 rm -f *.native *.cm*
 make all >out.log
 
-cp $EXPERIMENT_BIN_NAME.flambda.v0.features $PATH_TO_OUT_DIR/features-v0.bin
+# cp $EXPERIMENT_BIN_NAME.flambda.v0.features $PATH_TO_OUT_DIR/features-v0.bin
 cp $EXPERIMENT_BIN_NAME.flambda.v0.queries  $PATH_TO_OUT_DIR/queries-v0.bin
 
 rm -rf $SCRATCH_DIR

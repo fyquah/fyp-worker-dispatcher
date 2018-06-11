@@ -17,7 +17,9 @@ set -euo pipefail
 
 EXPERIMENT=$1
 
-for file in $(find "/media/usb/home/fyquah/fyp/prod/processed-data/$EXPERIMENT" -name "decisions.sexp"); do
-  dir=$(dirname $file)
-  echo "./scripts/extract-features-from-one-run $EXPERIMENT $file $dir"
-done | parallel --jobs 4
+python iterate_processed_dir.py $EXPERIMENT | while read line; do
+  find $line -name "decisions.sexp"
+done | while read file; do
+    dir=$(dirname $file)
+    echo "./scripts/extract-features-from-one-run $EXPERIMENT $file $dir"
+done | parallel --jobs 6

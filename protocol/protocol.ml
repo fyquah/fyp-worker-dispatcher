@@ -20,12 +20,21 @@ module Absolute_path = struct
 
     let of_trace (trace : Feature_extractor.trace_item list) =
       (* TRACE is reversed, absolute path isn't *)
-      List.rev_map trace ~f:(fun item ->
+      let to_path app =
+        let with_stubs = Apply_id.to_path app in
+        match (snd (List.last_exn with_stubs)) with
+        | Apply_id.Stub -> None
+        | _ ->
+          List.filter with_stubs ~f:(fun (a, b) ->
+              match b with
+              | Stub -> false
+              | _ -> true)
+          |> fun p -> Some (Apply p)
+      in
+      List.rev_filter_map trace ~f:(fun item ->
         match item with
-        | Feature_extractor.Apply app ->
-          Apply (Apply_id.to_path app)
-        | Feature_extractor.Decl  co ->
-          Decl co)
+        | Feature_extractor.Apply app -> to_path app
+        | Feature_extractor.Decl  co  -> Some (Decl co))
     ;;
 
     let rec trim_prefix ~prefix path =
