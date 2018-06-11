@@ -37,6 +37,22 @@ let notequal a b =
   Scalar (not (a = b))  (* polymorphic compare @_@ *)
 ;;
 
+let rec approx_equal a b =
+  try
+    let eq a b = abs_float (a -. b) < 0.00001 in
+    match a, b with
+    | Scalar a, Scalar b -> eq a b
+    | Vec a, Vec b ->
+      Array.map2 (fun a b -> (a, b)) a b
+      |> Array.for_all (fun (a, b) -> eq a b)
+    | Mat a, Mat b ->
+      Array.map2 (fun a b -> (a, b)) a b
+      |> Array.for_all (fun (a, b) ->
+          approx_equal (Vec a) (Vec b))
+    | _, _ -> false
+  with
+  | _ -> false
+
 let map2 (type a) f (t_a : a t) (t_b : a t) = 
   match t_a, t_b with
   | _ , Nothing -> assert false

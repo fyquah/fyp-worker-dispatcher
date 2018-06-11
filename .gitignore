@@ -10,3 +10,4 @@ a.out
 **/*.swp
 tmp-*/
 w/
+results/*/plugins/*.csv

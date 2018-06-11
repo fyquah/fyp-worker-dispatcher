@@ -25,12 +25,8 @@ from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.metrics import roc_curve
-
-Features = collections.namedtuple("Features", ["int_features", "bool_features", "numeric_features"])
-Reward = collections.namedtuple("Reward", ["inline", "no_inline"])
-DualReward = collections.namedtuple("DualReward", ["long_term", "immediate"])
-
-option_of_sexp = inlining_tree.option_of_sexp
+from feature_loader import *
+import feature_loader
 
 B = 5.0
 
@@ -40,41 +36,6 @@ def sgn(x):
     else:
         return 1
 
-
-def parse(sexp):
-    def parse_dual_reward(sexp):
-        m = inlining_tree.sexp_to_map(sexp)
-        return DualReward(
-                long_term=float(m["long_term"]),
-                immediate=float(m["immediate"]))
-
-    def parse_reward(sexp):
-        m = inlining_tree.sexp_to_map(sexp)
-        inline = option_of_sexp(m["inline"], f=parse_dual_reward)
-        no_inline = option_of_sexp(m["no_inline"], f=float)
-        return Reward(inline=inline, no_inline=no_inline)
-
-    def parse_feature_list(sexp, f):
-        return [(inlining_tree.unpack_atom(k), f(inlining_tree.unpack_atom(v))) for k, v in sexp]
-
-    def parse_bool(s):
-        if s == "true":
-            return True
-        elif s == "false":
-            return False
-        else:
-            assert False
-
-
-    def parse_features(sexp):
-        m = inlining_tree.sexp_to_map(sexp)
-        int_features = parse_feature_list(m["int_features"], f=int)
-        numeric_features = parse_feature_list(m["numeric_features"], f=float)
-        bool_features = parse_feature_list(m["bool_features"], f=parse_bool)
-        return Features(int_features=int_features, bool_features=bool_features, numeric_features=numeric_features)
-
-    assert isinstance(sexp, list)
-    return [(parse_features(a), option_of_sexp(b, f=parse_reward)) for (a, b) in sexp]
 
 def fmap(x, f):
     if x is not None:
@@ -344,25 +305,21 @@ parser.add_argument("--decision-model-file", type=str,
         help="file for decision model")
 parser.add_argument("--familiarity-model-file", type=str,
         help="file to familiarity model")
+parser.add_argument("--feature-version", type=str,
+        help="feature version")
 
+feature_version = "v3"
 
 def main():
-    if os.path.exists("./report_plots/machine_learning/v2_data.pickle"):
-        print "LOADING CACHED VARIANT"
-        print "To invalidate cache, run `rm report_plots/machine_learning/v2_data.pickle`"
-        with open("./report_plots/machine_learning/v2_data.pickle", "rb") as f:
-            all_data = pickle.load(f)
-    else:
-        print "PARSING FROM SCRATCH"
-        all_data = []
-        for exp in py_common.INITIAL_EXPERIMENTS:
-            with open("./report_plots/reward_assignment/data/%s/feature_reward_pair.sexp" % exp, "r") as f:
-                all_data.extend(parse(sexpdata.load(f)))
-    
-    with open("./report_plots/machine_learning/v2_data.pickle", "wb") as f:
-        pickle.dump(all_data, f)
-
     args = parser.parse_args()
+    global feature_version
+    if args.feature_version is not None:
+        feature_version = args.feature_version
+
+    with open("./report_plots/machine_learning/%s_data.pickle" % feature_version.lower(), "rb") as f:
+        all_data = pickle.load(f)
+    print len(all_data)
+
     minimal = float(args.minimal)
     print "Minimal:", minimal
 
@@ -392,41 +349,48 @@ def main():
     normalised_numeric_features = normalised_numeric_features / np.std(relevant_numeric_features, axis=0)
 
     features = np.concatenate([normalised_numeric_features, relevant_bool_features], axis=1)
-
-    thorough_labels = []
-    familiarity_labels = []
-    decision_features = []
-    decision_labels = []
-
-    assert len(features) == len(raw_targets)
-
-    for i, t in enumerate(raw_targets):
-        familiarity_labels.append(
-                t is not None
-                and t.inline is not None
-                and t.no_inline is not None
-                and (abs(t.inline.long_term) > minimal or abs(t.no_inline) > minimal)
-        )
-
-        if not familiarity_labels[-1]:
-            thorough_labels.append(0)
-        else:
-            decision_features.append(features[i, :])
-            decision_labels.append(raw_targets[i].inline.long_term > raw_targets[i].no_inline)
-            if not decision_labels[-1]:
-                thorough_labels.append(1)
-            else:
-                thorough_labels.append(2)
+    thorough_labels = feature_loader.target_to_thorough_labels(raw_targets, minimal=minimal)
 
     familiarity_features = np.array(features)
+    familiarity_labels = []
+    for x in thorough_labels:
+        if x == I_DONT_KNOW or x == ONLY_KNOW_APPLY or x == ONLY_KNOW_INLINE:
+            familiarity_labels.append(False)
+        elif x == BETTER_APPLY or x == BETTER_INLINE:
+            familiarity_labels.append(True)
+        else:
+            assert False
     familiarity_labels = np.array(familiarity_labels)
 
+    decision_labels = []
+    decision_features = []
+    for i, x in enumerate(thorough_labels):
+        if x == I_DONT_KNOW:
+            pass
+        elif x == BETTER_APPLY or x == ONLY_KNOW_APPLY:
+            decision_features.append(familiarity_features[i, :])
+            decision_labels.append(False)
+        elif x == BETTER_INLINE or x == ONLY_KNOW_INLINE:
+            decision_features.append(familiarity_features[i, :])
+            decision_labels.append(True)
+        else:
+            assert (
+                    x == I_DONT_KNOW or
+                    x == ONLY_KNOW_APPLY or
+                    x == ONLY_KNOW_INLINE or
+                    x == BETTER_APPLY or
+                    x == BETTER_INLINE)
+    decision_features = np.array(decision_features)
+    decision_labels = np.array(decision_labels)
+
+    print "Number of features that matter:", features.shape[1]
     print "familiarity label mean:", np.mean(familiarity_labels)
     familiarity_model = MLPClassifier(
             solver='lbfgs', alpha=1e-5,
-            hidden_layer_sizes=(8, 4),
+            hidden_layer_sizes=(25,),
             activation="relu",
-            random_state=1)
+            random_state=1,
+            max_iter=2000)
     familiarity_model.fit(features, familiarity_labels)
     print "familiarity model score:", familiarity_model.score(features, familiarity_labels)
     fpr, tpr, thresholds = roc_curve(familiarity_labels, familiarity_model.predict_proba(features)[:, 1])
@@ -448,10 +412,11 @@ def main():
     print "decision training examples:", len(decision_labels)
     print "decision label mean:", np.mean(decision_labels)
     decision_model = MLPClassifier(
-            solver='lbfgs', alpha=1e-5,
-            hidden_layer_sizes=(17, 8),
+            solver='lbfgs', alpha=1e-4,
+            hidden_layer_sizes=(32,),
             activation="relu",
-            random_state=1)
+            random_state=1,
+            max_iter=2000)
     decision_model.fit(decision_features, decision_labels)
     print "decision model score:", decision_model.score(decision_features, decision_labels)
 
@@ -483,7 +448,7 @@ def codegen_model(
         numeric_feature_means,
         numeric_feature_std):
 
-    f.write("let feature_version = `V2\n")
+    f.write("let feature_version = `%s\n" % feature_version.upper())
     f.write("let numeric_features_names    = [| %s |]\n"
                 % "; ".join('"' + x + '"' for x in numeric_feature_names))
     f.write("let bool_features_names       = [| %s |]\n"
@@ -540,8 +505,8 @@ def codegen_model(
         f.write("let bool_features_indices    = [| %s |]\n" % "; ".join(str(x) for x in np.where(bool_feature_indices)[0]))
         f.write("\n")
         f.write("let model ~int_features ~numeric_features ~bool_features =\n")
-        f.write("  Tf_lib.check_names ~names:numeric_features_names numeric_features;")
-        f.write("  Tf_lib.check_names ~names:bool_features_names bool_features;")
+        f.write("  Tf_lib.check_names ~names:numeric_features_names numeric_features;\n")
+        f.write("  Tf_lib.check_names ~names:bool_features_names bool_features;\n")
         f.write("  let features = Tf_lib.features_to_t\n")
         f.write("    ~int_features ~numeric_features ~bool_features\n")
         f.write("    ~numeric_features_indices ~bool_features_indices\n")
@@ -566,6 +531,19 @@ def codegen_model(
 
     else:
         assert False
+
+    for i in range(5):
+        f.write("(* Test case %d *)\n" % i)
+        feature_loader.codegen_single_test_case(
+                f=f,
+                model=model,
+                num_numeric_features=len(numeric_feature_names),
+                num_bool_features=len(bool_feature_names),
+                numeric_feature_indices=numeric_feature_indices,
+                bool_feature_indices=bool_feature_indices,
+                numeric_feature_means=numeric_feature_means,
+                numeric_feature_std=numeric_feature_std)
+    f.write("let () = Format.printf \"Passed all test cases!\\n\"\n")
 
 
 if __name__ == "__main__":

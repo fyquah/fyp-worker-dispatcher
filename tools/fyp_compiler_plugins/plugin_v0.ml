@@ -20,10 +20,12 @@ let to_vec features = Tf_lib.Vec (Features.to_array features)
 let f_0 (query : Inlining_query.query) =
   let (v1_features : [`raw] Features.t) = Manual_features_v1.process query in
   let (v2_features : [`raw] Features.t) = Manual_features_v2.process query in
+  let (v3_features : [`raw] Features.t) = Manual_features_v3.process query in
   (* assert (List.length (Feature_list.to_list features.int_features) = 0); *)
   let select = function
     | `V1 -> v1_features
     | `V2 -> v2_features
+    | `V3 -> v3_features
   in
   let familiar =
     let { Features. int_features; numeric_features; bool_features; } =
