@@ -323,8 +323,17 @@ def learn_decisions(all_features, all_rewards):
         label             = None
 
         if log_abs_inline > -25 and log_abs_terminate > -25:
-            # Nothing much we can say if both are good ...
-            label = DOESNT_MATTER
+
+            # Based on our histogram plot, we have shown that when both of
+            # them are _good_, we get an _obvious_ diff. This implies that
+            # when both are large values, they are usually uncorrelated.
+            # (smallest diff we get is 10^{-3}, which is significantly
+            # bigger than 10^{-25}
+            if r.inline.long_term > r.no_inline:
+                label = INLINE
+            else:
+                label = APPLY
+
         elif log_abs_inline > -25:
 
             if r.inline.long_term > 0:
