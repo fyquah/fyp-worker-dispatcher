@@ -128,6 +128,23 @@ def plot_log_long_term_and_no_inline_correlation(all_data, threshold):
     plot_best_fit(xs, ys)
 
 
+def plot_reward_difference(all_data, log10_threshold):
+
+    xs = []
+    ctr = 0
+
+    for d in all_data:
+        if d.inline is not None and d.no_inline is not None:
+            log10_x = np.maximum(np.log10(abs(d.inline.long_term)), -50)
+            log10_y = np.maximum(np.log10(abs(d.no_inline)), -50)
+
+            if log10_x > log10_threshold and log10_y > log10_threshold:
+                xs.append(np.log10(abs(d.inline.long_term - d.no_inline)))
+
+    plt.title(r"Hist (%d samples, $\tau = %s$)" % (len(xs), str(log10_threshold)))
+    plt.hist(xs)
+
+
 def plot_immediate_and_no_inline_correlation(all_data):
     xs = []
     ys = []
@@ -308,6 +325,10 @@ def main():
     plt.figure()
     plot_zero_value_immediate_hist(all_data)
     plt.savefig(os.path.join(plots_dir, "zero-value-immediate-histogram.pdf"))
+
+    plt.figure()
+    plot_reward_difference(all_data, log10_threshold=-25)
+    plt.savefig(os.path.join(plots_dir, "log-abs-reward-diff-histogram.pdf"))
 
 
 if __name__ == "__main__":
