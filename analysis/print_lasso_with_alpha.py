@@ -8,6 +8,7 @@ import StringIO
 import numpy as np
 from numpy import linalg
 import sexpdata
+import matplotlib.pyplot as plt
 
 import constants
 import inlining_constants
@@ -39,6 +40,9 @@ group1.add_argument(
         help="Inspect values learnt for nodes in the inlining tree.")
 group1.add_argument(
         "--dump-rewards", action="store_true",
+        help="Inspect values learnt for nodes in the inlining tree.")
+group1.add_argument(
+        "--plot-rewards", action="store_true",
         help="Inspect values learnt for nodes in the inlining tree.")
 
 
@@ -215,6 +219,7 @@ def run(argv):
         hyperparams = pickle.load(f)
 
     normalise_with_num_children = not args.skip_normalisation
+    assert not normalise_with_num_children
     problem_matrices = learn_problem.construct_problem_matrices(
             problem, hyperparams,
             normalise_with_num_children=normalise_with_num_children)
@@ -382,6 +387,17 @@ def run(argv):
         for edge in problem.edges_lists[index]:
             adjacency_list[edge[0]].add((edge[1]))
         bfs_edge_list(adjacency_list, id_to_tree_path)
+
+    elif args.plot_rewards:
+        arr = []
+        for i in range(len(w)):
+            if participation_count[i] > 0 and abs(w[i]) > 1e-10:
+                arr.append(w[i])
+        arr = np.log(abs(np.array(arr)))
+        print len(arr)
+        print abs(arr).min()
+        plt.hist(arr)
+        plt.show()
 
     else:
         assert False

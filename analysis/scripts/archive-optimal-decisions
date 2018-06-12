@@ -2,8 +2,8 @@
 set -euo pipefail
 
 tar czvf optimal-decisions.tar \
-  out-v0-reproduce-relabel/*/lasso/*/optimal.sexp
-  # out-v0-reproduce-relabel/*/lasso-with-alpha/*/optimal.sexp
+  out-v0-reproduce-relabel/*/lasso/*/optimal.sexp \
+  out-v0-reproduce-relabel/*/lasso-with-alpha/*/optimal.sexp
   # out-v0-reproduce-relabel/*/linear-general-reward-without-normalisation/*/optimal.sexp
   # out-v0-reproduce/*/linear-general-reward-without-normalisation/*/optimal.sexp
   # out-v1/*/linear-general-reward-without-normalisation/*/optimal.sexp
