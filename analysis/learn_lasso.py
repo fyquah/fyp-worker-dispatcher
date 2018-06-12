@@ -250,8 +250,7 @@ def run(args):
 
     logging.info("Retraining with all data")
     model = sklearn.linear_model.Lasso(
-            alpha=best_lambda, fit_intercept=False,
-            max_iter=5000)
+            alpha=best_lambda, fit_intercept=False, max_iter=5000, tol=1e-10)
     model.fit(A, target_benefit)
     print "Best validataion r squared", best_validation_r_squared
 
