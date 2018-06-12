@@ -167,15 +167,24 @@ def codegen_single_test_case(
     f.write(";;\n\n")
 
 
+def read_pickle(reward_model, feature_version):
+    with open("./report_plots/machine_learning/%s/%s/data.pickle" % (reward_model.lower(), feature_version.lower()), "rb") as f:
+        return pickle.load(f)
+
+
 def main():
-    version = sys.argv[1]
+    model   = sys.argv[1]
+    version = sys.argv[2]
 
     all_data = []
     for exp in py_common.INITIAL_EXPERIMENTS:
-        with open("./report_plots/reward_assignment/data/%s/feature_reward_pair.sexp" % exp, "r") as f:
+        with open("./report_plots/reward_assignment/data/%s/%s/feature_reward_pair_%s.sexp" % (model, exp, version.lower()), "r") as f:
             all_data.extend(parse(sexpdata.load(f), exp_name=exp))
+
+    if not os.path.exists("report_plots/machine_learning/%s/%s" % (model, version)):
+        os.makedirs("report_plots/machine_learning/%s/%s" % (model, version))
     
-    with open("./report_plots/machine_learning/%s_data.pickle" % version, "wb") as f:
+    with open("report_plots/machine_learning/%s/%s/data.pickle" % (model, version), "wb") as f:
         pickle.dump(all_data, f)
 
 
