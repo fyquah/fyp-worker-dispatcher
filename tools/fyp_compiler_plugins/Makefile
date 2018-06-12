@@ -89,8 +89,22 @@ build/plugin_v0_clustered_neural_network.cmxs: \
 	  build/fyp_compiler_lib.ml \
 	  $(subst model_loader_v0_clustered_neural_network,build/model_loader,$^)
 
-test: test.ml build/plugin_v0.cmxs
-	$(OCAMLOPT) -O3 -plugin build/plugin_v0.cmxs -inlining-report $<
+build/plugin_v1_neural_network.cmxs: \
+  import.ml \
+  feature_utils.mli feature_utils.ml \
+  tf_lib.mli tf_lib.ml \
+  build/decision_model_v1_neural_network.ml \
+  build/decision_model_v1_neural_network.ml \
+  model_loader_v1_neural_network.ml \
+  manual_features_v1.mli manual_features_v1.ml \
+  manual_features_v2.mli manual_features_v2.ml \
+  manual_features_v3.mli manual_features_v3.ml \
+  plugin_v1.ml
+	echo "" >build/fyp_compiler_lib.ml
+	cp model_loader_v1_neural_network.ml build/model_loader.ml
+	$(OCAMLOPT) -I build/ -I +compiler-libs -shared -o $@ \
+	  build/fyp_compiler_lib.ml \
+	  $(subst model_loader_v1_neural_network,build/model_loader,$^)
 
 clean:
-	rm build/*.cmxs build/*.ml build/*.mli
+	-rm build/*.cmxs build/*.ml build/*.mli rm *.cm*

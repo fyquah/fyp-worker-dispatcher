@@ -399,9 +399,17 @@ def plot_decisions(all_features, all_rewards, cluster):
     for i, r in enumerate(all_rewards):
         if r is None or r.inline is None or r.no_inline is None:
             continue
-        
-        log_abs_inline    = np.log(abs(r.inline.long_term))
-        log_abs_terminate = np.log(abs(r.no_inline))
+
+        if r is None or r.inline is None:
+            log_abs_inline = -np.inf
+        else:
+            log_abs_inline    = np.log(abs(r.inline.long_term))
+
+        if r is None or r.no_inline is None:
+            log_abs_terminate = -np.inf
+        else:
+            log_abs_terminate = np.log(abs(r.no_inline))
+
         label     = None
 
         if log_abs_inline > -25 and log_abs_terminate > -25:

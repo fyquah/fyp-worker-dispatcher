@@ -238,3 +238,15 @@ let choose_cluster ~means features =
   | Vec features -> choose_cluster ~means features
   | _ -> assert false
 ;;
+
+let argmax (arr : float array) =
+  let rec loop ~acc i =
+    if i >= Array.length arr then
+      acc
+    else if arr.(i) > arr.(acc) then
+      loop ~acc:i (i + 1)
+    else
+      loop ~acc (i + 1)
+  in
+  loop ~acc:0 1
+;;

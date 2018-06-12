@@ -136,8 +136,8 @@ def codegen_single_test_case(
     normalised_numeric_features = (relevant_numeric_features - numeric_feature_means) / numeric_feature_std
     features = np.concatenate([normalised_numeric_features, relevant_bool_features])
     p = model.predict_proba([features])[0]
-    expected_output = [ p[0], p[1] ]
-    print expected_output
+    expected_output = p
+    print "-> [", "; ".join("%.5f" % x for x in expected_output), "]"
 
     def write(s):
         f.write("  " + s + "\n")
