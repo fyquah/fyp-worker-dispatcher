@@ -24,7 +24,7 @@ let process (query : Inlining_query.query) =
       |> Feature_list.of_list
     in
     let int_features = Feature_list.empty in
-    { Features. bool_features; numeric_features; int_features; }
+    { Features. bool_features; numeric_features; int_features; metadata = [] }
   in
   Features.(v1_features @ wsb_features)
 ;;

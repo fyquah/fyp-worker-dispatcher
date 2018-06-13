@@ -93,7 +93,7 @@ let process (query : Inlining_query.query) =
     in
     let int_features = Feature_list.empty in
     let bool_features = Feature_list.empty in
-    { Features. int_features; bool_features; numeric_features; }
+    { Features. int_features; bool_features; numeric_features; metadata = [] }
   in
   Features.(
     v2_features

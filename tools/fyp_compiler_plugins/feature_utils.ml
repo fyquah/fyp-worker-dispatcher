@@ -44,12 +44,14 @@ module Features = struct
     { int_features     : int   Feature_list.t;
       numeric_features : float Feature_list.t;
       bool_features    : bool  Feature_list.t;
+      metadata         : string list;
     }
 
   let concat a b =
     { int_features     =  Feature_list.concat a.int_features     b.int_features;
       numeric_features =  Feature_list.concat a.numeric_features b.numeric_features;
-      bool_features    =  Feature_list.concat a.bool_features    b.bool_features
+      bool_features    =  Feature_list.concat a.bool_features    b.bool_features;
+      metadata         =  a.metadata @ b.metadata;
     }
 
   let (@) a b = concat a b
@@ -111,7 +113,7 @@ module Features = struct
 
   let create_normaliser_function { mean; std; } =
     `Staged (
-      fun ({ numeric_features; int_features; bool_features } : [`raw] t) ->
+      fun ({ numeric_features; int_features; bool_features; metadata } : [`raw] t) ->
         let numeric_features =
           StringMap.mapi (fun key data ->
               let mean = StringMap.find key mean in
@@ -123,7 +125,7 @@ module Features = struct
                 (data -. mean) /. std)
             numeric_features
         in
-        ({ numeric_features; int_features; bool_features; } : [`normalised] t)
+        ({ numeric_features; int_features; bool_features; metadata; } : [`normalised] t)
     )
   ;;
 

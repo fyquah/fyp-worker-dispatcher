@@ -27,7 +27,7 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.metrics import roc_curve
 
 Features = collections.namedtuple("Features",
-        ["int_features", "bool_features", "numeric_features", "exp_name"])
+        ["int_features", "bool_features", "numeric_features", "exp_name", "metadata"])
 Reward = collections.namedtuple("Reward", ["inline", "no_inline"])
 DualReward = collections.namedtuple("DualReward", ["long_term", "immediate"])
 
@@ -78,10 +78,12 @@ def parse(sexp, exp_name):
         int_features = parse_feature_list(m["int_features"], f=int)
         numeric_features = parse_feature_list(m["numeric_features"], f=float)
         bool_features = parse_feature_list(m["bool_features"], f=parse_bool)
+        metadata = m.get("metadata", None)
+
         return Features(
                 int_features=int_features, bool_features=bool_features,
                 numeric_features=numeric_features,
-                exp_name=exp_name)
+                exp_name=exp_name, metadata=metadata)
 
     assert isinstance(sexp, list)
     return [(parse_features(a), option_of_sexp(b, f=parse_reward)) for (a, b) in sexp]

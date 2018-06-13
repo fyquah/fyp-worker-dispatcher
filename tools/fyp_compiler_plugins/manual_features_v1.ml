@@ -108,7 +108,7 @@ let process (query : Inlining_query.query) =
     in
     let int_features = Feature_list.empty in
     let bool_features = Feature_list.empty in
-    { Features. numeric_features; int_features; bool_features }
+    { Features. numeric_features; int_features; bool_features; metadata = [] }
   in
   let callee_features ~prefix expr =
     let size = Inlining_cost.lambda_size expr |> float_of_int in
@@ -137,7 +137,7 @@ let process (query : Inlining_query.query) =
     in
     let int_features = Feature_list.empty in
     let bool_features = Feature_list.empty in
-    { Features. numeric_features; int_features; bool_features; }
+    { Features. numeric_features; int_features; bool_features; metadata = [] }
   in
   (* Callee features that definitely does not change after inlining *)
   let persistent_callee_features =
@@ -155,7 +155,7 @@ let process (query : Inlining_query.query) =
         ("direct_call",          direct_call);
       ]
     in
-    { Features. numeric_features; int_features; bool_features; }
+    { Features. numeric_features; int_features; bool_features; metadata = [] }
   in
   (* Features about the arguments being passed into the function. *)
   let args_features =
@@ -201,7 +201,7 @@ let process (query : Inlining_query.query) =
     in
     let int_features = Feature_list.empty in
     let numeric_features = Feature_list.empty in
-    { Features. int_features; bool_features; numeric_features; }
+    { Features. int_features; bool_features; numeric_features; metadata = [] }
   in
   (* Features about the parameters, w/o regards to what is being passed in.
    * This can be a consequence due to modifications caused by specialisaion
@@ -237,7 +237,7 @@ let process (query : Inlining_query.query) =
     in
     let int_features = Feature_list.empty in
     let bool_features = Feature_list.empty in
-    { Features. numeric_features; int_features; bool_features; } 
+    { Features. numeric_features; int_features; bool_features; metadata = [] } 
   in
   let env_features =
     let numeric_features =
@@ -249,7 +249,7 @@ let process (query : Inlining_query.query) =
     in
     let int_features = Feature_list.empty in
     let bool_features    = Feature_list.empty in
-    { Features. numeric_features; int_features; bool_features; }
+    { Features. numeric_features; int_features; bool_features; metadata = [] }
   in
   let open Features in
   calc_matching_approximations_from_env ~prefix:"original" query.original

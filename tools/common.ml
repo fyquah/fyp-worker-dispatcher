@@ -34,9 +34,10 @@ module Features = struct
     )
   ;;
 
-  let sexp_of_t { int_features; numeric_features; bool_features; } =
+  let sexp_of_t { int_features; numeric_features; bool_features; metadata; } =
     let open Sexp in
     List [
+      List [ Atom "metadata";         ([%sexp_of: string list] metadata) ];
       List [ Atom "int_features";     (Feature_list.sexp_of_t Int.sexp_of_t   int_features)];
       List [ Atom "numeric_features"; (Feature_list.sexp_of_t Float.sexp_of_t numeric_features)];
       List [ Atom "bool_features";    (Feature_list.sexp_of_t Bool.sexp_of_t  bool_features)];

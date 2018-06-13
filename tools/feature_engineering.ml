@@ -89,7 +89,7 @@ let convert_v0_features (feature_vector : Feature_extractor.t) =
     |> Feature_list.of_list
   in
   let int_features = Feature_list.empty in
-  { Features. int_features; bool_features; numeric_features; }
+  { Features. int_features; bool_features; numeric_features; metadata = []; }
 ;;
 
 let create_numerical_features (feature_vector : Feature_extractor.t) =
