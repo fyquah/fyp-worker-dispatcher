@@ -41,7 +41,14 @@ let f_0 (query : Inlining_query.query) =
 
 let f (query : Inlining_query.query) =
   if query.env.round = 0 then
-    if query.env.inlining_level > 50 then
+    (* safety net: allow inline / unroll up to 30 iteres *)
+    let inlining_count =
+      try
+        Closure_origin.Map.find query.function_decl.closure_origin query.env.inlining_counts
+      with Not_found ->
+        30
+    in
+    if query.env.inlining_level > 30 || inlining_count <= 0 then
       Some Data_collector.Action.Apply
     else
       f_0 query

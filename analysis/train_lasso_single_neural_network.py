@@ -372,9 +372,9 @@ def learn_decisions(all_features, all_rewards, all_raw_features, all_exp_names):
 
     print "- Dataset statistics:"
     print "  - Number of points =", len(features)
-    print "  - doesnt matter =",    dm_ratio
-    print "  - inline =",           inline_ratio
-    print "  - apply  =",           apply_ratio
+    print "  - doesnt matter = %d (%.6f)" %   (np.sum(labels == DOESNT_MATTER), dm_ratio)
+    print "  - inline = %d (%.6f)"        %   (np.sum(labels == INLINE), inline_ratio)
+    print "  - apply  = %d (%.6f)"        %   (np.sum(labels == APPLY), apply_ratio)
 
     model = MLPClassifier(
             solver='lbfgs', alpha=1e-5,
@@ -409,21 +409,24 @@ def learn_decisions(all_features, all_rewards, all_raw_features, all_exp_names):
         assert False
 
     def dump_classifications(fname, indices):
+        d = os.path.dirname(fname)
+        if not os.path.exists(d):
+            os.makedirs(d)
         with open(fname, "w") as f:
             for i in indices:
                 f.write(exp_names[i] + ",")
                 f.write("correct = "   + label_to_string(labels[i]) + ",")
                 f.write("predicted = " + label_to_string(predicted_labels[i]) + ",")
-                f.write("metadata = "   + str(raw_features[i].metadata) + ",")
                 if rewards[i].inline is None:
                     f.write(str(None) + ",")
                 else:
                     f.write(str(rewards[i].inline.long_term) + ",")
-                f.write(str(rewards[i].no_inline))
+                f.write(str(rewards[i].no_inline) + ",")
+                f.write("metadata = "   + str(raw_features[i].metadata))
                 f.write("\n")
 
-    dump_classifications(fname="all_classification.log", indices=list(range(len(labels))))
-    dump_classifications(fname="misclassification.log", indices=np.where(labels != predicted_labels)[0])
+    dump_classifications(fname="tmp/lasso_single_neural_network/correct.log", indices=np.where(labels == predicted_labels)[0])
+    dump_classifications(fname="tmp/lasso_single_neural_network/incorrect.log", indices=np.where(labels != predicted_labels)[0])
 
     return model
 

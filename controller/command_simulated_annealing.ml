@@ -365,8 +365,14 @@ let command_run =
           in
           let initial = { Annealer.T1. tree; work_unit; } in
           let config = 
+            let steps =
+              match Sys.getenv "SA_STEPS" with
+              | Some x -> int_of_string x
+              | None -> 300
+            in
             { SA.default_config with
               workers = List.length config.worker_configs;
+              steps   = steps;
             }
           in
           Annealer.empty ~config initial initial_execution_stats
