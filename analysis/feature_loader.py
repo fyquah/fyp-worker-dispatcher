@@ -78,7 +78,7 @@ def parse(sexp, exp_name):
         int_features = parse_feature_list(m["int_features"], f=int)
         numeric_features = parse_feature_list(m["numeric_features"], f=float)
         bool_features = parse_feature_list(m["bool_features"], f=parse_bool)
-        metadata = m.get("metadata", None)
+        metadata = m["metadata"]
 
         return Features(
                 int_features=int_features, bool_features=bool_features,
@@ -180,7 +180,9 @@ def main():
 
     all_data = []
     for exp in py_common.INITIAL_EXPERIMENTS:
-        with open("./report_plots/reward_assignment/data/%s/%s/feature_reward_pair_%s.sexp" % (model, exp, version.lower()), "r") as f:
+        fname = "./report_plots/reward_assignment/data/%s/%s/feature_reward_pair_%s.sexp" % (model, exp, version.lower())
+        print "Loading data from", fname
+        with open(fname, "r") as f:
             all_data.extend(parse(sexpdata.load(f), exp_name=exp))
 
     if not os.path.exists("report_plots/machine_learning/%s/%s" % (model, version)):
