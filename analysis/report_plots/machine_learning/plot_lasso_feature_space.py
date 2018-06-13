@@ -18,6 +18,7 @@ import os
 import numpy as np
 import inlining_tree
 import py_common
+import fast_analysis
 
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
@@ -502,17 +503,19 @@ def main():
 
     plt.figure()
     ax = plt.gca()
+    # im = fast_analysis.pairwise_l2_diff(features)
+    A = features - np.mean(features, axis=0)
+    A = A / np.sqrt((A ** 2).sum(axis=1))[:, np.newaxis]
+    im = np.matmul(A, A.T)
+    print (im > 0.999).sum(axis=1)
+    plt.hist((im > 0.999).sum(axis=1))
 
-    d = np.zeros((len(features), len(features)))
-
-    for i in range(len(features)):
-        for j in range(i, len(features)):
-            d[i, j] = d[j, i] = np.sum(np.square(features[i, :] - features[j, :]))
-
-    im = d
-    im = im / im.max()
-    im_ = ax.imshow(im)
-    cbar = ax.figure.colorbar(im_, ax=ax)
+    # print sum( > 0.999)
+    # print im
+    # print im.max()
+    # print im.min()
+    # im_ = ax.imshow(im)
+    # cbar = ax.figure.colorbar(im_, ax=ax)
 
     plt.show()
     return

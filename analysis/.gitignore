@@ -4,6 +4,7 @@ parser.out
 optimal-decisions.tar
 out/
 fast.so
+fast_analysis.so
 
 out-v0-reproduce
 out-v0-reproduce-incorrect
