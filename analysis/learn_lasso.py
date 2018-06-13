@@ -20,6 +20,7 @@ parser.add_argument("directory", type=str, help="experiment dir")
 parser.add_argument("--decay-factor", type=float, default=None, required=True)
 parser.add_argument("--benefit-function", type=str, default=None, required=True)
 parser.add_argument("--skip-normalisation", action="store_true")
+parser.add_argument("--force", action="store_true")
 
 
 HyperParametersBase = collections.namedtuple("HyperParametersBase",
@@ -166,7 +167,7 @@ def run(args):
     exp_directory = os.path.join(
             problem_directory, experiment_name, hyperparams.directory_name())
 
-    if os.path.exists(os.path.join(exp_directory, "contributions.npy")):
+    if os.path.exists(os.path.join(exp_directory, "contributions.npy")) and not args.force:
         logging.info("A solution already exist for %s/%s/%s! Pass --force to recompute"
                 % (problem_directory, experiment_name, hyperparams.directory_name()))
         return
@@ -222,6 +223,18 @@ def run(args):
         model.fit(A_train, target_benefit_train)
 
         w = model.coef_
+        print "lambda =", mid
+        if len(model.sparse_coef_.indices) > 0:
+            sparse_w = model.sparse_coef_
+            w_abs = abs(w[sparse_w.indices])
+            print w_abs.shape
+            print "- mean =", np.mean(w_abs)
+            print "- min =", np.min(w_abs)
+            print "- max =", np.max(w_abs)
+            print "- median =", np.median(w_abs)
+        else:
+            print "- <skip>"
+
         assert w.shape == (A_train.shape[1],)
         r_squared = model.score(A_train, target_benefit_train)
         validation_r_squared = model.score(A_validation, target_benefit_validation)
