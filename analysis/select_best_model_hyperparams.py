@@ -36,16 +36,25 @@ def almost_equal(a, b):
     return np.abs(float(a) - float(b)) < 0.000001
 
 def matches_filter(filename, args):
-    m = re.search("decay-([\.0-9]+)-ridge-([\.0-9]+)-benefit-([a-zA-Z_]+)", filename)
-    decay_factor = m.group(1)
-    ridge_factor = m.group(2)
-    benefit_function = m.group(3)
-    assert decay_factor is not None 
-    assert ridge_factor is not None 
-    assert benefit_function is not None 
-    return ((args.decay_factor is None or almost_equal(decay_factor, args.decay_factor))
-            and (args.ridge_factor is None or almost_equal(ridge_factor, args.ridge_factor))
-            and (args.benefit_function is None or benefit_function == args.benefit_function))
+    try:
+        m = re.search("decay-([\.0-9]+)-ridge-([\.0-9a-z]+)-benefit-([a-zA-Z_]+)", filename)
+        decay_factor = m.group(1)
+        ridge_factor = m.group(2)
+        benefit_function = m.group(3)
+        assert decay_factor is not None 
+        assert ridge_factor is not None 
+        assert benefit_function is not None 
+        return ((args.decay_factor is None or almost_equal(decay_factor, args.decay_factor))
+                and (args.ridge_factor is None or almost_equal(ridge_factor, args.ridge_factor))
+                and (args.benefit_function is None or benefit_function == args.benefit_function))
+    except AttributeError:
+        m = re.search("decay-([\.0-9]+)-benefit-([a-zA-Z_]+)-lasso-factor", filename)
+        decay_factor = m.group(1)
+        benefit_function = m.group(2)
+        assert decay_factor is not None 
+        assert benefit_function is not None 
+        return ((args.decay_factor is None or almost_equal(decay_factor, args.decay_factor))
+                and (args.benefit_function is None or benefit_function == args.benefit_function))
 
 def main():
     args = parser.parse_args()
