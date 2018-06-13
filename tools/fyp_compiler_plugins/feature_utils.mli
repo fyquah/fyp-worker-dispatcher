@@ -24,6 +24,7 @@ module Features : sig
     { int_features     : int   Feature_list.t;
       numeric_features : float Feature_list.t;
       bool_features    : bool  Feature_list.t;
+      metadata         : string list;
     }
 
   val concat : 'a t -> 'a t -> 'a t

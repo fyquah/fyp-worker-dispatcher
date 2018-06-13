@@ -152,18 +152,21 @@ let load_call_site_examples_raw ~version
               |> Absolute_path.expand
             in
             let reward = Absolute_path.Map.find rewards trace in
+            let trace_to_string trace =
+              let buffer = Buffer.create 10 in
+              List.iter trace ~f:(function
+                | Absolute_path.Decl co ->
+                  bprintf buffer "%s" (Format.asprintf "/Decl(%a)" Closure_origin.print co)
+                | Apply app ->
+                  bprintf buffer "%s" (sprintf "/Apply(%s)" (Apply_id.Node_id.to_string (List.last_exn app))));
+              Buffer.contents buffer
+            in
             begin match reward with
             | None ->
-              eprintf "MISSING: ";
-              List.iter trace ~f:(function
-                | Decl co ->
-                  eprintf "%s" (Format.asprintf "/Decl(%a)" Closure_origin.print co)
-                | Apply app ->
-                  eprintf "%s" (sprintf "/Apply(%s)" (Apply_id.Node_id.to_string (List.last_exn app))));
-              eprintf "\n";
+              eprintf "MISSING: %s\n" (trace_to_string trace);
             | Some _ -> ()
             end;
-            (features, reward))
+            ({ features with metadata = trace_to_string trace :: features.metadata }, reward))
       in
       Log.Global.info "%s | Loaded %d reward entries"
         specification_entry.name (Absolute_path.Map.length rewards);

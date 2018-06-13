@@ -1,0 +1,3 @@
+192.168.0.10_0,/home/fyquah/fyp/worker-dispatcher/analysis/out-v0-reproduce-relabel/fft/lasso/decay-0.990000-benefit-linear_speedup_over_mean-lasso-factor-auto/optimal.sexp,/home/fyquah/fyp/prod/rundir/2018-06-12T11_42_19.985605Z,8.076s,7.963s,7.982s
+192.168.0.11_0,/home/fyquah/fyp/worker-dispatcher/analysis/out-v0-reproduce-relabel/fft/lasso/decay-0.990000-benefit-linear_speedup_over_mean-lasso-factor-auto/optimal.sexp,/home/fyquah/fyp/prod/rundir/2018-06-12T11_42_19.985605Z,7.979s,7.97s,8.019s
+192.168.0.12_0,/home/fyquah/fyp/worker-dispatcher/analysis/out-v0-reproduce-relabel/fft/lasso/decay-0.990000-benefit-linear_speedup_over_mean-lasso-factor-auto/optimal.sexp,/home/fyquah/fyp/prod/rundir/2018-06-12T11_42_19.985605Z,8.084s,8.022s,7.938s

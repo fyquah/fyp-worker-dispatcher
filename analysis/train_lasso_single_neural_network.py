@@ -305,7 +305,7 @@ parser.add_argument("--feature-version", type=str, help="feature version")
 
 feature_version = "v3"
 
-def learn_decisions(all_features, all_rewards):
+def learn_decisions(all_features, all_rewards, all_exp_names):
 
     DOESNT_MATTER     = 0
     INLINE   = 1
@@ -313,16 +313,19 @@ def learn_decisions(all_features, all_rewards):
 
     features = []
     labels   = []
+    exp_names = []
+    rewards   = []
 
     for i, r in enumerate(all_rewards):
         if r is None or r.inline is None or r.no_inline is None:
             continue
 
-        log_abs_inline    = np.log(abs(r.inline.long_term))
-        log_abs_terminate = np.log(abs(r.no_inline))
+        log_abs_inline    = np.log10(abs(r.inline.long_term))
+        log_abs_terminate = np.log10(abs(r.no_inline))
         label             = None
+        threshold         = -8  # empirical defined in discussion with Nick
 
-        if log_abs_inline > -25 and log_abs_terminate > -25:
+        if log_abs_inline > threshold and log_abs_terminate > threshold:
 
             # Based on our histogram plot, we have shown that when both of
             # them are _good_, we get an _obvious_ diff. This implies that
@@ -334,14 +337,14 @@ def learn_decisions(all_features, all_rewards):
             else:
                 label = APPLY
 
-        elif log_abs_inline > -25:
+        elif log_abs_inline > threshold:
 
             if r.inline.long_term > 0:
                 label = INLINE
             else:
                 label = APPLY
 
-        elif log_abs_terminate > -25:
+        elif log_abs_terminate > threshold:
 
             if r.no_inline > 0:
                 label = APPLY
@@ -351,8 +354,12 @@ def learn_decisions(all_features, all_rewards):
         else:
             label = DOESNT_MATTER
 
+        assert label is not None
+
         features.append(all_features[i, :])
         labels.append(label)
+        exp_names.append(all_exp_names[i])
+        rewards.append(all_rewards[i])
 
     features = np.array(features)
     labels   = np.array(labels)
@@ -367,7 +374,6 @@ def learn_decisions(all_features, all_rewards):
     print "  - inline =",           inline_ratio
     print "  - apply  =",           apply_ratio
 
-
     model = MLPClassifier(
             solver='lbfgs', alpha=1e-5,
             hidden_layer_sizes=(32,),
@@ -381,6 +387,40 @@ def learn_decisions(all_features, all_rewards):
     print "  - predict inline =", np.mean(predicted_labels == INLINE)
     print "  - predict apply  =",  np.mean(predicted_labels == APPLY)
     print "  - decision model score:", model.score(features, labels)
+
+    tbl = np.zeros((3, 3), dtype=np.int)
+
+    for a in [DOESNT_MATTER, INLINE, APPLY]:
+        for b in [DOESNT_MATTER, INLINE, APPLY]:
+            tbl[a, b] += sum(np.logical_and((labels == a), (predicted_labels == b)))
+
+    tbl = tbl / float(len(features))
+    print tbl
+
+    def label_to_string(l):
+        if l == DOESNT_MATTER:
+            return "DOESNT_MATTER"
+        elif l == INLINE:
+            return "INLINE"
+        elif l == APPLY:
+            return "APPLY"
+        assert False
+
+    def dump_classifications(fname, indices):
+        with open(fname, "w") as f:
+            for i in indices:
+                f.write(exp_names[i] + ",")
+                f.write("correct = "   + label_to_string(labels[i]) + ",")
+                f.write("predicted = " + label_to_string(predicted_labels[i]) + ",")
+                if rewards[i].inline is None:
+                    f.write(str(None) + ",")
+                else:
+                    f.write(str(rewards[i].inline.long_term) + ",")
+                f.write(str(rewards[i].no_inline))
+                f.write("\n")
+
+    dump_classifications(fname="all_classification.log", indices=list(range(len(labels))))
+    dump_classifications(fname="misclassification.log", indices=np.where(labels != predicted_labels)[0])
 
     return model
 
@@ -404,6 +444,7 @@ def main():
     raw_targets           = [b for (_, b) in all_data]
     numeric_feature_names = [a for (a, _) in all_data[0][0].numeric_features]
     bool_feature_names    = [a for (a, _) in all_data[0][0].bool_features]
+    exp_names             = [f.exp_name for (f, _) in all_data]
 
     for i, (features, raw_target) in enumerate(all_data):
         all_numeric_features[i, :] = [a for (_, a) in features.numeric_features]
@@ -420,7 +461,7 @@ def main():
 
     features = np.concatenate([normalised_numeric_features, relevant_bool_features], axis=1)
 
-    decision_model = learn_decisions(features, raw_targets)
+    decision_model = learn_decisions(features, raw_targets, exp_names)
     if args.decision_model_file:
         with open(args.decision_model_file, "w") as f:
             codegen_model(

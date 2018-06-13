@@ -16,7 +16,7 @@ from matplotlib.backends import backend_pdf
 import inlining_tree
 
 
-Reward = collections.namedtuple("Reward", ["inline", "no_inline"])
+Reward = collections.namedtuple("Reward", ["inline", "no_inline", "exp"])
 DualReward = collections.namedtuple("DualReward", ["long_term", "immediate"])
 
 option_of_sexp = inlining_tree.option_of_sexp
@@ -30,7 +30,7 @@ def sgn(x):
         return 1
 
 
-def parse(sexp):
+def parse(sexp, exp):
     def parse_dual_reward(sexp):
         m = inlining_tree.sexp_to_map(sexp)
         return DualReward(
@@ -41,7 +41,7 @@ def parse(sexp):
         m = inlining_tree.sexp_to_map(sexp)
         inline = option_of_sexp(m["inline"], f=parse_dual_reward)
         no_inline = option_of_sexp(m["no_inline"], f=float)
-        return Reward(inline=inline, no_inline=no_inline)
+        return Reward(inline=inline, no_inline=no_inline, exp=exp)
 
     assert isinstance(sexp, list)
     return [parse_reward(x) for x in sexp]
@@ -278,6 +278,22 @@ def print_allocation_table(all_data, threshold=-25):  # threshold is empirical
     print "Inline Significant, Apply Significant", tbl[1, 1]
 
 
+def plot_log_learnt_values(all_data, exp=None):
+    arr = []
+    for r in all_data:
+        if r is not None and (exp is None or r.exp == exp):
+            if r.inline is not None:
+                arr.append(r.inline.immediate)
+
+            if r.no_inline is not None:
+                arr.append(r.no_inline)
+
+    arr = [x for x in np.maximum(np.log10(sorted(abs(np.array(arr)))), -50) if x > -40]
+    plt.title("Learnt values in [%s] (%d non-zero points)" % (exp, len(arr)))
+    plt.grid()
+    plt.plot(arr, marker='x')
+
+
 def main():
     font = {'size'   : 8}
     matplotlib.rc('font', **font)
@@ -289,7 +305,7 @@ def main():
     for exp in py_common.INITIAL_EXPERIMENTS:
         fname = os.path.join("report_plots/reward_assignment/data/", model, exp, "rewards_dump.sexp")
         with open(fname, "r") as f:
-            all_data.extend(parse(sexpdata.load(f)))
+            all_data.extend(parse(sexpdata.load(f), exp=exp))
 
     plots_dir = os.path.join("report_plots/reward_assignment/", "plots", model)
     if not os.path.exists(plots_dir):
@@ -329,6 +345,17 @@ def main():
     plt.figure()
     plot_reward_difference(all_data, log10_threshold=-25)
     plt.savefig(os.path.join(plots_dir, "log-abs-reward-diff-histogram.pdf"))
+
+
+    for exp in py_common.INITIAL_EXPERIMENTS:
+        plt.figure()
+        plot_log_learnt_values(all_data, exp)
+        plt.savefig(os.path.join(plots_dir, "log-learnt-values-%s.pdf" % exp))
+
+    plt.figure()
+    plot_log_learnt_values(all_data)
+    plt.savefig(os.path.join(plots_dir, "log-learnt-values.pdf"))
+
 
 
 if __name__ == "__main__":
