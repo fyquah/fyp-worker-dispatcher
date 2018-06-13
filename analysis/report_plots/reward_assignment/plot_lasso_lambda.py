@@ -1,3 +1,4 @@
+import os
 import argparse
 import collections
 import sys
@@ -226,6 +227,7 @@ def main():
 
     all_alpha = []
     all_r_squared  = []
+    all_r_squared_validation = []
     all_sum_abs = []
     all_num_non_zero = []
     all_times = []
@@ -238,53 +240,90 @@ def main():
             if i == 0:
                 headers = row
             else:
-                alpha, r_squared, sum_abs, num_non_zero = [float(x) for x in row]
+                alpha, r_squared, r_squared_validation, sum_abs, num_non_zero = [float(x) for x in row]
 
                 results_file = ("../results/%s/lasso-with-alpha-v0-reproduce-relabel/decay-%s-benefit-%s-lasso-factor-%s.csv"
                         % (exp_name, ("%.6f" % decay_factor), benefit_function, row[0]))
-                print results_file
                 try:
                     times = get_times_from_file(results_file)
+
+                    if len(times) == 0:
+                        continue
 
                     all_times.append(geometric_mean(times))
                     all_alpha.append(alpha)
                     all_r_squared.append(r_squared)
+                    all_r_squared_validation.append(r_squared_validation)
                     all_sum_abs.append(sum_abs)
                     all_num_non_zero.append(num_non_zero)
-                except Exception as e:
+                except IOError as e:
                     print e
-
 
     all_alpha.reverse()
     all_r_squared.reverse()
+    all_r_squared_validation.reverse()
     all_sum_abs.reverse()
     all_num_non_zero.reverse()
     all_times.reverse()
-    print min(all_times)
+
+    best_alpha_index = 0
+    for i, alpha in enumerate(all_alpha):
+        if all_r_squared_validation[i] > all_r_squared_validation[best_alpha_index]:
+            best_alpha_index = i
+    best_alpha = all_alpha[best_alpha_index]
 
     all_sum_abs = np.array(all_sum_abs)
     all_num_non_zero = np.array(all_num_non_zero)
 
-    ax = plt.subplot(511)
-    ax.set_xscale("log", nonposx='clip')
-    plt.plot(all_alpha, all_r_squared)
+    labelsize = 10
+    font = {'size'   : 12}
+    matplotlib.rc('font', **font)
+    matplotlib.rc('text', usetex=True)
+    matplotlib.rcParams.update({'font.size': 12, "font.family": "serif"})
+    matplotlib.rc('xtick', labelsize=labelsize)
+    matplotlib.rc('ytick', labelsize=labelsize)
+    matplotlib.rc('figure', figsize=(11.69,17.27))
 
-    ax = plt.subplot(512)
+    ax = plt.subplot(411)
     ax.set_xscale("log", nonposx='clip')
-    plt.plot(all_alpha, all_sum_abs)
+    plt.title(r"$\alpha$ vs $r^2$")
+    plt.xlim(max(all_alpha), min(all_alpha))
+    plt.axvline(x=best_alpha, color="g", linestyle="--")
+    plt.grid()
+    plt.plot(all_alpha, all_r_squared, marker='x', label="training")
+    plt.plot(all_alpha, all_r_squared_validation, marker='x', color="r", label="validation")
 
-    ax = plt.subplot(513)
+    ax = plt.subplot(412)
     ax.set_xscale("log", nonposx='clip')
-    plt.plot(all_alpha, all_num_non_zero)
+    plt.xlim(max(all_alpha), min(all_alpha))
+    plt.title(r"$\alpha$ vs $\sum{|w|}$")
+    plt.grid()
+    plt.axvline(x=best_alpha, color="g", linestyle="--")
+    plt.plot(all_alpha, all_sum_abs, marker='x')
 
-    ax = plt.subplot(514)
+    ax = plt.subplot(413)
     ax.set_xscale("log", nonposx='clip')
-    plt.plot(all_alpha, all_r_squared / (1 + all_num_non_zero))
+    plt.xlim(max(all_alpha), min(all_alpha))
+    plt.title(r"$\alpha$ vs $\sum{I\{|w| > 0\}}$")
+    plt.grid()
+    plt.axvline(x=best_alpha, color="g", linestyle="--")
+    plt.plot(all_alpha, all_num_non_zero, marker='x')
 
-    ax = plt.subplot(515)
+    ax = plt.subplot(414)
     ax.set_xscale("log", nonposx='clip')
-    plt.plot(all_alpha, all_times)
-    plt.show()
+    plt.xlim(max(all_alpha), min(all_alpha))
+    plt.title(r"$\alpha$ vs $T_{exec}(s)$")
+    plt.grid()
+    plt.axvline(x=best_alpha, color="g", linestyle="--")
+    plt.plot(all_alpha, all_times, marker='x')
+
+    plt.suptitle(r"Varying Lasso $\alpha$ [%s] ($\gamma = %.6f$, $f_{benefit} =$ %s)" % (exp_name, decay_factor, benefit_function.replace("_", "\\_")))
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    fname = "report_plots/reward_assignment/plots/lasso/hyperparams/%s-%.6f-%s.pdf" % (exp_name, decay_factor, benefit_function)
+    d = os.path.dirname(fname)
+    if not os.path.exists(d):
+        os.makedirs(d)
+    plt.savefig(fname=fname)
 
 
 if __name__ == "__main__":
