@@ -159,9 +159,9 @@ def run(args):
             ridge_factor=args.ridge_factor,
             benefit_function=args.benefit_function)
     if args.skip_normalisation:
-        experiment_name = "linear-general-reward-without-normalisation"
+        experiment_name = "ridge"
     else:
-        experiment_name = "linear-general-reward"
+        assert False
     exp_directory = os.path.join(
             problem_directory, experiment_name, hyperparams.directory_name())
 

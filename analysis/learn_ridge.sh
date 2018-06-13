@@ -44,4 +44,4 @@ echo "--skip-normalisation $BENCHMARK_OUT_DIR --decay-factor 0.3 --ridge-factor 
 echo "--skip-normalisation $BENCHMARK_OUT_DIR --decay-factor 0.3 --ridge-factor 0.003  --benefit-function linear_speedup_over_mean" >>$TASK_FILE
 echo "--skip-normalisation $BENCHMARK_OUT_DIR --decay-factor 0.3 --ridge-factor 0.003  --benefit-function tanh_speedup_over_baseline" >>$TASK_FILE
 
-python2 batch_execute.py learn_linear_general_reward $ADDITIONAL_FLAGS <$TASK_FILE
+python2 batch_execute.py learn_ridge $ADDITIONAL_FLAGS <$TASK_FILE

@@ -5,7 +5,7 @@ TASK_FILE=$(mktemp)
 
 ### (2) print optimal decisions for every hyperparams configuration
 echo -n "">$TASK_FILE
-EXP_BASE_DIR=$PROBLEM_BASE_DIR/linear-general-reward-without-normalisation
+EXP_BASE_DIR=$PROBLEM_BASE_DIR/ridge
 
 for subdir in $(ls $EXP_BASE_DIR/); do
   if [ -f "$EXP_BASE_DIR/$subdir/optimal-expanded.sexp" ]; then
@@ -14,7 +14,7 @@ for subdir in $(ls $EXP_BASE_DIR/); do
     echo "--skip-normalisation --experiment-dir $EXP_BASE_DIR/$subdir/ --problem-dir $PROBLEM_BASE_DIR --optimal-decision --output $EXP_BASE_DIR/$subdir/optimal-expanded.sexp" >>$TASK_FILE
   fi
 done
-python2 batch_execute.py print_linear_general_reward $ADDITIONAL_FLAGS <$TASK_FILE
+python2 batch_execute.py print_ridge $ADDITIONAL_FLAGS <$TASK_FILE
 
 ### (3) Changing the optimal expanded tree into inlining decisions.
 ###       It is okay to use GNU parallel for this, as there is no state-sharing
