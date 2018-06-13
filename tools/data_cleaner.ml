@@ -134,6 +134,7 @@ let command_concat_queries =
     [%map_open
       let output = flag "-output" (required string) ~doc:"target file"
       and filelist = flag "-filelist" (required string) ~doc:"File list"
+      and tag = flag "-tag" (optional_with_default "<UNTAGGED>" string) ~doc:"tag"
       in
       fun () ->
         let open Deferred.Let_syntax in
@@ -146,7 +147,7 @@ let command_concat_queries =
         let oc = Caml.open_out output in
         Caml.output_value oc queries;
         Caml.close_out oc;
-        Log.Global.info "Extracted %d inlining queries" (List.length queries);
+        Log.Global.info "Extracted %d inlining queries from %s" (List.length queries) tag;
         Deferred.unit]
 ;;
 
