@@ -9,6 +9,9 @@ CMD = "jbuilder exec -- controller simulated-annealing plot v1-execution-stats %
 
 
 def extract_exp_name(script):
+    if os.path.basename(script.split(" ")[0]) == "simulated-annealing-generic":
+        return script.split(" ")[1]
+
     prefixes = ["simulated-annealing-", "mcts-"]
     for prefix in prefixes:
         if script.startswith(prefix):

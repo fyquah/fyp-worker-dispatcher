@@ -91,7 +91,8 @@ cat ./important-logs/batch_executor.log |  head -n-1 | ./scripts/get_instruction
 
 Make symbolic links to `artifacts.tar` in step directories for simulated
 annealing experiments. All "steps" in the initial execution share the same
-compilation artifacts, but are executed multiple times.
+compilation artifacts, but are executed multiple times. This is done
+in the command controller.
 
 ```
 cat ./tmp/batch_executor.log | cut -f2 -d, | while read -r line; do
