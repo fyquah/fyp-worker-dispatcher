@@ -177,6 +177,7 @@ def read_pickle(reward_model, feature_version):
 def main():
     model   = sys.argv[1]
     version = sys.argv[2]
+    version = version.lower()
 
     all_data = []
     for exp in py_common.INITIAL_EXPERIMENTS:
