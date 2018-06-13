@@ -196,7 +196,7 @@ def run(args):
     search_log = open(os.path.join(exp_directory, "search_log.csv"), "w")
     print "Logging to", os.path.join(exp_directory, "search_log.csv")
     wrt = csv.writer(search_log)
-    wrt.writerow(["alpha", "r_squared", "sum(abs(w))", "sum(abs(w) > 0.0)"])
+    wrt.writerow(["alpha", "r_squared", "r_squared_validation", "sum(abs(w))", "sum(abs(w) > 0.0)"])
 
     ctr = 0
     lo = 0.0
@@ -224,8 +224,8 @@ def run(args):
         r_squared = model.score(A_train, target_benefit_train)
         validation_r_squared = model.score(A_validation, target_benefit_validation)
 
-        row = [lambda_, r_squared, np.sum(abs(w)), np.sum(abs(w) > 0.000000000001)]
-        print lambda_, r_squared, np.sum(abs(w)), np.sum(abs(w) > 0.000000000001), validation_r_squared
+        row = [lambda_, r_squared, validation_r_squared, np.sum(abs(w)), np.sum(abs(w) > 0.000000000001)]
+        # print lambda_, r_squared, np.sum(abs(w)), np.sum(abs(w) > 0.000000000001), validation_r_squared
 
         hi = mid
         if r_squared < 0.05:
