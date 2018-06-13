@@ -414,12 +414,12 @@ def learn_decisions(all_features, all_rewards, all_raw_features, all_exp_names):
                 f.write(exp_names[i] + ",")
                 f.write("correct = "   + label_to_string(labels[i]) + ",")
                 f.write("predicted = " + label_to_string(predicted_labels[i]) + ",")
-                f.write("metadata = "   + str(raw_features[i].metadata) + ",")
                 if rewards[i].inline is None:
                     f.write(str(None) + ",")
                 else:
                     f.write(str(rewards[i].inline.long_term) + ",")
-                f.write(str(rewards[i].no_inline))
+                f.write(str(rewards[i].no_inline) + ",")
+                f.write("metadata = "   + str(raw_features[i].metadata))
                 f.write("\n")
 
     dump_classifications(fname="all_classification.log", indices=list(range(len(labels))))
