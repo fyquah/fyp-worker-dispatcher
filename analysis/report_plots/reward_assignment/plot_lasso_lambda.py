@@ -213,11 +213,12 @@ def geometric_mean(xs):
 
 
 def main():
-    decay_factor = float(sys.argv[1])
-    benefit_function = sys.argv[2]
+    exp_name = sys.argv[1]
+    decay_factor = float(sys.argv[2])
+    benefit_function = sys.argv[3]
     search_log_file = (
-            "out-v0-reproduce-relabel/bdd/lasso/decay-%s-benefit-%s-lasso-factor-auto/search_log.csv"
-            % (("%.6f" % decay_factor), benefit_function))
+            "report_plots/reward_assignment/data/lasso/%s/decay-%s-benefit-%s-lasso-factor-auto/search_log.csv"
+            % (exp_name, ("%.6f" % decay_factor), benefit_function))
     results_files = []
 
     font = {'size'   : 8}
@@ -239,8 +240,8 @@ def main():
             else:
                 alpha, r_squared, sum_abs, num_non_zero = [float(x) for x in row]
 
-                results_file = ("../results/bdd/lasso-with-alpha-v0-reproduce-relabel/decay-%s-benefit-%s-lasso-factor-%s.csv"
-                        % (("%.6f" % decay_factor), benefit_function, row[0]))
+                results_file = ("../results/%s/lasso-with-alpha-v0-reproduce-relabel/decay-%s-benefit-%s-lasso-factor-%s.csv"
+                        % (exp_name, ("%.6f" % decay_factor), benefit_function, row[0]))
                 print results_file
                 try:
                     times = get_times_from_file(results_file)
