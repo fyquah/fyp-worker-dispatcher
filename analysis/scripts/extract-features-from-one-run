@@ -19,7 +19,7 @@ EXPERIMENT_SUB_DIR=$(python ../scripts/query_experiment_params.py --name $EXPERI
 EXPERIMENT_BIN_NAME=$(python ../scripts/query_experiment_params.py --name $EXPERIMENT --bin-name)
 EXPERIMENT_DIR="$HOME/fyp/experiments/$EXPERIMENT_SUB_DIR"
 SCRATCH_DIR=$(mktemp -d)
-trap "{ rm -rf $SCRATCH_DIR; }" EXIT
+# trap "{ rm -rf $SCRATCH_DIR; }" EXIT
 
 if [ ! -d  "$EXPERIMENT_DIR/" ]; then
   echo "$EXPERIMENT_DIR (experiment directory) is not a directory!"
@@ -46,4 +46,4 @@ make all >out.log
 # cp $EXPERIMENT_BIN_NAME.flambda.v0.features $PATH_TO_OUT_DIR/features-v0.bin
 cp $EXPERIMENT_BIN_NAME.flambda.v0.queries  $PATH_TO_OUT_DIR/queries-v0.bin
 
-rm -rf $SCRATCH_DIR
+# rm -rf $SCRATCH_DIR

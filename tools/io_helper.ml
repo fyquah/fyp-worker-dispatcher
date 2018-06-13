@@ -49,19 +49,17 @@ let load_queries ?(allow_repeat = `No) ~filelist =
         in
         let value =
           match value with
-          | `Eof -> []
+          | `Eof ->
+            Log.Global.info "Failed to read %s" filename;
+            []
           | `Ok value -> value
         in
         let value =
           List.fold value ~init:Container.empty ~f:(fun container data ->
               let trace =
-                List.map data.env.inlining_stack ~f:(fun (_, item) ->
-                    match item with
-                    | Data_collector.Trace_item.Enter_decl { declared; _ } ->
-                      Feature_extractor.Decl declared.closure_origin
-                    | Data_collector.Trace_item.At_call_site acs ->
-                      Feature_extractor.Apply acs.apply_id)
+                Common.query_trace data
                 |> Protocol.Absolute_path.of_trace
+                |> Protocol.Absolute_path.expand
               in
               let key = trace in
               let next =
