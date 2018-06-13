@@ -26,7 +26,7 @@ echo "Writing tasks to $TASK_FILE"
 
 for decay_factor in $DECAY_FACTORS; do
   for benefit_function in $BENEFIT_FUNCTIONS; do
-    echo "--skip-normalisation $BENCHMARK_OUT_DIR --decay-factor $decay_factor --benefit-function $benefit_function" >>$TASK_FILE
+    echo "--force --skip-normalisation $BENCHMARK_OUT_DIR --decay-factor $decay_factor --benefit-function $benefit_function" >>$TASK_FILE
   done
 done
 
