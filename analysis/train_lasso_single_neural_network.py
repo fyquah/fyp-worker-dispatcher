@@ -305,12 +305,13 @@ parser.add_argument("--feature-version", type=str, help="feature version")
 
 feature_version = "v3"
 
-def learn_decisions(all_features, all_rewards, all_exp_names):
+def learn_decisions(all_features, all_rewards, all_raw_features, all_exp_names):
 
     DOESNT_MATTER     = 0
     INLINE   = 1
     APPLY = 2
 
+    raw_features = []
     features = []
     labels   = []
     exp_names = []
@@ -360,6 +361,7 @@ def learn_decisions(all_features, all_rewards, all_exp_names):
         labels.append(label)
         exp_names.append(all_exp_names[i])
         rewards.append(all_rewards[i])
+        raw_features.append(all_raw_features[i])
 
     features = np.array(features)
     labels   = np.array(labels)
@@ -412,6 +414,7 @@ def learn_decisions(all_features, all_rewards, all_exp_names):
                 f.write(exp_names[i] + ",")
                 f.write("correct = "   + label_to_string(labels[i]) + ",")
                 f.write("predicted = " + label_to_string(predicted_labels[i]) + ",")
+                f.write("metadata = "   + str(raw_features[i].metadata) + ",")
                 if rewards[i].inline is None:
                     f.write(str(None) + ",")
                 else:
@@ -441,6 +444,7 @@ def main():
 
     all_numeric_features  = np.zeros((len(all_data), len(all_data[0][0].numeric_features)))
     all_bool_features     = np.zeros((len(all_data), len(all_data[0][0].bool_features)))
+    raw_features          = [a for (a, _) in all_data]
     raw_targets           = [b for (_, b) in all_data]
     numeric_feature_names = [a for (a, _) in all_data[0][0].numeric_features]
     bool_feature_names    = [a for (a, _) in all_data[0][0].bool_features]
@@ -461,7 +465,9 @@ def main():
 
     features = np.concatenate([normalised_numeric_features, relevant_bool_features], axis=1)
 
-    decision_model = learn_decisions(features, raw_targets, exp_names)
+    decision_model = learn_decisions(
+            features, raw_targets,
+            all_raw_features=raw_features, all_exp_names=exp_names)
     if args.decision_model_file:
         with open(args.decision_model_file, "w") as f:
             codegen_model(
