@@ -23,8 +23,9 @@ def main():
     initial_exec_time_by_bench = {}
     best_times_by_bench = {}
     all_records = {}
+    exps = py_common.EXPERIMENT_TO_PARAMETERS.keys()
 
-    for benchmark in py_common.INITIAL_EXPERIMENTS:
+    for benchmark in exps:
         initial_exec_times = []
         best_time = None
         with open("../pca-data/%s.csv" % benchmark, "rb") as f:
@@ -39,7 +40,7 @@ def main():
         initial_exec_time_by_bench[benchmark] = geometric_mean(initial_exec_times)
         best_times_by_bench[benchmark] = best_time
 
-    for benchmark in py_common.INITIAL_EXPERIMENTS:
+    for benchmark in exps:
         bench_dir = (
             "../results/%s/%s/"
             % (benchmark, "plugins"))
