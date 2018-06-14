@@ -35,7 +35,7 @@ for exp in $EXPS; do
   OUTPUT="results/$exp/plugins/$plugin_name.csv"
   mkdir -p $(dirname $OUTPUT)
 
-  if [ -f "$OUTPUT" ]; then
+  if [[ -f "$OUTPUT" && "$(wc -l <$OUTPUT)" != "0" ]]; then
     echo "||||| Skipping $exp with plugin $plugin_name"
   else
     echo ">>>>> Running experiment $exp with $PLUGIN_PATH"
