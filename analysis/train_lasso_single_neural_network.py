@@ -302,6 +302,7 @@ def plot_pca_density(features, title, fname):
 parser = argparse.ArgumentParser()
 parser.add_argument("--decision-model-file", type=str, help="file for decision model")
 parser.add_argument("--feature-version", type=str, help="feature version")
+parser.add_argument("--model-choice", type=str, help="model choice", required=True)
 
 feature_version = "v3"
 
@@ -437,7 +438,9 @@ def main():
     if args.feature_version is not None:
         feature_version = args.feature_version
 
-    all_data = feature_loader.read_pickle(reward_model="lasso", feature_version=feature_version)
+    all_data = feature_loader.read_pickle(
+            reward_model="lasso-" + args.model_choice,
+            feature_version=feature_version)
 
     print "No Information about rewards", len([t for (_, t) in all_data if t is None])
     print "Both inline and termination", len([t for (_, t) in all_data if t is not None and t.inline is not None and t.no_inline is not None])
