@@ -31,6 +31,8 @@ parser.add_argument("--ridge-factor", type=str, help="filename")
 parser.add_argument("--benefit-function", type=str, help="")
 parser.add_argument("--model", type=str, required=True,
         help="linear-general-reward-without-normalisation OR linear-general-reward-learn-normalised-use-unnormalised")
+parser.add_argument("--output-dir", type=str, help="directory to write selected hyperparams")
+parser.add_argument("--prefix", type=str, help="directory to write selected hyperparams")
 
 def almost_equal(a, b):
     return np.abs(float(a) - float(b)) < 0.000001
@@ -106,7 +108,7 @@ def main():
         arr.append((k, v))
 
     # arr.sort(key=lambda (_k, v): max(e[3] for e in v))
-    arr.sort(key=lambda (_k, v): sum(e[2] for e in v))
+    arr.sort(key=lambda (_k, v): sum(max(0, e[2]) for e in v))
     header = ", ".join([
         "Benchmark", 
         "Best Seen",
@@ -156,11 +158,16 @@ def main():
     for i in range(min(len(arr), NUM_ENTRIES)):
         print "\\textit{Hyperparams} %d & %s \\\\" % (i, arr[i][0])
 
-    with open("best-hyperparams.sexp", "w") as f:
-        f.write("(\n")
-        for line in best_source:
-            f.write(line + "\n")
-        f.write(")\n")
+    if args.output_dir and args.prefix:
+        with open(os.path.join(args.output_dir, args.prefix + "-best-hyperparams.sexp"), "w") as f:
+            f.write("(\n")
+            for line in best_source:
+                f.write(line + "\n")
+            f.write(")\n")
+        with open(os.path.join(args.output_dir, args.prefix + "-general-hyperparams.txt"), "w") as f:
+            a, _ = os.path.splitext(arr[0][0])
+            print "Best general:", a
+            f.write(a)
 
 
 if __name__ == "__main__":
