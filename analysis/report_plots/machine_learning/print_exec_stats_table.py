@@ -66,7 +66,21 @@ def main():
             all_records[benchmark] = (None, None, None)
 
     arr = []
+
+    print ">>>>> TRAINING SET <<<<<"
     for bench, (time, _ratio, speedup) in all_records.iteritems():
+        if bench not in py_common.INITIAL_EXPERIMENTS:
+            continue
+        if speedup is None:
+            print "%s: N/A" % (bench)
+        else:
+            print "%s: %f%% (%.3fs)" % (bench, speedup * 100, time)
+    print ""
+
+    print ">>>>> TEST SET <<<<<"
+    for bench, (time, _ratio, speedup) in all_records.iteritems():
+        if bench in py_common.INITIAL_EXPERIMENTS:
+            continue
         if speedup is None:
             print "%s: N/A" % (bench)
         else:
