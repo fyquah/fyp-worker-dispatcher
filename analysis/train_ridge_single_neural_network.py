@@ -28,8 +28,6 @@ from sklearn.metrics import roc_curve
 from feature_loader import *
 import feature_loader
 
-B = 5.0
-
 def sgn(x):
     if x < 0:
         return -1
@@ -135,18 +133,6 @@ def plot_immediate_reward_log_histrogram(all_data):
     plt.xlabel("Immediate Reward")
     plt.ylabel("Normalised Frequency")
     plt.grid()
-
-
-def remove_annomalises(all_data):
-    ret = []
-    for d in all_data:
-        if (fmap(d.inline, f=lambda x : abs(x.immediate) > B)
-                or fmap(d.inline, f=lambda x : abs(x.long_term) >B)
-                or fmap(d.no_inline, f=lambda x : abs(x) > B)):
-            pass
-        else:
-            ret.append(d)
-    return ret
 
 
 def plot_pca(features, labels, title, fname, legend):
@@ -303,16 +289,17 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--decision-model-file", type=str, help="file for decision model")
 parser.add_argument("--feature-version", type=str, help="feature version")
 parser.add_argument("--model-choice", type=str, help="model choice", required=True)
+parser.add_argument("--significance-diff", type=str, help="bound for signifiance", required=True)
 
 feature_version = "v3"
 log_dir = os.environ.get("TRAINING_LOG_DIR", None)
-print log_dir
 
-def learn_decisions(all_features, all_rewards, all_raw_features, all_exp_names):
+def learn_decisions(all_features, all_rewards, all_raw_features, all_exp_names, significance_diff):
 
     DOESNT_MATTER     = 0
     INLINE   = 1
     APPLY = 2
+    assert isinstance(significance_diff, float)
 
     raw_features = []
     features = []
@@ -324,39 +311,18 @@ def learn_decisions(all_features, all_rewards, all_raw_features, all_exp_names):
         if r is None or r.inline is None or r.no_inline is None:
             continue
 
-        log_abs_inline    = np.log10(abs(r.inline.long_term))
-        log_abs_terminate = np.log10(abs(r.no_inline))
-        label             = None
-        threshold         = -8  # empirical defined in discussion with Nick
+        inline = r.inline.long_term
+        termination = r.no_inline
+        label = None
 
-        if log_abs_inline > threshold and log_abs_terminate > threshold:
-
-            # Based on our histogram plot, we have shown that when both of
-            # them are _good_, we get an _obvious_ diff. This implies that
-            # when both are large values, they are usually uncorrelated.
-            # (smallest diff we get is 10^{-3}, which is significantly
-            # bigger than 10^{-25}
-            if r.inline.long_term > r.no_inline:
-                label = INLINE
-            else:
-                label = APPLY
-
-        elif log_abs_inline > threshold:
-
-            if r.inline.long_term > 0:
-                label = INLINE
-            else:
-                label = APPLY
-
-        elif log_abs_terminate > threshold:
-
-            if r.no_inline > 0:
-                label = APPLY
-            else:
-                label = INLINE
-
-        else:
+        if abs(inline - termination) < significance_diff:
             label = DOESNT_MATTER
+        elif inline > termination:
+            label = INLINE
+        elif inline < termination:
+            label = APPLY
+        else:
+            assert False
 
         assert label is not None
 
@@ -437,12 +403,14 @@ def learn_decisions(all_features, all_rewards, all_raw_features, all_exp_names):
 
 def main():
     args = parser.parse_args()
+    print "B =", args.significance_diff
     global feature_version
+    global log_dir
     if args.feature_version is not None:
         feature_version = args.feature_version
 
     all_data = feature_loader.read_pickle(
-            reward_model="lasso-" + args.model_choice,
+            reward_model="ridge-" + args.model_choice,
             feature_version=feature_version)
 
     print "No Information about rewards", len([t for (_, t) in all_data if t is None])
@@ -476,7 +444,8 @@ def main():
 
     decision_model = learn_decisions(
             features, raw_targets,
-            all_raw_features=raw_features, all_exp_names=exp_names)
+            all_raw_features=raw_features, all_exp_names=exp_names,
+            significance_diff=float(args.significance_diff))
     if args.decision_model_file:
         with open(args.decision_model_file, "w") as f:
             codegen_model(
