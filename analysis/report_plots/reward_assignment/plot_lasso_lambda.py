@@ -266,6 +266,10 @@ def main():
     all_num_non_zero.reverse()
     all_times.reverse()
 
+    all_slowdown = []
+    for t in all_times:
+        all_slowdown.append((t - min(all_times)) / min(all_times))
+
     best_alpha_index = 0
     for i, alpha in enumerate(all_alpha):
         if all_r_squared_validation[i] > all_r_squared_validation[best_alpha_index]:
@@ -316,6 +320,7 @@ def main():
     plt.grid()
     plt.axvline(x=best_alpha, color="g", linestyle="--")
     plt.plot(all_alpha, all_times, marker='x')
+    plt.ylabel(r"$T_{exec}$(s)")
 
     plt.suptitle(r"Varying Lasso $\alpha$ [%s] ($\gamma = %.6f$, $f_{benefit} =$ %s)" % (exp_name, decay_factor, benefit_function.replace("_", "\\_")))
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])

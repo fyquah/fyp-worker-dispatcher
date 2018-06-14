@@ -6,3 +6,5 @@ for decay_factor in $DECAY_FACTORS; do
     PYTHONPATH=. python report_plots/reward_assignment/plot_lasso_lambda.py lexifi $decay_factor $benefit_function
   done 
 done
+
+PYTHONPATH=. python report_plots/reward_assignment/plot_lasso_lambda.py bdd 1.000000 tanh_speedup_over_mean
