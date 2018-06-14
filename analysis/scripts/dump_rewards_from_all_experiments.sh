@@ -9,6 +9,7 @@ echo "MODEL = $MODEL"
 if [ -z ${1+x} ]; then
   echo "Possible selection criterion: [star], [general] or <your-hand-chosen-model-here>";
   echo "   - lasso hand chosen: decay-1.000000-benefit-tanh_speedup_over_baseline-lasso-factor-auto"
+  echo "   - ridge hand chosen: decay-0.400000-ridge-0.050000-benefit-log_speedup_over_mean"
   exit 1
 else
   echo "selection choice: $1"
@@ -27,7 +28,7 @@ for exp in $(python ../scripts/query_experiment_params.py --all-old); do
       ;;
      
     general)
-      exit 1
+      experiment_dir=out-$VERSION/$exp/$MODEL/$(cat out-$VERSION/$MODEL-general-hyperparams.txt)
       ;;
      
     *)
