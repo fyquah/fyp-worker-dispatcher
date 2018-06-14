@@ -9,6 +9,6 @@ git archive --format tar --prefix ocaml/ HEAD | gzip >../ocaml-tarballs/tarball.
 opam init -n
 opam repo add opam-repo-dev $HOME/fyp/opam-repo-dev
 opam switch system
-opam switch remove -y 4.05.0+fyp
-opam switch install 4.05.0+fyp
-opam switch 4.05.0+fyp
+opam switch remove -y 4.06.0+fyp
+opam switch install 4.06.0+fyp
+opam switch 4.06.0+fyp
