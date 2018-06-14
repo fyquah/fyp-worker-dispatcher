@@ -16,9 +16,9 @@ set -euo pipefail
 make controller
 
 export OPAMROOT=$HOME/fyp/opam-root/
-opam switch 4.05.0+fyp
+opam switch 4.06.0+fyp
 eval `opam config env`
-opam switch 4.05.0+fyp
+opam switch 4.06.0+fyp
 
 echo "Default OCAMLOPT = `which ocamlopt`"
 echo "Algorithm = $1"
