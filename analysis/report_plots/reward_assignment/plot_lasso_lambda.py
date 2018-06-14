@@ -218,7 +218,7 @@ def main():
     decay_factor = float(sys.argv[2])
     benefit_function = sys.argv[3]
     search_log_file = (
-            "report_plots/reward_assignment/data/lasso/%s/decay-%s-benefit-%s-lasso-factor-auto/search_log.csv"
+            "report_plots/reward_assignment/data/lasso-logs/%s/decay-%s-benefit-%s-lasso-factor-auto/search_log.csv"
             % (exp_name, ("%.6f" % decay_factor), benefit_function))
     results_files = []
 

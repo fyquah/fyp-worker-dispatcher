@@ -83,7 +83,7 @@ def plot_immediate_and_long_term_correlation(all_data):
     xs = []
     ys = []
     for d in all_data:
-        if d.inline is not None and np.log10(abs(d.inline.long_term)) > -10 and np.log10(abs(d.inline.immediate)) > -30:
+        if d.no_inline is not None and (d.inline is not None and np.log10(abs(d.inline.long_term)) > -10 and np.log10(abs(d.inline.immediate)) > -30):
             xs.append(d.inline.immediate)
             ys.append(d.inline.long_term)
 
@@ -161,7 +161,7 @@ def plot_immediate_and_no_inline_correlation(all_data):
     plot_best_fit(xs, ys)
 
 
-def plot_long_term_reward_histogram(all_data):
+def plot_log_long_term_reward_histogram(all_data):
     xs = []
 
     for d in all_data:
@@ -175,7 +175,7 @@ def plot_long_term_reward_histogram(all_data):
     plt.grid()
 
 
-def plot_no_inline_reward_histogram(all_data):
+def plot_log_no_inline_reward_histogram(all_data):
     xs = []
 
     for d in all_data:
@@ -184,7 +184,35 @@ def plot_no_inline_reward_histogram(all_data):
 
     plt.title(r"Histogram of $log_{10}(|R_{apply}|)$ (%d samples)" % len(xs))
     plt.hist(xs)
+    plt.xlabel("$log_{10}(|R_{apply}|)$")
+    plt.ylabel("Frequency")
+    plt.grid()
+
+
+def plot_long_term_reward_histogram(all_data):
+    xs = []
+
+    for d in all_data:
+        if d.inline is not None and abs(d.inline.long_term) > 1e-15:
+            xs.append(d.inline.long_term)
+
+    plt.title("$V^*_{inline}$ Histogram (%d samples)" % len(xs))
+    plt.hist(xs)
     plt.xlabel("Long Term Reward")
+    plt.ylabel("Frequency")
+    plt.grid()
+
+
+def plot_no_inline_reward_histogram(all_data):
+    xs = []
+
+    for d in all_data:
+        if d.inline is not None and d.no_inline is not None and abs(d.no_inline) > 1e-15:
+            xs.append(math.log10(abs(d.no_inline)))
+
+    plt.title(r"Histogram of $R_{apply}$ (%d samples)" % len(xs))
+    plt.hist(xs)
+    plt.xlabel(r"$R_{apply}$")
     plt.ylabel("Frequency")
     plt.grid()
 
@@ -197,7 +225,23 @@ def plot_long_term_and_no_inline_correlation(all_data):
             xs.append(d.inline.long_term)
             ys.append(d.no_inline)
 
-    plt.title("Long Term vs Termination Compensation (%d samples)" % len(xs))
+    plt.title(r"$V_{inline}^*$ vs $R_{apply}$ (%d samples)" % len(xs))
+    plt.scatter(xs, ys, marker="x")
+    plt.xlabel("Long Term Reward")
+    plt.ylabel("Termination Compensation")
+    plt.grid()
+    plot_best_fit(xs, ys)
+
+
+def plot_abs_long_term_and_abs_no_inline_correlation(all_data):
+    xs = []
+    ys = []
+    for d in all_data:
+        if d.inline is not None and d.no_inline is not None:
+            xs.append(abs(d.inline.long_term))
+            ys.append(abs(d.no_inline))
+
+    plt.title(r"$|V_{inline}^*|$ vs $|R_{apply}|$ (%d samples)" % len(xs))
     plt.scatter(xs, ys, marker="x")
     plt.xlabel("Long Term Reward")
     plt.ylabel("Termination Compensation")
@@ -312,6 +356,14 @@ def main():
         os.makedirs(plots_dir)
 
     plt.figure()
+    plot_long_term_and_no_inline_correlation(all_data)
+    plt.savefig(os.path.join(plots_dir, "long-term-vs-termination.pdf"))
+
+    plt.figure()
+    plot_abs_long_term_and_abs_no_inline_correlation(all_data)
+    plt.savefig(os.path.join(plots_dir, "long-term-magnitude-vs-termination-magnitude.pdf"))
+
+    plt.figure()
     plot_immediate_and_long_term_correlation(all_data)
     plt.savefig(os.path.join(plots_dir, "immediate-vs-long-term.pdf"))
 
@@ -327,16 +379,20 @@ def main():
         plt.savefig(os.path.join(plots_dir, "log-long-term-vs-log-apply-threshold-%d.pdf" % threshold))
 
     plt.figure()
+    plot_log_long_term_reward_histogram(all_data)
+    plt.savefig(os.path.join(plots_dir, "log-long-term-histogram.pdf"))
+
+    plt.figure()
+    plot_log_no_inline_reward_histogram(all_data)
+    plt.savefig(os.path.join(plots_dir, "log-apply-reward-histogram.pdf"))
+
+    plt.figure()
     plot_long_term_reward_histogram(all_data)
     plt.savefig(os.path.join(plots_dir, "long-term-histogram.pdf"))
 
     plt.figure()
     plot_no_inline_reward_histogram(all_data)
     plt.savefig(os.path.join(plots_dir, "apply-reward-histogram.pdf"))
-
-    plt.figure()
-    plot_long_term_and_no_inline_correlation_non_trivial(all_data)
-    plt.savefig(os.path.join(plots_dir, "long-term-vs-apply-non-trivial.pdf"))
 
     plt.figure()
     plot_zero_value_immediate_hist(all_data)
