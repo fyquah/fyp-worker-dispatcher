@@ -305,6 +305,8 @@ parser.add_argument("--feature-version", type=str, help="feature version")
 parser.add_argument("--model-choice", type=str, help="model choice", required=True)
 
 feature_version = "v3"
+log_dir = os.environ.get("TRAINING_LOG_DIR", None)
+print log_dir
 
 def learn_decisions(all_features, all_rewards, all_raw_features, all_exp_names):
 
@@ -426,8 +428,9 @@ def learn_decisions(all_features, all_rewards, all_raw_features, all_exp_names):
                 f.write("metadata = "   + str(raw_features[i].metadata))
                 f.write("\n")
 
-    dump_classifications(fname="tmp/lasso_single_neural_network/correct.log", indices=np.where(labels == predicted_labels)[0])
-    dump_classifications(fname="tmp/lasso_single_neural_network/incorrect.log", indices=np.where(labels != predicted_labels)[0])
+    if log_dir is not None:
+        dump_classifications(fname=os.path.join(log_dir, "correct.log"),   indices=np.where(labels == predicted_labels)[0])
+        dump_classifications(fname=os.path.join(log_dir, "incorrect.log"), indices=np.where(labels != predicted_labels)[0])
 
     return model
 
