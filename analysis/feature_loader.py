@@ -170,7 +170,9 @@ def codegen_single_test_case(
 
 
 def read_pickle(reward_model, feature_version):
-    with open("./report_plots/machine_learning/%s/%s/data.pickle" % (reward_model.lower(), feature_version.lower()), "rb") as f:
+    fname = "./report_plots/machine_learning/%s/%s/data.pickle" % (reward_model.lower(), feature_version.lower())
+    print "Reading pickle from", fname
+    with open(fname, "rb") as f:
         return pickle.load(f)
 
 
