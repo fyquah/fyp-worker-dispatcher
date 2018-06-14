@@ -473,7 +473,7 @@ let compile_binary ~dir ~bin_name ~write_overrides ~dump_directory =
   lift_deferred (Async_shell.mkdir ~p:() dump_directory)
   >>=? fun () -> shell ~dir "make" [ "clean" ]
   >>=? fun () -> write_overrides (dir ^/ "overrides.sexp")
-  >>=? fun () -> shell ~dir "make" [ "all" ]
+  >>=? fun () -> shell ~dir "timeout" [ "2m"; "make"; "all" ]
   >>=? fun () -> shell ~dir "cp" [ (bin_name ^ ".native"); filename ]
   >>=? fun () -> shell ~dir "chmod" [ "755"; filename ]
   >>=? fun () ->
