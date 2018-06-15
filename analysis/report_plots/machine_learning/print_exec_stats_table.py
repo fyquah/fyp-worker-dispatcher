@@ -45,6 +45,7 @@ def main():
             "../results/%s/%s/"
             % (benchmark, "plugins"))
         if not os.path.exists(bench_dir):
+            all_records[benchmark] = (None, None, None)
             continue
         csv_files = os.listdir(bench_dir)
         initial_exec_time = initial_exec_time_by_bench[benchmark]
