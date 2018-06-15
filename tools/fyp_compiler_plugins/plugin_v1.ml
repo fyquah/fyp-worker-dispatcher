@@ -41,12 +41,17 @@ let f_0 (query : Inlining_query.query) =
 
 let f (query : Inlining_query.query) =
   if query.env.round = 0 then
+    let () =
+      assert (
+        (Clflags.Int_arg_helper.get ~key:0 !Clflags.inline_max_unroll) = 30
+      )
+    in
     (* safety net: allow inline / unroll up to 30 iteres *)
     let inlining_count =
       try
-        Closure_origin.Map.find query.function_decl.closure_origin query.env.inlining_counts
+        Closure_id.Map.find query.closure_id_being_applied query.env.inlining_counts
       with Not_found ->
-        30
+        30  (* inlining count decremnts with every inlining *)
     in
     if query.env.inlining_level > 30 || inlining_count <= 0 then
       Some Data_collector.Action.Apply

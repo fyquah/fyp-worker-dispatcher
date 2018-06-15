@@ -1,4 +1,4 @@
-OCAMLOPT=~/fyp/opam-root/4.05.0+fyp/bin/ocamlopt.opt 
+OCAMLOPT=~/fyp/opam-root/4.06.0+fyp/bin/ocamlopt.opt 
 
 all: build/plugin_v0.cmxs
 
