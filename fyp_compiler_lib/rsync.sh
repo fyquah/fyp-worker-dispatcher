@@ -28,6 +28,7 @@ cp $OCAML_DIR/middle_end/base_types/call_site.ml* ./
 cp $OCAML_DIR/middle_end/base_types/closure_id.ml* ./
 cp $OCAML_DIR/middle_end/base_types/set_of_closures_origin.ml* ./
 cp $OCAML_DIR/middle_end/base_types/closure_origin.mli ./
+cp $OCAML_DIR/middle_end/base_types/real_closure_origin.ml* ./
 cp $OCAML_DIR/middle_end/base_types/export_id.ml* ./
 # source file for closure_origin is modified because it doesn't compile on
 # 4.05.0 otherwise.

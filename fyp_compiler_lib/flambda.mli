@@ -303,6 +303,7 @@ and function_declarations = private {
 
 and function_declaration = private {
   closure_origin: Closure_origin.t;
+  real_closure_origin: Real_closure_origin.t;
   params : Parameter.t list;
   body : t;
   (* CR-soon mshinwell: inconsistent naming free_variables/free_vars here and
@@ -557,6 +558,7 @@ val create_function_declaration
   -> specialise:Lambda.specialise_attribute
   -> is_a_functor:bool
   -> closure_origin:Closure_origin.t
+  -> real_closure_origin:Real_closure_origin.t
   -> function_declaration
 
 (** Create a set of function declarations given the individual declarations. *)

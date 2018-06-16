@@ -67,6 +67,7 @@ let f (query : Inlining_query.query) =
 ;;
 
 let () =
+  assert (!Clflags.default_simplify_rounds = 3);  (* Don't use this plugin when not compiling in O3 *)
   (* verify_inlining_count (); *)
   for i = 0 to 2 do
     Printf.eprintf "max_unroll[%d] = %d\n" i (Clflags.Int_arg_helper.get ~key:i !Clflags.inline_max_unroll)
