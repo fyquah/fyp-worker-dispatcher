@@ -1,4 +1,5 @@
-OCAMLOPT=~/fyp/opam-root/4.05.0+fyp/bin/ocamlopt.opt 
+OCAMLOPT=~/fyp/opam-root/4.06.0+fyp/bin/ocamlopt.opt 
+OCAMLC=~/fyp/opam-root/4.06.0+fyp/bin/ocamlc.opt
 
 all: build/plugin_v0.cmxs
 
@@ -34,6 +35,9 @@ build/plugin_v0.cmxs: \
   plugin_v0.ml
 	echo "" >build/fyp_compiler_lib.ml
 	cp model_loader_v0.ml build/model_loader.ml
+	$(OCAMLC) -I build/ -I +compiler-libs -shared -o $(subst cmxs,cmo,$@) \
+	  build/fyp_compiler_lib.ml \
+	  $(subst model_loader_v0,build/model_loader,$^)
 	$(OCAMLOPT) -I build/ -I +compiler-libs -shared -o $@ \
 	  build/fyp_compiler_lib.ml \
 	  $(subst model_loader_v0,build/model_loader,$^)
@@ -51,6 +55,9 @@ build/plugin_v0_logistic_regression.cmxs: \
   plugin_v0.ml
 	echo "" >build/fyp_compiler_lib.ml
 	cp model_loader_v0_logistic_regression.ml build/model_loader.ml
+	$(OCAMLC) -I build/ -I +compiler-libs -shared -o $(subst cmxs,cmo,$@) \
+	  build/fyp_compiler_lib.ml \
+	  $(subst model_loader_v0_logistic_regression,build/model_loader,$^)
 	$(OCAMLOPT) -I build/ -I +compiler-libs -shared -o $@ \
 	  build/fyp_compiler_lib.ml \
 	  $(subst model_loader_v0_logistic_regression,build/model_loader,$^)
@@ -68,6 +75,9 @@ build/plugin_v0_neural_network.cmxs: \
   plugin_v0.ml
 	echo "" >build/fyp_compiler_lib.ml
 	cp model_loader_v0_neural_network.ml build/model_loader.ml
+	$(OCAMLC) -I build/ -I +compiler-libs -shared -o $(subst cmxs,cmo,$@) \
+	  build/fyp_compiler_lib.ml \
+	  $(subst model_loader_v0_neural_network,build/model_loader,$^)
 	$(OCAMLOPT) -I build/ -I +compiler-libs -shared -o $@ \
 	  build/fyp_compiler_lib.ml \
 	  $(subst model_loader_v0_neural_network,build/model_loader,$^)
@@ -85,6 +95,9 @@ build/plugin_v0_clustered_neural_network.cmxs: \
   plugin_v0.ml
 	echo "" >build/fyp_compiler_lib.ml
 	cp model_loader_v0_clustered_neural_network.ml build/model_loader.ml
+	$(OCAMLC) -I build/ -I +compiler-libs -shared -o $(subst cmxs,cmo,$@) \
+	  build/fyp_compiler_lib.ml \
+	  $(subst model_loader_v0_clustered_neural_network,build/model_loader,$^)
 	$(OCAMLOPT) -I build/ -I +compiler-libs -shared -o $@ \
 	  build/fyp_compiler_lib.ml \
 	  $(subst model_loader_v0_clustered_neural_network,build/model_loader,$^)
@@ -102,6 +115,9 @@ build/plugin_v1_neural_network.cmxs: \
   plugin_v1.ml
 	echo "" >build/fyp_compiler_lib.ml
 	cp model_loader_v1_neural_network.ml build/model_loader.ml
+	$(OCAMLC) -I build/ -I +compiler-libs -c -o $(subst cmxs,cmo,$@) \
+	  build/fyp_compiler_lib.ml \
+	  $(subst model_loader_v1_neural_network,build/model_loader,$^)
 	$(OCAMLOPT) -I build/ -I +compiler-libs -shared -o $@ \
 	  build/fyp_compiler_lib.ml \
 	  $(subst model_loader_v1_neural_network,build/model_loader,$^)

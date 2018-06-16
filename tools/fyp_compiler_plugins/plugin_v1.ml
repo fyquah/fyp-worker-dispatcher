@@ -57,5 +57,6 @@ let f (query : Inlining_query.query) =
 ;;
 
 let () =
+  assert (!Clflags.default_simplify_rounds = 3);  (* Don't use this plugin when not compiling in O3 *)
   Inlining_decision.init_custom_heuristic f
 ;;
