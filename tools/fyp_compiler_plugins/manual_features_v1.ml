@@ -212,7 +212,7 @@ let process (query : Inlining_query.query) =
       let var = Closure_id.unwrap query.closure_id_being_applied in
       float_of_int (
         try
-          Variable.Map.find var query.value_set_of_closures.invariant_params
+          Variable.Map.find var (Lazy.force query.value_set_of_closures.invariant_params)
           |> Variable.Set.cardinal
         with
         | Not_found -> 0

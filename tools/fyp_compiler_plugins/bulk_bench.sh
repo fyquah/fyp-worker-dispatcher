@@ -2,7 +2,9 @@
 
 set -euo pipefail
 
-export EXPERIMENT_OCAMLPARAM="_,inline-max-unroll=15"
+# NOT reporting inlining decisions is REALLY REALLY important, otherwise, compilation
+# will end up consuming excessive amounts of RAM.
+export EXPERIMENT_OCAMLPARAM="_,inline-max-unroll=15,inlining-report=0,dflambda=0"
 
 # ./compile_and_benchmark_nothing.sh
 ./compile_and_benchmark_v1_lasso.sh hand   

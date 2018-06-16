@@ -46,9 +46,10 @@ let verify_inlining_count () =
 ;;
 
 
-let f (query : Inlining_query.query) =
+let f (env : Inline_and_simplify_aux.Env.t) (query : Inlining_query.query lazy_t) =
   let limit = 30 in
-  if query.env.round = 0 then begin
+  if Inline_and_simplify_aux.Env.round env = 0 then begin
+    let query = (Lazy.force query) in
     (* verify_inlining_count (); *)
     (* safety net: allow inline / unroll up to 30 iteres *)
     let inlining_count =

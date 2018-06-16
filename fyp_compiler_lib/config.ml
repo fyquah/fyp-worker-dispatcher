@@ -17,7 +17,7 @@
 (* The main OCaml version string has moved to ../VERSION *)
 let version = Sys.ocaml_version
 
-let standard_library_default = "/home/fyquah/dev/machine-learning/inliner/ocaml/_install/lib/ocaml"
+let standard_library_default = "/home/fyquah/fyp/ocaml/_install/lib/ocaml"
 
 let standard_library =
   try
@@ -28,7 +28,7 @@ let standard_library =
   with Not_found ->
     standard_library_default
 
-let standard_runtime = "/home/fyquah/dev/machine-learning/inliner/ocaml/_install/bin/ocamlrun"
+let standard_runtime = "/home/fyquah/fyp/ocaml/_install/bin/ocamlrun"
 let ccomp_type = "cc"
 let c_compiler = "gcc"
 let c_output_obj = "-o "
