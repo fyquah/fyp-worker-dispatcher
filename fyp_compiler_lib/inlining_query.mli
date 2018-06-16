@@ -29,7 +29,7 @@ type env = {
     never_inline_inside_closures : bool;
     never_inline_outside_closures : bool;
     unroll_counts : int Set_of_closures_origin.Map.t;
-    inlining_counts : int Closure_origin.Map.t;
+    inlining_counts : int Closure_id.Map.t;
     actively_unrolling : int Set_of_closures_origin.Map.t;
     closure_depth : int;
     inlining_stats_closure_stack : Inlining_stats.Closure_stack.t;

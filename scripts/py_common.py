@@ -149,6 +149,13 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_args="400000000",
             module_paths=["main"]
         ),
+
+        # "fyq-symbolic-maths": ExperimentParameters(
+        #     bin_name="main",
+        #     subdir="fyq/symbolic-maths",
+        #     bin_args="44",
+        #     module_paths=["main"]
+        # ),
 }
 
 INITIAL_EXPERIMENTS = [

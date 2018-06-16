@@ -471,6 +471,15 @@ let copy_compilation_artifacts ~exp_dir ~dump_dir ~abs_path_to_binary =
 let compile_binary ~dir ~bin_name ~write_overrides ~dump_directory =
   let filename = Filename.temp_file "fyp-" ("-" ^ bin_name) in
   lift_deferred (Async_shell.mkdir ~p:() dump_directory)
+  >>=? fun () ->
+  lift_deferred (Async_shell.run_full "which" ["ocamlopt.opt"])
+  >>=? fun where_is_ocamlopt ->
+  let ocamlparam =
+    Option.value ~default:"_" (Sys.getenv "OCAMLPARAM")
+  in
+  (Log.Global.info "ocamlopt path = %s" where_is_ocamlopt);
+  (Log.Global.info "OCAMLPARAM = %s" ocamlparam);
+  Deferred.Or_error.ok_unit
   >>=? fun () -> shell ~dir "make" [ "clean" ]
   >>=? fun () -> write_overrides (dir ^/ "overrides.sexp")
   >>=? fun () -> shell ~dir "timeout" [ "2m"; "make"; "all" ]

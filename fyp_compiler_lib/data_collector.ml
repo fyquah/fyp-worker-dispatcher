@@ -732,6 +732,8 @@ module V1 = struct
       fun tree ->
         loop ~depth:0 tree
     ;;
+
+    let _ = print_tree
   end
 end
 
@@ -938,7 +940,7 @@ module Multiversion_overrides = struct
   type t =
     | V0 of V0.t list
     | V1 of V1.Overrides.t
-    | V1_tree of V1.Overrides.root
+    | V1_tree of V1.Overrides.root option array
     | V_simple of Simple_overrides.t
     | Don't
 
@@ -966,9 +968,11 @@ module Multiversion_overrides = struct
       let _, query = query in
       Simple_overrides.find_decision overrides query
 
-    | V1_tree tree ->
+    | V1_tree trees ->
       let _, query = query in
-      V1.Overrides.find_in_tree tree query
+      match trees.(query.round) with
+      | None -> None
+      | Some tree -> V1.Overrides.find_in_tree tree query
   ;;
 
   let load_from_clflags () =
@@ -992,10 +996,18 @@ module Multiversion_overrides = struct
           Format.printf "Loadded V1 overrides (len = %d) from %s\n"
             len filename;
           begin try
-            let ret = V1.Overrides.build_tree chosen in
-            Format.printf "Using the following search tree:\n";
-            Format.printf "%a" V1.Overrides.print_tree ret;
-            V1_tree ret
+            let trees =
+              List.init 3 (fun round ->
+                  let chosen =
+                    List.filter (fun (d : V1.Decision.t) -> d.round = round)
+                      chosen
+                  in
+                  match chosen with
+                  | [] -> None
+                  | chosen -> Some (V1.Overrides.build_tree chosen))
+              |> Array.of_list
+            in
+            V1_tree trees
           with
           | V1.Overrides.Tree_error ->
             V1 chosen

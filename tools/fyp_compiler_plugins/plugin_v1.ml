@@ -38,25 +38,37 @@ let f_0 (query : Inlining_query.query) =
   | 2 -> Some Data_collector.Action.Apply
 ;;
 
+let verify_inlining_count () =
+      let expected = 15 in
+      assert (
+        (Clflags.Int_arg_helper.get ~key:0 !Clflags.inline_max_unroll) = 1 * expected
+      )
+;;
+
 
 let f (query : Inlining_query.query) =
-  if query.env.round = 0 then
+  if query.env.round = 0 then begin
+    (* verify_inlining_count (); *)
     (* safety net: allow inline / unroll up to 30 iteres *)
     let inlining_count =
       try
-        Closure_origin.Map.find query.function_decl.closure_origin query.env.inlining_counts
+        Closure_id.Map.find query.closure_id_being_applied query.env.inlining_counts
       with Not_found ->
-        30
+        30  (* inlining count decremnts with every inlining *)
     in
     if query.env.inlining_level > 30 || inlining_count <= 0 then
       Some Data_collector.Action.Apply
     else
       f_0 query
-  else
+  end else
     None
 ;;
 
 let () =
   assert (!Clflags.default_simplify_rounds = 3);  (* Don't use this plugin when not compiling in O3 *)
+  (* verify_inlining_count (); *)
+  for i = 0 to 2 do
+    Printf.eprintf "max_unroll[%d] = %d\n" i (Clflags.Int_arg_helper.get ~key:i !Clflags.inline_max_unroll)
+  done;
   Inlining_decision.init_custom_heuristic f
 ;;
