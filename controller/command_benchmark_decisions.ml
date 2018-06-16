@@ -25,7 +25,7 @@ let command_run =
         let%bind config =
           Reader.load_sexp config_filename [%of_sexp: Config.t]
         in
-        let num_runs = 3 in
+        let num_runs = 6 in
         let%bind worker_connections =
           Deferred.Or_error.List.map config.worker_configs ~how:`Parallel
             ~f:(fun worker_config ->
