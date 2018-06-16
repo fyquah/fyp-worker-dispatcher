@@ -482,7 +482,7 @@ let compile_binary ~dir ~bin_name ~write_overrides ~dump_directory =
   Deferred.Or_error.ok_unit
   >>=? fun () -> shell ~dir "make" [ "clean" ]
   >>=? fun () -> write_overrides (dir ^/ "overrides.sexp")
-  >>=? fun () -> shell ~dir "timeout" [ "15m"; "make"; "all" ]
+  >>=? fun () -> shell ~dir "timeout" [ "30m"; "make"; "all" ]
   >>=? fun () -> shell ~dir "cp" [ (bin_name ^ ".native"); filename ]
   >>=? fun () -> shell ~dir "chmod" [ "755"; filename ]
   >>=? fun () ->
