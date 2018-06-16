@@ -13,7 +13,7 @@ sleep 1.0
 set -euo pipefail
 
 # Don't run production cycle if code doesn't compile --- duh.
-make controller
+# make controller
 
 export OPAMROOT=$HOME/fyp/opam-root/
 opam switch 4.06.0+fyp
