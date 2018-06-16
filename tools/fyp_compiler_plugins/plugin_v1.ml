@@ -38,14 +38,17 @@ let f_0 (query : Inlining_query.query) =
   | 2 -> Some Data_collector.Action.Apply
 ;;
 
+let verify_inlining_count () =
+      let expected = 15 in
+      assert (
+        (Clflags.Int_arg_helper.get ~key:0 !Clflags.inline_max_unroll) = 1 * expected
+      )
+;;
+
 
 let f (query : Inlining_query.query) =
-  if query.env.round = 0 then
-    let () =
-      assert (
-        (Clflags.Int_arg_helper.get ~key:0 !Clflags.inline_max_unroll) = 30
-      )
-    in
+  if query.env.round = 0 then begin
+    (* verify_inlining_count (); *)
     (* safety net: allow inline / unroll up to 30 iteres *)
     let inlining_count =
       try
@@ -57,10 +60,14 @@ let f (query : Inlining_query.query) =
       Some Data_collector.Action.Apply
     else
       f_0 query
-  else
+  end else
     None
 ;;
 
 let () =
+  (* verify_inlining_count (); *)
+  for i = 0 to 2 do
+    Printf.eprintf "max_unroll[%d] = %d\n" i (Clflags.Int_arg_helper.get ~key:i !Clflags.inline_max_unroll)
+  done;
   Inlining_decision.init_custom_heuristic f
 ;;

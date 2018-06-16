@@ -39,8 +39,14 @@ for exp in $EXPS; do
     echo "||||| Skipping $exp with plugin $plugin_name"
   else
     echo ">>>>> Running experiment $exp with $PLUGIN_PATH"
-    EXPERIMENT_OCAMLPARAM="_,plugin=$PLUGIN_PATH" \
-      ./scripts/run-benchmark $exp $DUMMY_PLUGIN_FILE \
+
+    if [ "$EXPERIMENT_OCAMLPARAM" == "" ]; then
+      THING="_,plugin=$PLUGIN_PATH"
+    else
+      THING="$EXPERIMENT_OCAMLPARAM,plugin=$PLUGIN_PATH"
+    fi
+
+    EXPERIMENT_OCAMLPARAM="$THING" ./scripts/run-benchmark $exp $DUMMY_PLUGIN_FILE \
       1> "$OUTPUT"
   fi
 done
