@@ -119,6 +119,7 @@ and function_declarations = {
 
 and function_declaration = {
   closure_origin: Closure_origin.t;
+  real_closure_origin: Real_closure_origin.t;
   params : Parameter.t list;
   body : t;
   free_variables : Variable.Set.t;
@@ -990,7 +991,8 @@ let free_symbols_program (program : program) =
 
 let update_body_of_function_declaration (func_decl: function_declaration)
       ~body : function_declaration =
-  { closure_origin = func_decl.closure_origin;
+  { real_closure_origin = func_decl.real_closure_origin;
+    closure_origin = func_decl.closure_origin;
     params = func_decl.params;
     body;
     free_variables = free_variables body;
@@ -1005,6 +1007,7 @@ let update_body_of_function_declaration (func_decl: function_declaration)
 let update_function_decl's_params_and_body
       (func_decl : function_declaration) ~params ~body =
   { closure_origin = func_decl.closure_origin;
+    real_closure_origin = func_decl.real_closure_origin;
     params;
     body;
     free_variables = free_variables body;
@@ -1020,7 +1023,7 @@ let update_function_decl's_params_and_body
 let create_function_declaration ~params ~body ~stub ~dbg
       ~(inline : Lambda.inline_attribute)
       ~(specialise : Lambda.specialise_attribute) ~is_a_functor
-      ~closure_origin
+      ~closure_origin ~real_closure_origin
       : function_declaration =
   begin match stub, inline with
   | true, (Never_inline | Default_inline)
@@ -1039,6 +1042,7 @@ let create_function_declaration ~params ~body ~stub ~dbg
       print body
   end;
   { closure_origin;
+    real_closure_origin;
     params;
     body;
     free_variables = free_variables body;
