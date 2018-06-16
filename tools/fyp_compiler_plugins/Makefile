@@ -122,5 +122,8 @@ build/plugin_v1_neural_network.cmxs: \
 	  build/fyp_compiler_lib.ml \
 	  $(subst model_loader_v1_neural_network,build/model_loader,$^)
 
+build/plugin_nothing.cmxs: plugin_nothing.ml
+	$(OCAMLOPT) -I build/ -I +compiler-libs -shared -o $@ $^
+
 clean:
 	-rm build/*.cmxs build/*.ml build/*.mli rm *.cm*
