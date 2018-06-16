@@ -16,7 +16,7 @@
 
 [@@@ocaml.warning "+a-4-9-30-40-41-42"]
 
-include Closure_id
+include Closure_element
 
 let unknown =
   let current_compilation_unit =
@@ -29,6 +29,3 @@ let unknown =
 
 let create t = t
 let rename f t = f t
-
-let sexp_of_t t = Closure_id.sexp_of_t t
-let t_of_sexp s = Closure_id.t_of_sexp s
