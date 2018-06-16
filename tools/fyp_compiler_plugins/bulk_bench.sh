@@ -4,7 +4,7 @@ set -euo pipefail
 
 export EXPERIMENT_OCAMLPARAM="_,inline-max-unroll=15"
 
-./compile_and_benchmark_nothing.sh
+# ./compile_and_benchmark_nothing.sh
 ./compile_and_benchmark_v1_lasso.sh hand   
 ./compile_and_benchmark_v1_lasso.sh general
 ./compile_and_benchmark_v1_lasso.sh star   
