@@ -52,7 +52,8 @@ let f (query : Inlining_query.query) =
     (* safety net: allow inline / unroll up to 30 iteres *)
     let inlining_count =
       try
-        Closure_id.Map.find query.closure_id_being_applied query.env.inlining_counts
+        Real_closure_origin.Map.find query.function_decl.real_closure_origin
+          query.env.inlining_counts
       with Not_found ->
         30  (* inlining count decremnts with every inlining *)
     in
