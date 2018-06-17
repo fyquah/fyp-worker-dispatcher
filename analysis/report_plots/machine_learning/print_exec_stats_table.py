@@ -12,20 +12,27 @@ import matplotlib.pyplot as plt
 import py_common
 from inlining_tree import parse_time, geometric_mean
 
+
+PLUGIN_SUBDIR = os.environ.get("PLUGINS_SUBDIR", "plugins")
+
+
 def read(algo):
-  with open("report_plots/data_generation/" % algo, 'rb') as f:
-    (exec_times, initial_exec_times) = pickle.load(f)
-  return (exec_times, initial_exec_times)
+    with open("report_plots/data_generation/" % algo, 'rb') as f:
+        (exec_times, initial_exec_times) = pickle.load(f)
+    return (exec_times, initial_exec_times)
 
 
-def read_plugin(bench_dir, plugin_name):
-  with open(os.path.join(bench_dir, "plugin_%s.csv" % plugin_name), "rb") as f:
-      times = []
-      for line in csv.reader(f):
-          for i in range(4, len(line)):
-              times.append(parse_time(line[i]))
-      if len(times) >= 1:
-          time = geometric_mean(times)
+def read_plugin_times(bench_dir, plugin_name):
+    bench_dir = "../results/%s/%s/" % (benchmark, PLUGIN_SUBDIR)
+    with open(os.path.join(bench_dir, "plugin_%s.csv" % plugin_name), "rb") as f:
+        times = []
+        for line in csv.reader(f):
+            for i in range(4, len(line)):
+                times.append(parse_time(line[i]))
+        if len(times) >= 1:
+            return geometric_mean(times)
+        else:
+            return None
 
 
 def get_initial_time_from_records(benchmark):
@@ -42,7 +49,7 @@ def get_initial_time_from_records(benchmark):
 
 
 def get_initial_time_from_results(benchmark):
-    pass
+    return read_plugin_times(benchmark, plugin_name="nothing")
 
 
 def get_initial_exec_time(benchmark):
@@ -50,13 +57,15 @@ def get_initial_exec_time(benchmark):
     time_from_pca = get_time_from_pca(benchmark)
     if time_from_pca is not None:
         arr.append(time_from_pca)
+    t = get_initial_time_from_results(benchmark)
+    if t is not None:
+        arr.append(t)
     return min(arr)
 
 
 def main():
     plugin_name = sys.argv[1]
     initial_exec_time_by_bench = {}
-    best_times_by_bench = {}
     all_records = {}
     exps = py_common.EXPERIMENT_TO_PARAMETERS.keys()
 
@@ -64,32 +73,24 @@ def main():
         initial_exec_times = []
         best_time = None
         initial_exec_time_by_bench[benchmark] = get_initial_exec_time(benchmark)
-        best_times_by_bench[benchmark] = best_time
-    plugin_subdir = os.environ.get("PLUGINS_SUBDIR", "plugins")
 
     for benchmark in exps:
-        bench_dir = (
-            "../results/%s/%s/"
-            % (benchmark, plugin_subdir))
         if not os.path.exists(bench_dir):
             all_records[benchmark] = (None, None, None)
             continue
         csv_files = os.listdir(bench_dir)
         initial_exec_time = initial_exec_time_by_bench[benchmark]
-        best_time = best_times_by_bench[benchmark]
         try:
-            with open(os.path.join(bench_dir, "plugin_%s.csv" % plugin_name), "rb") as f:
-                times = []
-                for line in csv.reader(f):
-                    for i in range(4, len(line)):
-                        times.append(parse_time(line[i]))
-                if len(times) >= 1:
-                    time = geometric_mean(times)
-                    ratio = (time - best_time) / (initial_exec_time - best_time)
+            time = read_plugin_times(benchmark, plugin_name=plugin_name)
+            if time is not None:
+                ratio = None
+                if initial_exec_time is not None:
                     speedup = (initial_exec_time - time) / initial_exec_time
-                    all_records[benchmark] = (time, ratio, speedup)
                 else:
-                    all_records[benchmark] = (None, None, None)
+                    speedup = None
+                all_records[benchmark] = (time, ratio, speedup)
+            else:
+                all_records[benchmark] = (None, None, None)
         except IOError:
             all_records[benchmark] = (None, None, None)
 
@@ -99,20 +100,27 @@ def main():
     for bench, (time, _ratio, speedup) in all_records.iteritems():
         if bench not in py_common.INITIAL_EXPERIMENTS:
             continue
-        if speedup is None:
-            print "%s: N/A" % (bench)
-        else:
-            print "%s: %f%% (%.3fs)" % (bench, speedup * 100, time)
+        print_row(bench, speedup, time)
     print ""
 
     print ">>>>> TEST SET <<<<<"
     for bench, (time, _ratio, speedup) in all_records.iteritems():
         if bench in py_common.INITIAL_EXPERIMENTS:
             continue
-        if speedup is None:
-            print "%s: N/A" % (bench)
-        else:
-            print "%s: %f%% (%.3fs)" % (bench, speedup * 100, time)
+        print_row(bench, speedup, time)
+
+
+def print_row(bench, speedup, time):
+    if speedup is not None:
+        speedup = "%.3f%%" % speedup * 100
+    else:
+        speedup = "N/A"
+    if time is not None:
+        time = "%.3fs" % time
+    else:
+        time = "N/A"
+    print "%s: %s (%s)" % (bench, speedup, time)
+
 
 if __name__ == "__main__":
     main()
