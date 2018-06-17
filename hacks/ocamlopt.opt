@@ -3,7 +3,7 @@
 set -euo pipefail
 
 hi="15"
-lo="1"
+lo="0"
 
 BEST_SO_FAR=""
 COMPILE_ARGS="$@"
