@@ -18,6 +18,41 @@ def read(algo):
   return (exec_times, initial_exec_times)
 
 
+def read_plugin(bench_dir, plugin_name):
+  with open(os.path.join(bench_dir, "plugin_%s.csv" % plugin_name), "rb") as f:
+      times = []
+      for line in csv.reader(f):
+          for i in range(4, len(line)):
+              times.append(parse_time(line[i]))
+      if len(times) >= 1:
+          time = geometric_mean(times)
+
+
+def get_initial_time_from_records(benchmark):
+    initial_exec_times = []
+    with open("../pca-data/%s.csv" % benchmark, "rb") as f:
+        for line in csv.reader(f):
+            t = parse_time(line[-1] + "s")
+            if "initial" in line[0]:
+                initial_exec_times.append(t)
+    if initial_exec_times:
+        return geometric_mean(initial_exec_times)
+    else:
+        return None
+
+
+def get_initial_time_from_results(benchmark):
+    pass
+
+
+def get_initial_exec_time(benchmark):
+    arr = []
+    time_from_pca = get_time_from_pca(benchmark)
+    if time_from_pca is not None:
+        arr.append(time_from_pca)
+    return min(arr)
+
+
 def main():
     plugin_name = sys.argv[1]
     initial_exec_time_by_bench = {}
@@ -28,19 +63,7 @@ def main():
     for benchmark in exps:
         initial_exec_times = []
         best_time = None
-        with open("../pca-data/%s.csv" % benchmark, "rb") as f:
-            for line in csv.reader(f):
-                t = parse_time(line[-1] + "s")
-                if "initial" in line[0]:
-                    initial_exec_times.append(t)
-                if best_time is None:
-                    best_time = t
-                else:
-                    best_time = min(best_time, t)
-        if initial_exec_times:
-            initial_exec_time_by_bench[benchmark] = geometric_mean(initial_exec_times)
-        else:
-            initial_exec_time_by_bench[benchmark] = None
+        initial_exec_time_by_bench[benchmark] = get_initial_exec_time(benchmark)
         best_times_by_bench[benchmark] = best_time
     plugin_subdir = os.environ.get("PLUGINS_SUBDIR", "plugins")
 
