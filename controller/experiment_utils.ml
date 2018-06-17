@@ -453,6 +453,7 @@ let copy_compilation_artifacts ~exp_dir ~dump_dir ~abs_path_to_binary =
   >>=? fun () -> copy_with_wildcard (exp_dir ^/ "overrides.sexp") artifacts_directory
   >>=? fun () -> copy_with_wildcard (exp_dir ^/ "*.sexp") artifacts_directory
   >>=? fun () -> copy_with_wildcard (exp_dir ^/ "*.s") artifacts_directory
+  >>=? fun () -> copy_with_wildcard (exp_dir ^/ "stdout.log") artifacts_directory
   >>=? fun () -> copy_with_wildcard (exp_dir ^/ "flambda.out") artifacts_directory
   >>=? fun () -> copy_with_wildcard (exp_dir ^/ "*.native") artifacts_directory
   >>=? fun () -> copy_with_wildcard abs_path_to_binary artifacts_directory

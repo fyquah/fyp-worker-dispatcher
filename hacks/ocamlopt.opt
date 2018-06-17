@@ -1,0 +1,70 @@
+#!/bin/bash
+
+set -euo pipefail
+
+hi="15"
+lo="1"
+
+BEST_SO_FAR=""
+COMPILE_ARGS="$@"
+
+if [ ! -z ${ORIGINAL_OCAMLPARAM+x} ]; then
+  ORIGINAL_OCAMLPARAM="$OCAMLPARAM"
+fi
+
+if [ -z ${OCAMLOPT_TIMEOUT+x} ]; then
+  TIMEOUT="20s"
+else
+  TIMEOUT="$OCAMLOPT_TIMEOUT"
+fi
+
+try_compiling(){
+  local mid=$1
+  THIS_OCAMLPARAM="O3=1,inlining-report=0,dflambda=0,inline-max-unroll=$mid"
+
+  echo "[OPTIMISER] Trying $mid ..."
+  set +e
+  timeout "$TIMEOUT" /home/fyquah/fyp/opam-root/4.06.0+fyp/bin/ocamlopt.opt $COMPILE_ARGS
+  EXIT_CODE="$?"
+  set -e
+}
+
+echo "[OPTIMISER] Compiler timeout = $TIMEOUT"
+echo "[OPTIMISER] Speculatively trying $hi"
+
+try_compiling "$hi"
+if [ $EXIT_CODE = "0" ]; then
+  exit 0
+fi
+
+while [ ! "$lo" -eq "$hi" ]; do
+  mid=$((hi + lo))
+  mid=$((mid / 2))
+
+  echo "[OPTIMISER] lo=$lo mid=$mid hi=$hi"
+
+  if [ -z ${ORIGINAL_OCAMLPARAM+x} ]; then
+    export OCAMLPARAM="_,$THIS_OCAMLPARAM"
+  else
+    export OCAMLPARAM="$ORIGINAL_OCAMLPARAM,$THIS_OCAMLPARAM"
+  fi
+
+  try_compiling $mid
+
+  if [ "$EXIT_CODE" -eq 0 ]; then
+    echo "[OPTIMISER]   $mid SUCEEDED!"
+    BEST_SO_FAR="$mid"
+    lo=$((mid+1))
+  else
+    echo "[OPTIMISER]   $mid FAILED."
+    hi="$mid"
+  fi
+done
+
+if [ "$BEST_SO_FAR" = "" ]; then
+  exit 121
+else
+  echo "[OPTIMISER] Accepted $BEST_SO_FAR!"
+  echo "[OPTIMISER] Accepted $BEST_SO_FAR!" >/dev/stderr
+  exit 0
+fi

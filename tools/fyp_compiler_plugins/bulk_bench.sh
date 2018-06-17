@@ -4,9 +4,10 @@ set -euo pipefail
 
 # NOT reporting inlining decisions is REALLY REALLY important, otherwise, compilation
 # will end up consuming excessive amounts of RAM.
-export EXPERIMENT_OCAMLPARAM="_,inline-max-unroll=15,inlining-report=0,dflambda=0"
+export PATH="$HOME/fyp/worker-dispatcher/hacks:$PATH"
+export OCAMLOPT_TIMEOUT="1m"
 
-# ./compile_and_benchmark_nothing.sh
+./compile_and_benchmark_nothing.sh
 ./compile_and_benchmark_v1_lasso.sh hand   
 ./compile_and_benchmark_v1_lasso.sh general
 ./compile_and_benchmark_v1_lasso.sh star   

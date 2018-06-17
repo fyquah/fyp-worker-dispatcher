@@ -66,6 +66,10 @@ fi
 mkdir -p $EXPERIMENT_TMP_DIR
 
 set -x
+if [[ "$PATH" == *"$HOME/fyp/worker-dispatcher/hacks"* ]]; then
+  PATH="$HOME/fyp/worker-dispatcher/hacks:$PATH"  # Hacks have hire priorities.
+fi
+
 OCAMLPARAM="$EXPERIMENT_OCAMLPARAM" nohup _build/install/default/bin/controller \
   "$1" run \
   -round "$EXPERIMENT_ROUND" \
