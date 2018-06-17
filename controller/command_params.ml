@@ -47,7 +47,9 @@ let params =
      Experiment_utils.Dump_utils.set_controller_rundir controller_rundir;
      let module_paths = String.split ~on:',' module_paths in
      let bin_files =
-       String.split ~on:',' bin_files
+       String.strip bin_files
+       |> String.split ~on:','
+       |> List.filter ~f:(fun s -> String.length s > 0)
        |> List.map ~f:(fun p -> exp_dir ^/ p)
      in
      { config_filename; controller_rundir; exp_dir; bin_name; bin_args;
