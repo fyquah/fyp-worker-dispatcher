@@ -99,6 +99,7 @@ val run_binary_on_worker
   conn:'a Worker_connection.t ->
   path_to_bin:string ->
   bin_args:Core.String.t ->
+  -> bin_files: Core.String.t list (* Absolute path!!!! *)
   dump_dir : string
   -> (Protocol.Execution_stats.t, Core_kernel__.Error.t) Async.Deferred.Result.t
 

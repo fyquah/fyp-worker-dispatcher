@@ -210,13 +210,27 @@ let run_binary_on_rpc_worker
 ;;
 
 let run_binary_on_ssh_worker ~num_runs ~processor ~rundir ~user ~hostname
-    ~path_to_bin ~bin_args ~dump_dir =
+    ~path_to_bin ~bin_args ~dump_dir ~bin_files =
+  let copy_files_over () =
+    match bin_files with
+    | [] -> Deferred.Or_error.ok_unit
+    | bin_files ->
+      shell ~dir "scp"
+        bin_files @ [ sprintf "%s@%s:%s" user hostname (rundir ^/ "binary.exe") ]
+  in
   lift_deferred (Unix.getcwd ())
   >>=? fun dir ->
   shell ~dir "scp"
     [ path_to_bin;
       sprintf "%s@%s:%s" user hostname (rundir ^/ "binary.exe");
     ]
+  >>=? fun () ->
+  shell ~dir "ssh"
+    [ sprintf "%s@%s" user hostname;
+      rundir ^/ "clean_up.sh";
+    ]
+  >>=? fun () ->
+  copy_files_over ()
   >>=? fun () ->
   let processor = Option.value ~default:0 processor in
   let taskset_mask = sprintf "0x%x" (1 lsl processor) in
@@ -299,7 +313,7 @@ let run_binary_on_ssh_worker ~num_runs ~processor ~rundir ~user ~hostname
 
 let run_binary_on_worker (type a)
     ~num_runs ~processor ~hostname
-    ~(conn: a Worker_connection.t) ~path_to_bin ~bin_args ~dump_dir =
+    ~(conn: a Worker_connection.t) ~path_to_bin ~bin_args ~dump_dir ~bin_files =
   with_file_lock (Worker_connection.lockname conn) ~f:(fun () ->
     match conn with
     | Worker_connection.Rpc worker_connection ->
@@ -308,7 +322,7 @@ let run_binary_on_worker (type a)
       let rundir = ssh_config.rundir in
       let user = ssh_config.user in
       run_binary_on_ssh_worker ~processor ~num_runs ~user ~rundir ~hostname
-        ~path_to_bin ~bin_args ~dump_dir)
+        ~path_to_bin ~bin_args ~dump_dir ~bin_files)
 ;;
 
 let init_connection ~hostname ~worker_config =
@@ -319,6 +333,12 @@ let init_connection ~hostname ~worker_config =
     >>=? fun cwd ->
     with_file_lock hostname ~f:(fun () ->
         let user = ssh_config.user in
+        let args =
+          [ "worker/clean_up.sh";
+            (sprintf "%s@%s:%s" user hostname ssh_config.rundir);
+          ]
+        in
+        shell ~dir:cwd "scp" args >>=? fun () ->
         let args =
           [ "worker/benchmark_binary.sh";
             (sprintf "%s@%s:%s" user hostname ssh_config.rundir);
