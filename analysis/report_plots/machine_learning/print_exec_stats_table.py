@@ -37,7 +37,10 @@ def main():
                     best_time = t
                 else:
                     best_time = min(best_time, t)
-        initial_exec_time_by_bench[benchmark] = geometric_mean(initial_exec_times)
+        if initial_exec_times:
+            initial_exec_time_by_bench[benchmark] = geometric_mean(initial_exec_times)
+        else:
+            initial_exec_time_by_bench[benchmark] = None
         best_times_by_bench[benchmark] = best_time
     plugin_subdir = os.environ.get("PLUGINS_SUBDIR", "plugins")
 
