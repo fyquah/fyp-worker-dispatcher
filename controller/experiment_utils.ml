@@ -23,12 +23,10 @@ let with_file_lock lock_name ~f =
         Clock.after (Time.Span.of_sec 3.1415926535)
         >>= fun () -> Deferred.return (`Repeat ()))
   in
-  let%bind result = Monitor.try_with f in
-  let%bind () = Unix.unlink filename in
-  let%map () = Unix.close fd in
-  match result with
-  | Ok result -> result
-  | Error exn -> raise exn
+  Monitor.protect f
+    ~finally:(fun () ->
+      let%bind () = Unix.unlink filename in
+      Unix.close fd)
 ;;
 
 module Work_unit = struct
