@@ -22,29 +22,35 @@ def read(algo):
     return (exec_times, initial_exec_times)
 
 
-def read_plugin_times(bench_dir, plugin_name):
+def read_plugin_times(benchmark, plugin_name):
     bench_dir = "../results/%s/%s/" % (benchmark, PLUGIN_SUBDIR)
-    with open(os.path.join(bench_dir, "plugin_%s.csv" % plugin_name), "rb") as f:
-        times = []
-        for line in csv.reader(f):
-            for i in range(4, len(line)):
-                times.append(parse_time(line[i]))
-        if len(times) >= 1:
-            return geometric_mean(times)
-        else:
-            return None
+    try:
+        with open(os.path.join(bench_dir, "plugin_%s.csv" % plugin_name), "rb") as f:
+            times = []
+            for line in csv.reader(f):
+                for i in range(4, len(line)):
+                    times.append(parse_time(line[i]))
+            if len(times) >= 1:
+                return geometric_mean(times)
+            else:
+                return None
+    except IOError:
+        return None
 
 
 def get_initial_time_from_records(benchmark):
     initial_exec_times = []
-    with open("../pca-data/%s.csv" % benchmark, "rb") as f:
-        for line in csv.reader(f):
-            t = parse_time(line[-1] + "s")
-            if "initial" in line[0]:
-                initial_exec_times.append(t)
-    if initial_exec_times:
-        return geometric_mean(initial_exec_times)
-    else:
+    try:
+        with open("../pca-data/%s.csv" % benchmark, "rb") as f:
+            for line in csv.reader(f):
+                t = parse_time(line[-1] + "s")
+                if "initial" in line[0]:
+                    initial_exec_times.append(t)
+        if initial_exec_times:
+            return geometric_mean(initial_exec_times)
+        else:
+            return None
+    except IOError:
         return None
 
 
@@ -54,7 +60,7 @@ def get_initial_time_from_results(benchmark):
 
 def get_initial_exec_time(benchmark):
     arr = []
-    time_from_pca = get_time_from_pca(benchmark)
+    time_from_pca = get_initial_time_from_records(benchmark)
     if time_from_pca is not None:
         arr.append(time_from_pca)
     t = get_initial_time_from_results(benchmark)
@@ -75,10 +81,6 @@ def main():
         initial_exec_time_by_bench[benchmark] = get_initial_exec_time(benchmark)
 
     for benchmark in exps:
-        if not os.path.exists(bench_dir):
-            all_records[benchmark] = (None, None, None)
-            continue
-        csv_files = os.listdir(bench_dir)
         initial_exec_time = initial_exec_time_by_bench[benchmark]
         try:
             time = read_plugin_times(benchmark, plugin_name=plugin_name)
@@ -112,7 +114,7 @@ def main():
 
 def print_row(bench, speedup, time):
     if speedup is not None:
-        speedup = "%.3f%%" % speedup * 100
+        speedup = "%.3f%%" % (speedup * 100)
     else:
         speedup = "N/A"
     if time is not None:
