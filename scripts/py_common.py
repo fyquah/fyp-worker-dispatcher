@@ -172,6 +172,14 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_files=[],
             module_paths=["main"]
         ),
+
+        "sauvola": ExperimentParameters(
+                bin_name="bench",
+                subdir="micro-evaluation/sauvola",
+                bin_args="files/example2_small.jpg files/out-",
+                module_paths=["bench"],
+                bin_files=["example2_small.jpg"],
+        ),
 }
 
 INITIAL_EXPERIMENTS = [

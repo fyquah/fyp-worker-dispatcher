@@ -218,7 +218,7 @@ let run_binary_on_ssh_worker ~num_runs ~processor ~rundir ~user ~hostname
     | [] -> Deferred.Or_error.ok_unit
     | bin_files ->
       shell ~dir "scp"
-        (bin_files @ [ sprintf "%s@%s:%s" user hostname (rundir ^/ "binary.exe") ])
+        (bin_files @ [ sprintf "%s@%s:%s" user hostname (rundir ^/ "files") ])
   in
   shell ~dir "scp"
     [ path_to_bin;
