@@ -78,6 +78,7 @@ OCAMLPARAM="$EXPERIMENT_OCAMLPARAM" nohup _build/install/default/bin/controller 
   -exp-dir "$EXPERIMENTS_REPO/$EXPERIMENT_DIR" \
   -bin-name "$EXPERIMENT_BIN_NAME" \
   -args "$EXPERIMENT_BIN_ARGS" \
+  -bin-files "$EXPERIMENT_BIN_FILES" \
   -module-paths "$EXPERIMENT_MODULE_PATHS" \
   $ADDITIONAL_CONTROLLER_ARGS \
   1>$RUNDIR/stdout.log 2>$RUNDIR/stderr.log &

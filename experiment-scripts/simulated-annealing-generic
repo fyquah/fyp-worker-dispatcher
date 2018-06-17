@@ -10,11 +10,13 @@ EXP_NAME="$1"
 export EXPERIMENT_DIR=$(python ./scripts/query_experiment_params.py --name $EXP_NAME --subdir)
 export EXPERIMENT_BIN_NAME=$(python ./scripts/query_experiment_params.py --name $EXP_NAME --bin-name)
 export EXPERIMENT_BIN_ARGS=$(python ./scripts/query_experiment_params.py --name $EXP_NAME --bin-args)
+export EXPERIMENT_BIN_FILES=$(python ./scripts/query_experiment_params.py --name $EXP_NAME --bin-files)
 export EXPERIMENT_MODULE_PATHS=$(python ./scripts/query_experiment_params.py --name $EXP_NAME --module-paths)
 
 echo "EXPERIMENT_DIR = $EXPERIMENT_DIR"
 echo "EXPERIMENT_BIN_NAME = $EXPERIMENT_BIN_NAME"
 echo "EXPERIMENT_BIN_ARGS = $EXPERIMENT_BIN_ARGS"
+echo "EXPERIMENT_BIN_FILES = $EXPERIMENT_BIN_FILES"
 echo "EXPERIMENT_MODULE_PATHS = $EXPERIMENT_MODULE_PATHS"
 echo "EXPERIMENT_ROUND = $EXPERIMENT_ROUND"
 

@@ -6,6 +6,7 @@ type params =
     exp_dir           : string;
     bin_name          : string;
     bin_args          : string;
+    bin_files         : string list;
     module_paths      : string list;
     round             : int;
   }
@@ -27,6 +28,8 @@ let params =
      and debug = flag "-debug" no_arg ~doc:"debug"
      and module_paths =
        flag "-module-paths" (required string) ~doc:"STRING comma separated list of modules"
+     and bin_files =
+       flag "-bin-files" (required string) ~doc:"STRING comma separated list of modules"
      and round =
        flag "-round" (required int) ~doc:"INT compilation round being studied. Should be 0, 1 or 2."
      in
@@ -43,5 +46,9 @@ let params =
      );
      Experiment_utils.Dump_utils.set_controller_rundir controller_rundir;
      let module_paths = String.split ~on:',' module_paths in
+     let bin_files =
+       String.split ~on:',' bin_files
+       |> List.map ~f:(fun p -> exp_dir ^/ p)
+     in
      { config_filename; controller_rundir; exp_dir; bin_name; bin_args;
-       module_paths; round; }]
+       module_paths; round; bin_files; }]

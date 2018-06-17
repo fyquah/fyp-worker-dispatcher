@@ -29,7 +29,7 @@ type work_unit =
  *)
 let slide_over_decisions ~round
     ~config ~worker_connections ~bin_name ~exp_dir ~results_dir
-    ~base_overrides ~new_overrides ~bin_args ~module_paths =
+    ~base_overrides ~new_overrides ~bin_args ~module_paths ~bin_files =
   let sliding_window = build_sliding_window ~n:2 new_overrides in
   let hostnames =
     List.map ~f:Protocol.Config.hostname config.Config.worker_configs
@@ -87,7 +87,7 @@ let slide_over_decisions ~round
           begin
           let path_to_bin = work_unit.path_to_bin in
           printf "Running %s\n" path_to_bin;
-          Experiment_utils.run_binary_on_worker
+          Experiment_utils.run_binary_on_worker ~bin_files
             ~dump_dir:results_dir
             ~processor:(Experiment_utils.Worker_connection.processor conn)
             ~num_runs:config.num_runs
@@ -137,6 +137,7 @@ let command =
         bin_name;
         module_paths;
         bin_args;
+        bin_files;
         round; } = Command_params.params in
      fun () ->
        (* There is daylight saving now, so UTC timezone == G time zone :D *)
@@ -193,7 +194,7 @@ let command =
 
              slide_over_decisions ~bin_name ~config ~worker_connections
                ~base_overrides:generation.base_overrides ~module_paths
-               ~exp_dir ~results_dir ~new_overrides ~bin_args ~round
+               ~exp_dir ~results_dir ~new_overrides ~bin_args ~round ~bin_files
            end
            >>| function
            | Ok results ->

@@ -2,7 +2,7 @@ import collections
 
 ExperimentParameters = collections.namedtuple(
         "ExperimentParameters",
-        ["bin_name", "subdir", "bin_args", "module_paths"])
+        ["bin_name", "subdir", "bin_args", "module_paths", "bin_files"])
 
 SCRIPT_TO_BIN_NAME = {
         "simulated-annealing-almabench":              "almabench",
@@ -49,6 +49,7 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_name="almabench",
             subdir="normal/almabench",
             bin_args="23",
+            bin_files=[],
             module_paths=["almabench"]
         ),
 
@@ -56,6 +57,7 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_name="bdd",
             subdir="normal/bdd_benchmark",
             bin_args="28",
+            bin_files=[],
             module_paths=["bdd"]
         ),
 
@@ -63,6 +65,7 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_name="fft",
             subdir="normal/fft",
             bin_args="24",
+            bin_files=[],
             module_paths=["fft"]
         ),
 
@@ -70,6 +73,7 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_name="b",
             subdir="normal/floats-in-functor",
             bin_args="500000 3.0",
+            bin_files=[],
             module_paths=["a", "b"]
         ),
 
@@ -77,6 +81,7 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_name="hamming",
             subdir="normal/hamming",
             bin_args="20000000",
+            bin_files=[],
             module_paths=["hamming"]
         ),
 
@@ -84,6 +89,7 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_name="kahan_sum",
             subdir="normal/kahan_sum",
             bin_args="300000000",
+            bin_files=[],
             module_paths=["kahan_sum", "main"]
         ),
 
@@ -91,6 +97,7 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_name="kb",
             subdir="normal/kb_benchmark",
             bin_args="400",
+            bin_files=[],
             module_paths=["kb"]
         ),
 
@@ -98,6 +105,7 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_name="lens_benchmark",
             subdir="normal/lens_benchmark",
             bin_args="1500000000",
+            bin_files=[],
             module_paths=["lens", "lens_benchmark"]
         ),
 
@@ -105,6 +113,7 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_name="main",
             subdir="normal/lexifi-g2pp_benchmark",
             bin_args="",
+            bin_files=[],
             module_paths=["date", "math", "optimization", "g2pp_calibration", "main"]
         ),
 
@@ -112,6 +121,7 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_name="quicksort",
             subdir="normal/quicksort",
             bin_args="1500",
+            bin_files=[],
             module_paths=["quicksort"]
         ),
 
@@ -119,6 +129,7 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_name="sequence_benchmark",
             subdir="normal/sequence_benchmark",
             bin_args="45000",
+            bin_files=[],
             module_paths=["sequence", "sequence_benchmark"]
         ),
 
@@ -126,6 +137,7 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_name="sequence_cps_benchmark",
             subdir="normal/sequence_cps_benchmark",
             bin_args="120000",
+            bin_files=[],
             module_paths=["sequence_cps", "sequence_cps_benchmark"]
         ),
 
@@ -133,6 +145,7 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_name="main",
             subdir="fyq/stdlib-int-sets",
             bin_args="",
+            bin_files=[],
             module_paths=["main"]
         ),
 
@@ -140,6 +153,7 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_name="main",
             subdir="fyq/stdlib-functor-record-sets",
             bin_args="",
+            bin_files=[],
             module_paths=["main"]
         ),
 
@@ -147,6 +161,7 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_name="main",
             subdir="fyq/rev-list",
             bin_args="400000000",
+            bin_files=[],
             module_paths=["main"]
         ),
 
@@ -154,6 +169,7 @@ EXPERIMENT_TO_PARAMETERS = {
             bin_name="main",
             subdir="fyq/symbolic-maths",
             bin_args="44",
+            bin_files=[],
             module_paths=["main"]
         ),
 }

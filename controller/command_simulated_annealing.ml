@@ -197,6 +197,7 @@ let command_run =
         exp_dir;
         bin_name;
         bin_args;
+        bin_files;
         module_paths;
         round;
        } = Command_params.params
@@ -235,7 +236,7 @@ let command_run =
           in
           lift_deferred (Async_shell.mkdir ~p:() dump_dir)
           >>=? fun () ->
-          Experiment_utils.run_binary_on_worker
+          Experiment_utils.run_binary_on_worker ~bin_files
             ~processor:(Utils.Worker_connection.processor conn)
             ~num_runs ~conn ~path_to_bin
             ~hostname:(Utils.Worker_connection.hostname conn)

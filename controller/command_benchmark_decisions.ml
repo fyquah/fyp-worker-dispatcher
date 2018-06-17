@@ -16,6 +16,7 @@ let command_run =
         exp_dir;
         bin_name;
         bin_args;
+        bin_files;
        } = Command_params.params
       and overrides_file = flag "-overrides" (required file) ~doc:"Hello"
       and should_print_csv = flag "-csv" no_arg ~doc:"Machine parsable" 
@@ -59,7 +60,7 @@ let command_run =
               in
               Experiment_utils.run_binary_on_worker
                 ~processor ~num_runs ~conn ~path_to_bin
-                ~hostname ~bin_args ~dump_dir
+                ~hostname ~bin_args ~dump_dir ~bin_files
               >>|? fun execution_stats ->
               (identifier, execution_stats))
         in

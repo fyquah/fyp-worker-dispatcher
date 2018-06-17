@@ -98,9 +98,9 @@ val run_binary_on_worker
   hostname:string ->
   conn:'a Worker_connection.t ->
   path_to_bin:string ->
-  bin_args:Core.String.t ->
+  bin_args:Core.String.t
+  -> dump_dir : string
   -> bin_files: Core.String.t list (* Absolute path!!!! *)
-  dump_dir : string
   -> (Protocol.Execution_stats.t, Core_kernel__.Error.t) Async.Deferred.Result.t
 
 val init_connection
@@ -111,6 +111,7 @@ val init_connection
 val process_work_unit
    : num_runs:int
   -> bin_args:string
+  -> bin_files:string list
   -> [< Async.Socket.Address.t ] Worker_connection.t
   -> Work_unit.t
   -> Protocol.Execution_stats.t Deferred.Or_error.t

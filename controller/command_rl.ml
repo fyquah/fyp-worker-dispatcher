@@ -33,6 +33,7 @@ let command_run =
       let { Command_params.
         config_filename; controller_rundir; exp_dir; bin_name; bin_args;
         module_paths; round;
+        bin_files;
       } = Command_params.params
       and log_rewards =
         flag "-log-rewards" (required bool) ~doc:"BOOL logarithmic speedups as reward"
@@ -85,7 +86,7 @@ let command_run =
          * *)
         let process =
           Experiment_utils.process_work_unit ~num_runs:config.num_runs
-            ~bin_args
+            ~bin_args ~bin_files
         in
         lift_deferred (EU.Scheduler.create worker_connections ~process)
         >>=? fun scheduler ->

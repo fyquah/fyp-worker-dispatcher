@@ -211,15 +211,15 @@ let run_binary_on_rpc_worker
 
 let run_binary_on_ssh_worker ~num_runs ~processor ~rundir ~user ~hostname
     ~path_to_bin ~bin_args ~dump_dir ~bin_files =
+  lift_deferred (Unix.getcwd ())
+  >>=? fun dir ->
   let copy_files_over () =
     match bin_files with
     | [] -> Deferred.Or_error.ok_unit
     | bin_files ->
       shell ~dir "scp"
-        bin_files @ [ sprintf "%s@%s:%s" user hostname (rundir ^/ "binary.exe") ]
+        (bin_files @ [ sprintf "%s@%s:%s" user hostname (rundir ^/ "binary.exe") ])
   in
-  lift_deferred (Unix.getcwd ())
-  >>=? fun dir ->
   shell ~dir "scp"
     [ path_to_bin;
       sprintf "%s@%s:%s" user hostname (rundir ^/ "binary.exe");
@@ -427,7 +427,7 @@ module Scheduler = struct
 end
 
 let process_work_unit
-    ~(num_runs : int) ~(bin_args: string)
+    ~(num_runs : int) ~(bin_args: string) ~(bin_files)
     (conn: 'a Worker_connection.t) (work_unit: Work_unit.t) =
   let path_to_bin = work_unit.Work_unit.path_to_bin in
   let processor = Worker_connection.processor conn in
@@ -440,7 +440,7 @@ let process_work_unit
   run_binary_on_worker ~processor
     ~num_runs ~conn ~path_to_bin
     ~hostname:(Worker_connection.hostname conn)
-    ~bin_args ~dump_dir
+    ~bin_args ~dump_dir ~bin_files
   >>=? fun execution_stats ->
   let raw_execution_time = execution_stats.raw_execution_time in
   Log.Global.sexp ~level:`Info [%message

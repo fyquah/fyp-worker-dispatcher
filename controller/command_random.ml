@@ -31,6 +31,7 @@ let command_run =
         bin_args;
         module_paths;
         round;
+        bin_files;
        } = Command_params.params
       in
       fun () ->
@@ -56,7 +57,7 @@ let command_run =
         >>=? fun () ->
         let process =
           let num_runs = config.num_runs in
-          Experiment_utils.process_work_unit ~num_runs ~bin_args 
+          Experiment_utils.process_work_unit ~num_runs ~bin_args  ~bin_files
         in
         lift_deferred (EU.Scheduler.create worker_connections ~process)
         >>=? fun scheduler ->
