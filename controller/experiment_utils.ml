@@ -23,10 +23,21 @@ let with_file_lock lock_name ~f =
         Clock.after (Time.Span.of_sec 3.1415926535)
         >>= fun () -> Deferred.return (`Repeat ()))
   in
-  Monitor.protect f
-    ~finally:(fun () ->
-      let%bind () = Unix.unlink filename in
-      Unix.close fd)
+  let clean = ref false in
+  let clean_up () =
+    if not !clean then begin
+      clean := true;
+      let%bind () = Unix.close fd in
+      Unix.unlink filename
+    end else
+      Deferred.unit
+  in
+  Monitor.protect
+    (fun () ->
+       f () >>= fun r ->
+       clean_up () >>= fun () ->
+       Deferred.return r)
+    ~finally:clean_up
 ;;
 
 module Work_unit = struct
