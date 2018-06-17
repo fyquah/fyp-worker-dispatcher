@@ -149,6 +149,10 @@ EXPERIMENT_TO_PARAMETERS = {
             module_paths=["main"]
         ),
 
+        ############################################
+        # Microbenchmarks i've written myself
+        ############################################
+
         "fyq-stdlib-functor-record-sets": ExperimentParameters(
             bin_name="main",
             subdir="fyq/stdlib-functor-record-sets",
@@ -173,12 +177,96 @@ EXPERIMENT_TO_PARAMETERS = {
             module_paths=["main"]
         ),
 
+        ############################################
+        # Various microbenchmarks from the internet
+        ############################################
+
         "sauvola": ExperimentParameters(
                 bin_name="bench",
                 subdir="micro-evaluation/sauvola",
                 bin_args="files/example2_small.jpg files/out-",
                 module_paths=["bench"],
                 bin_files=["example2_small.jpg"],
+        ),
+
+        "levinson-durbin": ExperimentParameters(
+                bin_name="bench",
+                subdir="micro-evaluation/numerical/levinson-durbin",
+                bin_args="20000",
+                module_paths=["bench"],
+                bin_files=[],
+        ),
+
+        "lu-decomposition": ExperimentParameters(
+                bin_name="bench",
+                subdir="micro-evaluation/numerical/lu-decomposition",
+                bin_args="700",
+                module_paths=["bench"],
+                bin_files=[],
+        ),
+
+        "naive-multilayer": ExperimentParameters(
+                bin_name="bench",
+                subdir="micro-evaluation/numerical/naive-multilayer",
+                bin_args="700",
+                module_paths=["bench"],
+                bin_files=[],
+        ),
+
+        "qr-decomposition": ExperimentParameters(
+                bin_name="bench",
+                subdir="micro-evaluation/numerical/qr-decomposition",
+                bin_args="",
+                module_paths=["bench"],
+                bin_files=[],
+        ),
+
+        "chameneos-redux-async": ExperimentParameters(
+                bin_name="bench",
+                subdir="micro-evaluation/chameneos-redux-async",
+                bin_args="3000000",
+                module_paths=["bench"],
+                bin_files=[],
+        ),
+
+        "chameneos-redux-evtchn": ExperimentParameters(
+                bin_name="bench",
+                subdir="micro-evaluation/chameneos-redux-evtchn",
+                bin_args="150000",
+                module_paths=["bench"],
+                bin_files=[],
+        ),
+
+        "chameneos-redux-lwt": ExperimentParameters(
+                bin_name="bench",
+                subdir="micro-evaluation/chameneos-redux-lwt",
+                bin_args="3000000",
+                module_paths=["bench"],
+                bin_files=[],
+        ),
+
+        "chameneos-redux-th": ExperimentParameters(
+                bin_name="bench",
+                subdir="micro-evaluation/chameneos-redux-th",
+                bin_args="450000",
+                module_paths=["bench"],
+                bin_files=[],
+        ),
+
+        "valet-async": ExperimentParameters(
+                bin_name="bench",
+                subdir="micro-evaluation/valet-async",
+                bin_args="147",
+                module_paths=["valet_core", "valet_react", "test_lib", "bench"],
+                bin_files=[],
+        ),
+
+        "valet-lwt": ExperimentParameters(
+                bin_name="bench",
+                subdir="micro-evaluation/valet-lwt",
+                bin_args="135",
+                module_paths=["valet_core", "valet_react", "test_lib", "bench"],
+                bin_files=[],
         ),
 }
 
