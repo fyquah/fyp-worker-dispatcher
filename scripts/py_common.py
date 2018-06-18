@@ -268,6 +268,67 @@ EXPERIMENT_TO_PARAMETERS = {
                 module_paths=["valet_core", "valet_react", "test_lib", "bench"],
                 bin_files=[],
         ),
+
+        "boyer": ExperimentParameters(
+                bin_name="bench",
+                subdir="micro-evaluation/boyer",
+                bin_args="1000",
+                module_paths=["bench"],
+                bin_files=[],
+        ),
+
+        "nucleic": ExperimentParameters(
+                bin_name="bench",
+                subdir="micro-evaluation/nucleic",
+                bin_args="1000",
+                module_paths=["bench"],
+                bin_files=[],
+        ),
+
+        "sieve": ExperimentParameters(
+                bin_name="sieve",
+                subdir="micro-evaluation/sieve",
+                bin_args="10000",
+                module_paths=["sieve"],
+                bin_files=[],
+        ),
+
+        "vector-functor": ExperimentParameters(
+                bin_name="bench",
+                subdir="micro-evaluation/vector-functor",
+                bin_args="4000",
+                module_paths=["vect_abstr", "vect_instantiation", "bench"],
+                bin_files=[],
+        ),
+
+        "nullable-array": ExperimentParameters(
+                bin_name="bench",
+                subdir="micro-evaluation/nullable-array",
+                bin_args="2000000",
+                module_paths=[
+                   "micro_bench_types",
+                   "nullable_array_marker",
+                   "option_array",
+                   "nullable_array_closure",
+                   "nullable_array_benchmark"],
+                bin_files=[],
+        ),
+
+        "list-benchmark": ExperimentParameters(
+                bin_name="bench",
+                subdir="micro-evaluation/list-benchmark",
+                bin_args="200000",
+                module_paths=["micro_bench_types", "bench"],
+                bin_files=[],
+        ),
+
+        "format-benchmark": ExperimentParameters(
+                bin_name="bench",
+                subdir="micro-evaluation/format-benchmark",
+                bin_args="350000",
+                module_paths=["micro_bench_types", "bench"],
+                bin_files=[],
+        ),
 }
 
 INITIAL_EXPERIMENTS = [
