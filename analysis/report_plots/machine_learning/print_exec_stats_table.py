@@ -66,7 +66,10 @@ def get_initial_exec_time(benchmark):
     t = get_initial_time_from_results(benchmark)
     if t is not None:
         arr.append(t)
-    return min(arr)
+    if arr:
+        return min(arr)
+    else:
+        return None
 
 
 def main():
