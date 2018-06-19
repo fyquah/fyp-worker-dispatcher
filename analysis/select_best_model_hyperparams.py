@@ -101,7 +101,7 @@ def main():
                     all_records[filename].append((benchmark, time, ratio, speedup))
 
     collected_ratios = collections.defaultdict(list)
-    NUM_ENTRIES = 10
+    NUM_ENTRIES = 3
 
     arr = []
     for k, v in all_records.iteritems():
@@ -113,7 +113,7 @@ def main():
         "Benchmark", 
         "Best Seen",
         "Best Hyperparams",
-        ] + ["Hyperparams %d" % i for i in range(NUM_ENTRIES)])
+        ] + ["Hyperparams %d,Hyperparams %d" % (i, i) for i in range(NUM_ENTRIES)])
     print header
 
     best_source = []
@@ -137,7 +137,7 @@ def main():
             if best in v:
                 param_name = k
         assert param_name is not None
-        best_source.append(" (%s  %s)" % (benchmark, os.path.splitext(os.path.basename(param_name))[0]))
+        best_source.append((benchmark, os.path.splitext(os.path.basename(param_name))[0]))
         out.append("%.3f%% (%.3f)" % (best[3] * 100, best[2]))
 
         # The best set of hyperparams
@@ -148,7 +148,7 @@ def main():
                     continue
                 speedup = entry[3]
                 ratio = entry[2]
-                out.append("%.3f%% (%.3f)" % (speedup * 100, ratio))
+                out.append("%.3f%%,(%.3f)" % (speedup * 100, ratio))
                 found = True
                 break
             if not found:
@@ -157,6 +157,29 @@ def main():
 
     for i in range(min(len(arr), NUM_ENTRIES)):
         print "\\textit{Hyperparams} %d & %s \\\\" % (i, arr[i][0])
+
+    if "lasso" in args.model:
+        print "Benchmark & $\gamma$ & $f_{preprocess}$ \\\\"
+        print "\hline"
+    elif "ridge" in args.model:
+        print "Benchmark & $\gamma$ & \lambda & $f_{preprocess}$ \\\\"
+        print "\hline"
+
+    for (benchmark, filename) in best_source:
+        if "ridge" in args.model:
+            m = re.search("decay-([\.0-9]+)-ridge-([\.0-9a-z]+)-benefit-([a-zA-Z_]+)", filename)
+            decay_factor = m.group(1)
+            ridge_factor = m.group(2)
+            benefit_function = m.group(3)
+            latex = "$%f$ & $%f$ & {{%s}}" % (float(decay_factor), float(ridge_factor), benefit_function.replace("_", "\\_"))
+        elif "lasso" in args.model:
+            m = re.search("decay-([\.0-9]+)-benefit-([a-zA-Z_]+)-lasso-factor", filename)
+            decay_factor = m.group(1)
+            benefit_function = m.group(2)
+            latex = "$%f$ & {{%s}}" % (float(decay_factor), benefit_function.replace("_", "\\_"))
+        else:
+            pass
+        print benchmark, "&", latex, "\\\\"
 
     if args.output_dir and args.prefix:
         with open(os.path.join(args.output_dir, args.prefix + "-best-hyperparams.sexp"), "w") as f:

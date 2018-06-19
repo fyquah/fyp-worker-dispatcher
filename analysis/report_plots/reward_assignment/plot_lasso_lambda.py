@@ -29,6 +29,21 @@ def sgn(x):
     else:
         return 1
 
+def get_initial_time_from_records(benchmark):
+    initial_exec_times = []
+    try:
+        with open("../pca-data/%s.csv" % benchmark, "rb") as f:
+            for line in csv.reader(f):
+                t = parse_time(line[-1] + "s")
+                if "initial" in line[0]:
+                    initial_exec_times.append(t)
+        if initial_exec_times:
+            return geometric_mean(initial_exec_times)
+        else:
+            return None
+    except IOError:
+        return None
+
 
 def parse(sexp):
     def parse_dual_reward(sexp):
@@ -290,39 +305,43 @@ def main():
 
     ax = plt.subplot(411)
     ax.set_xscale("log", nonposx='clip')
-    plt.title(r"$\alpha$ vs $r^2$")
+    plt.title(r"$\lambda$ vs $r^2$")
     plt.xlim(max(all_alpha), min(all_alpha))
     plt.axvline(x=best_alpha, color="g", linestyle="--")
     plt.grid()
-    plt.plot(all_alpha, all_r_squared, marker='x', label="training")
-    plt.plot(all_alpha, all_r_squared_validation, marker='x', color="r", label="validation")
+    h1, = plt.plot(all_alpha, all_r_squared, marker='x', label="training")
+    h2, = plt.plot(all_alpha, all_r_squared_validation, marker='x', color="r", label="validation")
+    plt.legend([h1, h2], ["training", "validation"])
+
+    all_speedup = (get_initial_time_from_records(exp_name) - np.array(all_times)) / get_initial_time_from_records(exp_name)
 
     ax = plt.subplot(412)
     ax.set_xscale("log", nonposx='clip')
     plt.xlim(max(all_alpha), min(all_alpha))
-    plt.title(r"$\alpha$ vs $\sum{|w|}$")
-    plt.grid()
-    plt.axvline(x=best_alpha, color="g", linestyle="--")
-    plt.plot(all_alpha, all_sum_abs, marker='x')
-
-    ax = plt.subplot(413)
-    ax.set_xscale("log", nonposx='clip')
-    plt.xlim(max(all_alpha), min(all_alpha))
-    plt.title(r"$\alpha$ vs $\sum{I\{|w| > 0\}}$")
+    plt.title(r"$\lambda$ vs $\sum{I\{|w| > 0\}}$")
     plt.grid()
     plt.axvline(x=best_alpha, color="g", linestyle="--")
     plt.plot(all_alpha, all_num_non_zero, marker='x')
 
+    ax = plt.subplot(413)
+    ax.set_xscale("log", nonposx='clip')
+    plt.xlim(max(all_alpha), min(all_alpha))
+    plt.title(r"$\lambda$ vs speedup over baseline")
+    plt.grid()
+    plt.axvline(x=best_alpha, color="g", linestyle="--")
+    plt.plot(all_alpha, all_speedup, marker='x')
+    plt.ylabel(r"speedup")
+
     ax = plt.subplot(414)
     ax.set_xscale("log", nonposx='clip')
     plt.xlim(max(all_alpha), min(all_alpha))
-    plt.title(r"$\alpha$ vs $T_{exec}(s)$")
+    plt.title(r"$\lambda$ vs $\frac{speedup}{(1 + \sum{I\{|w| > 0\}})}$")
     plt.grid()
     plt.axvline(x=best_alpha, color="g", linestyle="--")
-    plt.plot(all_alpha, all_times, marker='x')
-    plt.ylabel(r"$T_{exec}$(s)")
+    plt.plot(all_alpha, all_speedup / (1 + all_num_non_zero), marker='x')
 
-    plt.suptitle(r"Varying Lasso $\alpha$ [%s] ($\gamma = %.6f$, $f_{benefit} =$ %s)" % (exp_name, decay_factor, benefit_function.replace("_", "\\_")))
+
+    plt.suptitle(r"Varying Lasso $\lambda$ [%s] ($\gamma = %.6f$, $f_{preprocess} =$ %s)" % (exp_name, decay_factor, benefit_function.replace("_", "\\_")))
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     fname = "report_plots/reward_assignment/plots/lasso/hyperparams/%s-%.6f-%s.pdf" % (exp_name, decay_factor, benefit_function)
     d = os.path.dirname(fname)

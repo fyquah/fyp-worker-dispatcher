@@ -106,6 +106,7 @@ def plot_log_long_term_and_no_inline_correlation(all_data, threshold):
 
     xs = []
     ys = []
+    labels = []
     ctr = 0
 
     for d in all_data:
@@ -116,16 +117,23 @@ def plot_log_long_term_and_no_inline_correlation(all_data, threshold):
             if x > threshold and y > threshold:
                 xs.append(x)
                 ys.append(y)
+                labels.append(d.inline.long_term * d.no_inline > 0.0)
 
             if x < -20 and y < -20:
                 ctr += 1
+    xs = np.array(xs)
+    ys = np.array(ys)
+    labels = np.array(labels)
+    print np.mean(labels)
 
     plt.title(r"$log_{10}(|R_{apply}|)$ vs $log_{10}(|V^*_{inline}|)$ (%d samples, $\tau = %s$)" % (len(xs), str(threshold)))
-    plt.scatter(xs, ys, marker="x")
-    plt.xlabel("Termination Reward")
-    plt.ylabel("Immediate Reward")
+    l1 = plt.scatter(xs[labels], ys[labels], c='r', marker='x')
+    l2 = plt.scatter(xs[np.logical_not(labels)], ys[np.logical_not(labels)], c='b', marker='x')
+    plt.xlabel("Inline Value")
+    plt.ylabel("Termination Reward")
+    plt.legend([l1, l2], ["Same Polarity", "Different Polarity"])
     plt.grid()
-    plot_best_fit(xs, ys)
+    # plot_best_fit(xs, ys)
 
 
 def plot_reward_difference(all_data, log10_threshold):
@@ -145,6 +153,22 @@ def plot_reward_difference(all_data, log10_threshold):
     plt.hist(xs)
 
 
+def plot_log_immediate_and_log_no_inline_correlation(all_data):
+    xs = []
+    ys = []
+    for d in all_data:
+        if d.inline is not None and d.no_inline is not None:
+            xs.append(np.log10(abs(d.inline.immediate)))
+            ys.append(np.log10(abs(d.no_inline)))
+
+    plt.title(r"$log_{10}(|\mathcal{R}_{inline}|)$ vs $log_{10}(|\mathcal{R}_{apply}|)$ (%d samples)" % len(xs))
+    plt.scatter(xs, ys, marker="x")
+    plt.xlabel("$log_{10}(|\mathcal{R}_{inline}|)$")
+    plt.ylabel("$log_{10}(|\mathcal{R}_{apply}|)$")
+    plt.grid()
+    plot_best_fit(xs, ys)
+
+
 def plot_immediate_and_no_inline_correlation(all_data):
     xs = []
     ys = []
@@ -153,10 +177,10 @@ def plot_immediate_and_no_inline_correlation(all_data):
             xs.append(d.inline.immediate)
             ys.append(d.no_inline)
 
-    plt.title("Immediate vs Termination Reward")
+    plt.title(r"$\mathcal{R}_{inline}$ vs $\mathcal{R}_{apply}$")
     plt.scatter(xs, ys, marker="x")
-    plt.xlabel("Immediate Reward")
-    plt.ylabel("Termination Reward")
+    plt.xlabel(r"$R_{inline}$")
+    plt.ylabel(r"$R_{apply}$")
     plt.grid()
     plot_best_fit(xs, ys)
 
@@ -170,7 +194,7 @@ def plot_log_long_term_reward_histogram(all_data):
 
     plt.title("$log_{10}(|V^*_{inline}|)$ Histogram (%d samples)" % len(xs))
     plt.hist(xs)
-    plt.xlabel("Long Term Reward")
+    plt.xlabel("$log_{10}(|V^*_{inline}|)$")
     plt.ylabel("Frequency")
     plt.grid()
 
@@ -198,7 +222,7 @@ def plot_long_term_reward_histogram(all_data):
 
     plt.title("$V^*_{inline}$ Histogram (%d samples)" % len(xs))
     plt.hist(xs)
-    plt.xlabel("Long Term Reward")
+    plt.xlabel("$V^*_{inline}$")
     plt.ylabel("Frequency")
     plt.grid()
 
@@ -208,7 +232,7 @@ def plot_no_inline_reward_histogram(all_data):
 
     for d in all_data:
         if d.inline is not None and d.no_inline is not None and abs(d.no_inline) > 1e-15:
-            xs.append(math.log10(abs(d.no_inline)))
+            xs.append(abs(d.no_inline))
 
     plt.title(r"Histogram of $R_{apply}$ (%d samples)" % len(xs))
     plt.hist(xs)
@@ -227,8 +251,8 @@ def plot_long_term_and_no_inline_correlation(all_data):
 
     plt.title(r"$V_{inline}^*$ vs $R_{apply}$ (%d samples)" % len(xs))
     plt.scatter(xs, ys, marker="x")
-    plt.xlabel("Long Term Reward")
-    plt.ylabel("Termination Compensation")
+    plt.xlabel(r"$V_{inline}^*$")
+    plt.ylabel(r"$R_{apply}$")
     plt.grid()
     plot_best_fit(xs, ys)
 
@@ -236,13 +260,20 @@ def plot_long_term_and_no_inline_correlation(all_data):
 def plot_abs_long_term_and_abs_no_inline_correlation(all_data):
     xs = []
     ys = []
+    labels = []
     for d in all_data:
         if d.inline is not None and d.no_inline is not None:
             xs.append(abs(d.inline.long_term))
             ys.append(abs(d.no_inline))
+            labels.append(d.inline.long_term * d.no_inline > 0)
+    xs = np.array(ys)
+    ys = np.array(ys)
+    labels = np.array(labels)
 
     plt.title(r"$|V_{inline}^*|$ vs $|R_{apply}|$ (%d samples)" % len(xs))
-    plt.scatter(xs, ys, marker="x")
+    a = plt.scatter(xs[labels], ys[labels], marker="x", color='b')
+    b = plt.scatter(xs[np.logical_not(labels)], ys[np.logical_not(labels)], marker="x", color='r')
+    plt.legend([a, b], ["Same sign", "Different sign"])
     plt.xlabel("Long Term Reward")
     plt.ylabel("Termination Compensation")
     plt.grid()
@@ -370,6 +401,10 @@ def main():
     plt.figure()
     plot_immediate_and_no_inline_correlation(all_data)
     plt.savefig(os.path.join(plots_dir, "immediate-vs-apply.pdf"))
+
+    plt.figure()
+    plot_log_immediate_and_log_no_inline_correlation(all_data)
+    plt.savefig(os.path.join(plots_dir, "log-immediate-vs-log-apply.pdf"))
 
     print_allocation_table(all_data, threshold=-25)  # threshold is empirical
 
