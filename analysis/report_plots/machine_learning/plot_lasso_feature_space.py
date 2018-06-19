@@ -476,6 +476,7 @@ def plot_decisions(all_features, all_rewards, cluster):
 
 
 def main():
+    matplotlib.rc("text", usetex=True)
     all_data = feature_loader.read_pickle(feature_version="V3", reward_model=sys.argv[1])
 
     print "No Information about rewards", len([t for (_, t) in all_data if t is None])
@@ -500,26 +501,26 @@ def main():
 
     features = np.concatenate([normalised_numeric_features, relevant_bool_features], axis=1)
 
-    plt.figure()
-    ax = plt.gca()
-    # im = fast_analysis.pairwise_l2_diff(features)
     A = features - np.mean(features, axis=0)
     A = A / np.sqrt((A ** 2).sum(axis=1))[:, np.newaxis]
-    im = np.matmul(A, A.T)
+    covar = np.matmul(A, A.T)
 
     plot_dir = "report_plots/machine_learning/plots/features/"
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
 
+    fname = os.path.join(plot_dir, "histogram-of-normalised-covariance.pdf")
     plt.title("Histogram of Number of Highly Correlated Feature Vectors")
-    plt.hist((im > 0.999).sum(axis=1))
-    plt.savefig(fname=os.path.join(plot_dir, "histogram-of-correlation.pdf"))
+    plt.grid()
+    plt.hist((covar > 0.999).sum(axis=1))
+    plt.savefig(fname=fname)
 
-    print im, im.shape
-    # ax = plt.gca()
-    # im_ = ax.imshow(im)
-    # cbar = ax.figure.colorbar(im_, ax=ax)
-    # plt.savefig(fname=os.path.join(plot_dir, "covariance-between-features.pdf"))
+    fname = os.path.join(plot_dir, "correlation-between-feature-vectors.pdf")
+    if not os.path.exists(fname):
+        ax = plt.gca()
+        im = ax.imshow(covar)
+        cbar = ax.figure.colorbar(im, ax=ax)
+        plt.savefig(fname=fname)
     return
 
     plot_decisions(features, list(np.array(raw_targets)), cluster=100)
