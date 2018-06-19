@@ -7,6 +7,9 @@ set -euo pipefail
 export PATH="$HOME/fyp/worker-dispatcher/hacks:$PATH"
 export OCAMLOPT_TIMEOUT="1m"
 
+./compile_and_benchmark_v1_lasso_moe.sh hand   
+exit 0
+
 ./compile_and_benchmark_nothing.sh
 ./compile_and_benchmark_v1_lasso.sh hand   
 ./compile_and_benchmark_v1_lasso.sh general

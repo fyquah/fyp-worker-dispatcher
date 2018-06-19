@@ -250,3 +250,8 @@ let argmax (arr : float array) =
   in
   loop ~acc:0 1
 ;;
+
+let choose_expert arr =
+  map (fun x -> x /. float_of_int (Array.length arr))
+    (Array.fold_left add (Vec [| 0.0; 0.0; 0.0 |]) arr)
+;;
