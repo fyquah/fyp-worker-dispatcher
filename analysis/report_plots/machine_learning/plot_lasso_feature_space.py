@@ -18,7 +18,7 @@ import os
 import numpy as np
 import inlining_tree
 import py_common
-import fast_analysis
+# import fast_analysis
 
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
@@ -476,8 +476,8 @@ def plot_decisions(all_features, all_rewards, cluster):
 
 
 def main():
-    all_data = feature_loader.read_pickle(
-            feature_version="V3", reward_model="lasso")
+    matplotlib.rc("text", usetex=True)
+    all_data = feature_loader.read_pickle(feature_version="V3", reward_model=sys.argv[1])
 
     print "No Information about rewards", len([t for (_, t) in all_data if t is None])
     print "Both inline and termination", len([t for (_, t) in all_data if t is not None and t.inline is not None and t.no_inline is not None])
@@ -501,27 +501,29 @@ def main():
 
     features = np.concatenate([normalised_numeric_features, relevant_bool_features], axis=1)
 
-    plt.figure()
-    ax = plt.gca()
-    # im = fast_analysis.pairwise_l2_diff(features)
     A = features - np.mean(features, axis=0)
     A = A / np.sqrt((A ** 2).sum(axis=1))[:, np.newaxis]
-    im = np.matmul(A, A.T)
-    print (im > 0.999).sum(axis=1)
-    plt.hist((im > 0.999).sum(axis=1))
+    covar = np.matmul(A, A.T)
 
-    # print sum( > 0.999)
-    # print im
-    # print im.max()
-    # print im.min()
-    # im_ = ax.imshow(im)
-    # cbar = ax.figure.colorbar(im_, ax=ax)
+    plot_dir = "report_plots/machine_learning/plots/features/"
+    if not os.path.exists(plot_dir):
+        os.makedirs(plot_dir)
 
-    plt.show()
+    fname = os.path.join(plot_dir, "histogram-of-normalised-covariance.pdf")
+    plt.title("Histogram of Number of Highly Correlated Feature Vectors")
+    plt.grid()
+    plt.hist((covar > 0.999).sum(axis=1))
+    plt.savefig(fname=fname)
+
+    fname = os.path.join(plot_dir, "correlation-between-feature-vectors.pdf")
+    if not os.path.exists(fname):
+        ax = plt.gca()
+        im = ax.imshow(covar)
+        cbar = ax.figure.colorbar(im, ax=ax)
+        plt.savefig(fname=fname)
     return
 
     plot_decisions(features, list(np.array(raw_targets)), cluster=100)
-    return
 
     n_clusters = 2
     kmeans = KMeans(n_clusters=n_clusters, random_state=100)

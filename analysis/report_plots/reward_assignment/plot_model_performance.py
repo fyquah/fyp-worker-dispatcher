@@ -40,16 +40,28 @@ def almost_equal(a, b):
     return np.abs(float(a) - float(b)) < 0.000001
 
 def matches_filter(filename, args):
-    m = re.search("decay-([\.0-9]+)-ridge-([\.0-9]+)-benefit-([a-zA-Z_]+)", filename)
-    decay_factor = m.group(1)
-    ridge_factor = m.group(2)
-    benefit_function = m.group(3)
-    assert decay_factor is not None 
-    assert ridge_factor is not None 
-    assert benefit_function is not None 
-    return ((args.decay_factor is None or almost_equal(decay_factor, args.decay_factor))
-            and (args.ridge_factor is None or almost_equal(ridge_factor, args.ridge_factor))
-            and (args.benefit_function is None or benefit_function == args.benefit_function))
+    try:
+        m = re.search("decay-([\.0-9]+)-ridge-([\.0-9]+)-benefit-([a-zA-Z_]+)", filename)
+        decay_factor = m.group(1)
+        ridge_factor = m.group(2)
+        benefit_function = m.group(3)
+        assert decay_factor is not None 
+        assert ridge_factor is not None 
+        assert benefit_function is not None 
+        return ((args.decay_factor is None or almost_equal(decay_factor, args.decay_factor))
+                and (args.ridge_factor is None or almost_equal(ridge_factor, args.ridge_factor))
+                and (args.benefit_function is None or benefit_function == args.benefit_function))
+    except:
+        m = re.search("decay-([\.0-9]+)-ridge-([\.0-9]+)-benefit-([a-zA-Z_]+)", filename)
+        decay_factor = m.group(1)
+        ridge_factor = m.group(2)
+        benefit_function = m.group(3)
+        assert decay_factor is not None 
+        assert ridge_factor is not None 
+        assert benefit_function is not None 
+        return ((args.decay_factor is None or almost_equal(decay_factor, args.decay_factor))
+                and (args.ridge_factor is None or almost_equal(ridge_factor, args.ridge_factor))
+                and (args.benefit_function is None or benefit_function == args.benefit_function))
 
 def main():
     args = parser.parse_args()
@@ -139,6 +151,11 @@ def main():
     matplotlib.rc('ytick', labelsize=labelsize)
     matplotlib.rc('figure', figsize=(11.69,7.27))
 
+    plot_dir = "report_plots/reward_assignment/plots/%s/" % args.model
+
+    if not os.path.exists(plot_dir):
+        os.makedirs(plot_dir)
+
     plt.figure()
     plt.axhline(y=1.0, color='r', linestyle='--')
     plt.axhline(y=0.0, color='g', linestyle='--')
@@ -153,7 +170,7 @@ def main():
     plt.ylim([-1.5, 1.5])
     plt.xticks(range(0, len(x)), x, rotation="60")
     plt.tight_layout()
-    plt.savefig("report_plots/reward_assignment/model_relative_performance.pdf")
+    plt.savefig(os.path.join(plot_dir, "model_relative_performance.pdf"))
 
     plt.figure()
     plt.bar(range(len(plot_data)), [a[6] or 0 for a in plot_data])
@@ -166,7 +183,7 @@ def main():
     plt.xticks(range(0, len(x)), x, rotation="60")
     plt.grid()
     plt.tight_layout()
-    plt.savefig("report_plots/reward_assignment/model_obtained_speedup.pdf")
+    plt.savefig(os.path.join(plot_dir, "model_obtained_speedup.pdf"))
 
     # plt.grid(True)
     # plt.savefig("report_plots/reward_assignment/model_performance.pdf")
