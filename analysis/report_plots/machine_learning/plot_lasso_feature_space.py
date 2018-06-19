@@ -388,7 +388,7 @@ def plot_reward_sparsity(all_features, all_rewards, cluster):
             fname="report_plots/machine_learning/lasso/v3/triviality_plots-cluster-%d.pdf" % cluster)
 
 
-def plot_decisions(all_features, all_rewards, cluster):
+def plot_decisions(all_features, all_rewards, cluster=None):
 
     DOESNT_MATTER     = 0
     INLINE   = 1
@@ -501,6 +501,12 @@ def main():
 
     features = np.concatenate([normalised_numeric_features, relevant_bool_features], axis=1)
 
+    print "Reduced %d numeric features to %d" % (all_numeric_features.shape[1], normalised_numeric_features.shape[1])
+    print "Reduced %d boolean features to %d" % (all_bool_features.shape[1],    relevant_bool_features.shape[1])
+
+    plot_decisions(features, list(np.array(raw_targets)))
+    return
+
     A = features - np.mean(features, axis=0)
     A = A / np.sqrt((A ** 2).sum(axis=1))[:, np.newaxis]
     covar = np.matmul(A, A.T)
@@ -523,8 +529,6 @@ def main():
         cbar = ax.figure.colorbar(im, ax=ax)
         plt.savefig(fname=fname)
     return
-
-    plot_decisions(features, list(np.array(raw_targets)), cluster=100)
 
     n_clusters = 2
     kmeans = KMeans(n_clusters=n_clusters, random_state=100)
