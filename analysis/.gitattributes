@@ -89,3 +89,5 @@ report_plots/reward_assignment/data/lasso-star/lexifi/feature_reward_pair_v3.sex
 report_plots/reward_assignment/data/ridge-general/floats-in-functor/feature_reward_pair_v3.sexp filter=lfs diff=lfs merge=lfs -text
 report_plots/reward_assignment/data/ridge-hand/kahan-sum/feature_reward_pair_v3.sexp filter=lfs diff=lfs merge=lfs -text
 report_plots/reward_assignment/data/ridge/sequence/feature_reward_pair_v3.sexp filter=lfs diff=lfs merge=lfs -text
+report_plots/machine_learning/plots/features/covariance-between-features.pdf filter=lfs diff=lfs merge=lfs -text
+report_plots/machine_learning/plots/features/histogram-of-correlation.pdf filter=lfs diff=lfs merge=lfs -text
