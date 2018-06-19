@@ -518,6 +518,7 @@ def main():
     fname = os.path.join(plot_dir, "correlation-between-feature-vectors.pdf")
     if not os.path.exists(fname):
         ax = plt.gca()
+        plt.title("Normalised Covariance Matrix between Feature Vectors")
         im = ax.imshow(covar)
         cbar = ax.figure.colorbar(im, ax=ax)
         plt.savefig(fname=fname)
