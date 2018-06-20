@@ -1,0 +1,31 @@
+B = 0.01
+Reading pickle from ./report_plots/machine_learning/ridge-hand/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 2895 (0.659754)
+  - inline = 788 (0.179581)
+  - apply  = 705 (0.160665)
+- ANN performance
+  - predict dm = 0.790109389243391
+  - predict inline = 0.11303555150410209
+  - predict apply  = 0.09685505925250684
+  - decision model score: 0.7433910665451231
+[[0.61690975 0.0239289  0.01891522]
+ [0.08773929 0.07019143 0.02164995]
+ [0.08546035 0.01891522 0.05628988]]
+Test cases outputs:
+-> [ 0.99259; 0.00630; 0.00111 ]
+-> [ 0.00001; 0.99767; 0.00232 ]
+-> [ 0.00000; 0.99170; 0.00830 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00006; 0.00000; 0.99994 ]
+-> [ 0.00000; 0.97300; 0.02700 ]
+-> [ 0.00000; 0.99406; 0.00594 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.00000; 0.98035; 0.01965 ]
+-> [ 1.00000; 0.00000; 0.00000 ]

@@ -1,0 +1,35 @@
+train_lasso_single_neural_network.py:327: RuntimeWarning: divide by zero encountered in log10
+  log_abs_inline    = np.log10(abs(r.inline.long_term))
+train_lasso_single_neural_network.py:328: RuntimeWarning: divide by zero encountered in log10
+  log_abs_terminate = np.log10(abs(r.no_inline))
+/home/fyquah/fyp/worker-dispatcher/tools/fyp_compiler_plugins/training-logs/plugin_v1_neural_network_lasso_star/
+Reading pickle from ./report_plots/machine_learning/lasso-star/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 3592 (0.818596)
+  - inline = 492 (0.112124)
+  - apply  = 304 (0.069280)
+- ANN performance
+  - predict dm = 0.9309480401093893
+  - predict inline = 0.04854147675478578
+  - predict apply  = 0.020510483135824976
+  - decision model score: 0.8552871467639015
+[[0.80628988 0.00820419 0.0041021 ]
+ [0.07406563 0.03532361 0.00273473]
+ [0.05059253 0.00501367 0.01367366]]
+Test cases outputs:
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.99995; 0.00005 ]
+-> [ 0.00000; 0.03005; 0.96995 ]
+-> [ 0.99925; 0.00075; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.00000; 0.33899; 0.66101 ]
+-> [ 0.02414; 0.00000; 0.97586 ]
+-> [ 1.00000; 0.00000; 0.00000 ]

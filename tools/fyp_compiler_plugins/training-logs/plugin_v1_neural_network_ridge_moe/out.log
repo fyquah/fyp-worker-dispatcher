@@ -1,0 +1,631 @@
+/home/fyquah/fyp/worker-dispatcher/tools/fyp_compiler_plugins/training-logs/plugin_v1_neural_network_ridge_moe/
+Reading pickle from ./report_plots/machine_learning/ridge-hand/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 262 (0.059708)
+  - inline = 2155 (0.491112)
+  - apply  = 1971 (0.449180)
+- ANN performance
+  - predict dm = 0.055150410209662715
+  - predict inline = 0.48359161349134
+  - predict apply  = 0.4612579762989973
+  - decision model score: 0.6387876025524157
+[[0.0357794  0.01344576 0.01048314]
+ [0.0120784  0.31563355 0.16340018]
+ [0.00729262 0.15451231 0.28737466]]
+Test cases outputs:
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.99990; 0.00010 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.00006; 0.99993 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+Reading pickle from ./report_plots/machine_learning/ridge-hand/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 374 (0.085232)
+  - inline = 2098 (0.478122)
+  - apply  = 1916 (0.436645)
+- ANN performance
+  - predict dm = 0.06768459434822242
+  - predict inline = 0.4699179580674567
+  - predict apply  = 0.4623974475843209
+  - decision model score: 0.6346855059252506
+[[0.04603464 0.02415679 0.01504102]
+ [0.01276208 0.30332726 0.16203282]
+ [0.00888788 0.14243391 0.28532361]]
+Test cases outputs:
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.88775; 0.11225 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.99858; 0.00142 ]
+-> [ 0.00000; 0.21864; 0.78136 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+Reading pickle from ./report_plots/machine_learning/ridge-hand/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 885 (0.201686)
+  - inline = 1850 (0.421604)
+  - apply  = 1653 (0.376709)
+- ANN performance
+  - predict dm = 0.21011850501367366
+  - predict inline = 0.39790337283500454
+  - predict apply  = 0.3919781221513218
+  - decision model score: 0.6027803099361896
+[[0.13377393 0.03213309 0.0357794 ]
+ [0.04535096 0.24453054 0.13172288]
+ [0.03099362 0.12123974 0.22447584]]
+Test cases outputs:
+-> [ 0.00000; 0.99842; 0.00158 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.99986; 0.00014 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.00562; 0.99438 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.00474; 0.99526 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+Reading pickle from ./report_plots/machine_learning/ridge-hand/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 1210 (0.275752)
+  - inline = 1679 (0.382634)
+  - apply  = 1499 (0.341613)
+- ANN performance
+  - predict dm = 0.28577939835916133
+  - predict inline = 0.3985870556061987
+  - predict apply  = 0.31563354603463994
+  - decision model score: 0.5963992707383774
+[[0.1825433  0.05401094 0.03919781]
+ [0.05697356 0.23154057 0.09412033]
+ [0.04626253 0.11303555 0.18231541]]
+Test cases outputs:
+-> [ 0.00000; 0.99978; 0.00022 ]
+-> [ 0.00000; 0.45734; 0.54266 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.04489; 0.95511; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.00146; 0.99854 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+Reading pickle from ./report_plots/machine_learning/ridge-hand/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 2315 (0.527575)
+  - inline = 1100 (0.250684)
+  - apply  = 973 (0.221741)
+- ANN performance
+  - predict dm = 0.6501823154056517
+  - predict inline = 0.19872379216043756
+  - predict apply  = 0.15109389243391066
+  - decision model score: 0.650865998176846
+[[0.45715588 0.04147675 0.02894257]
+ [0.09662716 0.11280766 0.04124886]
+ [0.09639927 0.04443938 0.08090246]]
+Test cases outputs:
+-> [ 0.00143; 0.69275; 0.30582 ]
+-> [ 0.00000; 0.00155; 0.99845 ]
+-> [ 0.00000; 0.00047; 0.99953 ]
+-> [ 0.00000; 0.99998; 0.00002 ]
+-> [ 0.00000; 0.00031; 0.99969 ]
+-> [ 0.00000; 0.00035; 0.99965 ]
+-> [ 0.00000; 0.00035; 0.99965 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.00091; 0.99909 ]
+-> [ 0.00000; 0.00944; 0.99056 ]
+Reading pickle from ./report_plots/machine_learning/ridge-hand/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 4036 (0.919781)
+  - inline = 191 (0.043528)
+  - apply  = 161 (0.036691)
+- ANN performance
+  - predict dm = 0.9628532360984503
+  - predict inline = 0.026207839562443026
+  - predict apply  = 0.010938924339106655
+  - decision model score: 0.9371011850501367
+[[9.10665451e-01 6.60893345e-03 2.50683683e-03]
+ [2.41567912e-02 1.86873291e-02 6.83682771e-04]
+ [2.80309936e-02 9.11577028e-04 7.74840474e-03]]
+Test cases outputs:
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.06204; 0.93784; 0.00012 ]
+Reading pickle from ./report_plots/machine_learning/ridge-hand/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 2895 (0.659754)
+  - inline = 788 (0.179581)
+  - apply  = 705 (0.160665)
+- ANN performance
+  - predict dm = 0.790109389243391
+  - predict inline = 0.11303555150410209
+  - predict apply  = 0.09685505925250684
+  - decision model score: 0.7433910665451231
+[[0.61690975 0.0239289  0.01891522]
+ [0.08773929 0.07019143 0.02164995]
+ [0.08546035 0.01891522 0.05628988]]
+Test cases outputs:
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.00000; 0.00032; 0.99968 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.00000; 0.07425; 0.92575 ]
+-> [ 0.00011; 0.23179; 0.76810 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.00000; 0.01373; 0.98627 ]
+Reading pickle from ./report_plots/machine_learning/ridge-general/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 629 (0.143345)
+  - inline = 1972 (0.449407)
+  - apply  = 1787 (0.407247)
+- ANN performance
+  - predict dm = 0.12215132178669097
+  - predict inline = 0.47082953509571557
+  - predict apply  = 0.40701914311759346
+  - decision model score: 0.627848678213309
+[[0.08409298 0.03236098 0.02689152]
+ [0.02278943 0.29512306 0.13149499]
+ [0.01526892 0.14334549 0.24863263]]
+Test cases outputs:
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00036; 0.99489; 0.00474 ]
+-> [ 0.00000; 0.00003; 0.99997 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.15290; 0.84710 ]
+-> [ 0.00000; 0.00021; 0.99979 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+Reading pickle from ./report_plots/machine_learning/ridge-general/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 860 (0.195989)
+  - inline = 1852 (0.422060)
+  - apply  = 1676 (0.381951)
+- ANN performance
+  - predict dm = 0.17251595259799454
+  - predict inline = 0.4259343664539654
+  - predict apply  = 0.4015496809480401
+  - decision model score: 0.6064266180492252
+[[0.11690975 0.03395624 0.04512306]
+ [0.03099362 0.2620784  0.12898815]
+ [0.02461258 0.12989973 0.22743847]]
+Test cases outputs:
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.00216; 0.99784 ]
+-> [ 0.00000; 0.00007; 0.99993 ]
+-> [ 0.00000; 0.99956; 0.00044 ]
+-> [ 0.00000; 0.73622; 0.26378 ]
+-> [ 0.00000; 0.99943; 0.00057 ]
+-> [ 0.00000; 0.99902; 0.00098 ]
+-> [ 0.00000; 0.42144; 0.57856 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.01039; 0.98961 ]
+Reading pickle from ./report_plots/machine_learning/ridge-general/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 1732 (0.394713)
+  - inline = 1424 (0.324521)
+  - apply  = 1232 (0.280766)
+- ANN performance
+  - predict dm = 0.5102552415679125
+  - predict inline = 0.2702825888787603
+  - predict apply  = 0.21946216955332726
+  - decision model score: 0.6456244302643573
+[[0.34389243 0.02529626 0.02552416]
+ [0.0872835  0.17251595 0.06472197]
+ [0.07907931 0.07247037 0.12921604]]
+Test cases outputs:
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.99920; 0.00080 ]
+-> [ 0.00000; 0.10975; 0.89025 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00003; 0.00000; 0.99997 ]
+-> [ 0.00000; 0.26809; 0.73191 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.73497; 0.00000; 0.26503 ]
+-> [ 0.00002; 0.00016; 0.99982 ]
+-> [ 0.00000; 0.49612; 0.50388 ]
+Reading pickle from ./report_plots/machine_learning/ridge-general/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 2163 (0.492935)
+  - inline = 1195 (0.272334)
+  - apply  = 1030 (0.234731)
+- ANN performance
+  - predict dm = 0.5863719234275296
+  - predict inline = 0.2283500455788514
+  - predict apply  = 0.18527803099361895
+  - decision model score: 0.6864175022789426
+[[0.43550593 0.02894257 0.02848678]
+ [0.07793984 0.14425706 0.05013674]
+ [0.07292616 0.05515041 0.10665451]]
+Test cases outputs:
+-> [ 0.19223; 0.75927; 0.04850 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.00003; 0.99997 ]
+-> [ 0.84058; 0.15475; 0.00467 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.99987; 0.00013 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.99815; 0.00185 ]
+-> [ 0.02253; 0.00000; 0.97747 ]
+-> [ 0.98951; 0.00024; 0.01025 ]
+Reading pickle from ./report_plots/machine_learning/ridge-general/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 3293 (0.750456)
+  - inline = 593 (0.135141)
+  - apply  = 502 (0.114403)
+- ANN performance
+  - predict dm = 0.8473108477666362
+  - predict inline = 0.09184138559708295
+  - predict apply  = 0.06084776663628077
+  - decision model score: 0.8176845943482224
+[[0.7183227  0.01914312 0.01298997]
+ [0.06449407 0.06107566 0.00957156]
+ [0.06449407 0.01162261 0.03828624]]
+Test cases outputs:
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.99994; 0.00006 ]
+-> [ 0.00000; 0.00001; 0.99999 ]
+-> [ 0.00000; 0.98072; 0.01928 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.00003; 0.99997 ]
+-> [ 0.00002; 0.99998; 0.00000 ]
+-> [ 0.00000; 0.02465; 0.97535 ]
+Reading pickle from ./report_plots/machine_learning/ridge-general/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 4303 (0.980629)
+  - inline = 62 (0.014129)
+  - apply  = 23 (0.005242)
+- ANN performance
+  - predict dm = 0.9883773928896992
+  - predict inline = 0.010027347310847767
+  - predict apply  = 0.0015952597994530538
+  - decision model score: 0.9874658158614403
+[[9.78350046e-01 2.27894257e-03 0.00000000e+00]
+ [6.60893345e-03 7.52051048e-03 0.00000000e+00]
+ [3.41841386e-03 2.27894257e-04 1.59525980e-03]]
+Test cases outputs:
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.36442; 0.00000; 0.63558 ]
+Reading pickle from ./report_plots/machine_learning/ridge-general/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 3716 (0.846855)
+  - inline = 383 (0.087284)
+  - apply  = 289 (0.065861)
+- ANN performance
+  - predict dm = 0.9375569735642661
+  - predict inline = 0.04398359161349134
+  - predict apply  = 0.01845943482224248
+  - decision model score: 0.8798997265268915
+[[0.83454877 0.00911577 0.00319052]
+ [0.05355515 0.0319052  0.00182315]
+ [0.04945305 0.00296263 0.01344576]]
+Test cases outputs:
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.01529; 0.98471; 0.00000 ]
+-> [ 0.99836; 0.00150; 0.00014 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00011; 0.99989; 0.00000 ]
+-> [ 0.09621; 0.90379; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00048; 0.98594; 0.01358 ]
+Reading pickle from ./report_plots/machine_learning/ridge-star/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 477 (0.108706)
+  - inline = 2139 (0.487466)
+  - apply  = 1772 (0.403829)
+- ANN performance
+  - predict dm = 0.06927985414767548
+  - predict inline = 0.5503646308113036
+  - predict apply  = 0.38035551504102094
+  - decision model score: 0.6276207839562443
+[[0.05355515 0.03030994 0.02484047]
+ [0.00911577 0.34845032 0.12989973]
+ [0.00660893 0.17160438 0.22561531]]
+Test cases outputs:
+-> [ 0.00000; 0.00050; 0.99950 ]
+-> [ 0.00000; 0.10782; 0.89218 ]
+-> [ 0.00000; 0.18714; 0.81286 ]
+-> [ 0.00000; 0.99937; 0.00063 ]
+-> [ 0.00000; 0.00001; 0.99999 ]
+-> [ 0.00011; 0.00000; 0.99989 ]
+-> [ 0.00000; 0.88329; 0.11671 ]
+-> [ 0.00002; 0.02378; 0.97620 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.04947; 0.95053 ]
+Reading pickle from ./report_plots/machine_learning/ridge-star/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 673 (0.153373)
+  - inline = 2022 (0.460802)
+  - apply  = 1693 (0.385825)
+- ANN performance
+  - predict dm = 0.12146763901549681
+  - predict inline = 0.5031905195989061
+  - predict apply  = 0.37534184138559706
+  - decision model score: 0.6002734731084777
+[[0.08067457 0.04033728 0.03236098]
+ [0.02620784 0.3056062  0.12898815]
+ [0.01458523 0.15724704 0.21399271]]
+Test cases outputs:
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00549; 0.99451; 0.00000 ]
+-> [ 0.00000; 0.99909; 0.00091 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.99993; 0.00007 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.01595; 0.98405 ]
+Reading pickle from ./report_plots/machine_learning/ridge-star/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 1483 (0.337967)
+  - inline = 1580 (0.360073)
+  - apply  = 1325 (0.301960)
+- ANN performance
+  - predict dm = 0.39288969917958066
+  - predict inline = 0.3632634457611668
+  - predict apply  = 0.2438468550592525
+  - decision model score: 0.6007292616226071
+[[0.24954421 0.05082042 0.03760255]
+ [0.07429353 0.21536007 0.07041933]
+ [0.06905196 0.09708295 0.13582498]]
+Test cases outputs:
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.00011; 0.99989 ]
+-> [ 0.00000; 0.99996; 0.00004 ]
+-> [ 0.99966; 0.00033; 0.00001 ]
+-> [ 0.99999; 0.00000; 0.00001 ]
+-> [ 0.94407; 0.00401; 0.05193 ]
+-> [ 0.00126; 0.00000; 0.99874 ]
+-> [ 0.03719; 0.22863; 0.73418 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+Reading pickle from ./report_plots/machine_learning/ridge-star/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 2007 (0.457384)
+  - inline = 1287 (0.293300)
+  - apply  = 1094 (0.249316)
+- ANN performance
+  - predict dm = 0.589334548769371
+  - predict inline = 0.2415679124886053
+  - predict apply  = 0.1690975387420237
+  - decision model score: 0.6479033728350045
+[[0.39653601 0.03851413 0.02233364]
+ [0.09799453 0.14995442 0.04535096]
+ [0.09480401 0.05309936 0.10141294]]
+Test cases outputs:
+-> [ 0.24566; 0.75434; 0.00000 ]
+-> [ 0.95870; 0.00149; 0.03981 ]
+-> [ 0.00000; 0.00080; 0.99920 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.03653; 0.00403; 0.95944 ]
+-> [ 0.00000; 0.00003; 0.99997 ]
+-> [ 0.00333; 0.99667; 0.00000 ]
+-> [ 0.00000; 0.99989; 0.00011 ]
+-> [ 0.00000; 0.99932; 0.00068 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+Reading pickle from ./report_plots/machine_learning/ridge-star/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 3317 (0.755925)
+  - inline = 591 (0.134686)
+  - apply  = 480 (0.109389)
+- ANN performance
+  - predict dm = 0.8523245214220602
+  - predict inline = 0.08523245214220601
+  - predict apply  = 0.06244302643573382
+  - decision model score: 0.8245214220601641
+[[0.73108478 0.01321787 0.01162261]
+ [0.06563355 0.05583409 0.01321787]
+ [0.0556062  0.01618049 0.03760255]]
+Test cases outputs:
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.99999; 0.00001 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.00000; 0.00002; 0.99998 ]
+-> [ 0.00000; 0.00444; 0.99556 ]
+Reading pickle from ./report_plots/machine_learning/ridge-star/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 4217 (0.961030)
+  - inline = 92 (0.020966)
+  - apply  = 79 (0.018004)
+- ANN performance
+  - predict dm = 0.9687784867821331
+  - predict inline = 0.016864175022789425
+  - predict apply  = 0.014357338195077484
+  - decision model score: 0.9781221513217867
+[[9.55104831e-01 3.19051960e-03 2.73473108e-03]
+ [6.38103920e-03 1.29899727e-02 1.59525980e-03]
+ [7.29261623e-03 6.83682771e-04 1.00273473e-02]]
+Test cases outputs:
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+Reading pickle from ./report_plots/machine_learning/ridge-star/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 3686 (0.840018)
+  - inline = 391 (0.089107)
+  - apply  = 311 (0.070875)
+- ANN performance
+  - predict dm = 0.9033728350045579
+  - predict inline = 0.05537830446672744
+  - predict apply  = 0.041248860528714675
+  - decision model score: 0.8878760255241568
+[[0.82474932 0.00911577 0.00615314]
+ [0.0437557  0.03669098 0.00865998]
+ [0.03486782 0.00957156 0.02643573]]
+Test cases outputs:
+-> [ 0.99998; 0.00000; 0.00002 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.97674; 0.02326; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.00000; 0.99998; 0.00002 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.99994; 0.00006; 0.00000 ]

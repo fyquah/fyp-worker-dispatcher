@@ -125,5 +125,9 @@ build/plugin_v1_neural_network.cmxs: \
 build/plugin_nothing.cmxs: plugin_nothing.ml
 	$(OCAMLOPT) -I build/ -I +compiler-libs -shared -o $@ $^
 
+
+build/plugin_test.cmxs: plugin_test.ml
+	$(OCAMLOPT) -I build/ -I +compiler-libs -shared -o $@ $^
+
 clean:
 	-rm build/*.cmxs build/*.ml build/*.mli rm *.cm*
