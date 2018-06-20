@@ -1,0 +1,95 @@
+train_lasso_moe_neural_network.py:326: RuntimeWarning: divide by zero encountered in log10
+  log_abs_inline    = np.log10(abs(r.inline.long_term))
+train_lasso_moe_neural_network.py:327: RuntimeWarning: divide by zero encountered in log10
+  log_abs_terminate = np.log10(abs(r.no_inline))
+/home/fyquah/fyp/worker-dispatcher/tools/fyp_compiler_plugins/training-logs/plugin_v1_neural_network_lasso_moe/
+Reading pickle from ./report_plots/machine_learning/lasso-hand/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 3925 (0.894485)
+  - inline = 290 (0.066089)
+  - apply  = 173 (0.039426)
+- ANN performance
+  - predict dm = 0.9443938012762079
+  - predict inline = 0.03463992707383774
+  - predict apply  = 0.020966271649954422
+  - decision model score: 0.9243391066545124
+[[0.88445761 0.00615314 0.0038742 ]
+ [0.03783045 0.02552416 0.00273473]
+ [0.02210574 0.00296263 0.01435734]]
+Test cases outputs:
+-> [ 0.99900; 0.00100; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00001; 0.00000; 0.99999 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+Reading pickle from ./report_plots/machine_learning/lasso-general/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 3907 (0.890383)
+  - inline = 270 (0.061531)
+  - apply  = 211 (0.048086)
+- ANN performance
+  - predict dm = 0.9227438468550593
+  - predict inline = 0.04307201458523245
+  - predict apply  = 0.034184138559708296
+  - decision model score: 0.9329990884229717
+[[0.87967183 0.00615314 0.00455789]
+ [0.02461258 0.03030994 0.00660893]
+ [0.01845943 0.00660893 0.02301732]]
+Test cases outputs:
+-> [ 0.00000; 0.99138; 0.00862 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.99520; 0.00480; 0.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.98053; 0.01946; 0.00001 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+Reading pickle from ./report_plots/machine_learning/lasso-star/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 3592 (0.818596)
+  - inline = 492 (0.112124)
+  - apply  = 304 (0.069280)
+- ANN performance
+  - predict dm = 0.9309480401093893
+  - predict inline = 0.04854147675478578
+  - predict apply  = 0.020510483135824976
+  - decision model score: 0.8552871467639015
+[[0.80628988 0.00820419 0.0041021 ]
+ [0.07406563 0.03532361 0.00273473]
+ [0.05059253 0.00501367 0.01367366]]
+Test cases outputs:
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.00000; 0.03399; 0.96601 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.99476; 0.00513; 0.00011 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
+-> [ 1.00000; 0.00000; 0.00000 ]
