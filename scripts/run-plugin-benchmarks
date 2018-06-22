@@ -11,6 +11,7 @@ plugin_name=$1
 export EXPERIMENT_ROUND=0
 
 PLUGIN_PATH="$HOME/fyp/worker-dispatcher/tools/fyp_compiler_plugins/build/$plugin_name.cmxs"
+
 DUMMY_PLUGIN_FILE=$(mktemp)
 echo "()" >$DUMMY_PLUGIN_FILE
 

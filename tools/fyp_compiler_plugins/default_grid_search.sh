@@ -5,6 +5,7 @@ set -euo pipefail
 # NOT reporting inlining decisions is REALLY REALLY important, otherwise, compilation
 # will end up consuming excessive amounts of RAM.
 export OCAMLOPT_TIMEOUT="1m"
+export FYP_COMPILATION_TIMEOUT="2m"
 
 INLINE_MAX_DEPTH="5"
 INLINE_MAX_UNROLLS="1 5 15"

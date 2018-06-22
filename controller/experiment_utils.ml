@@ -507,12 +507,15 @@ let compile_binary ~dir ~bin_name ~write_overrides ~dump_directory =
   let ocamlparam =
     Option.value ~default:"_" (Sys.getenv "OCAMLPARAM")
   in
+  let timeout =
+    Option.value ~default:"30m" (Sys.getenv "FYP_COMPILATION_TIMEOUT")
+  in
   (Log.Global.info "ocamlopt path = %s" where_is_ocamlopt);
   (Log.Global.info "OCAMLPARAM = %s" ocamlparam);
   Deferred.Or_error.ok_unit
   >>=? fun () -> shell ~dir "make" [ "clean" ]
   >>=? fun () -> write_overrides (dir ^/ "overrides.sexp")
-  >>=? fun () -> shell ~dir "timeout" [ "30m"; "make"; "all" ]
+  >>=? fun () -> shell ~dir "timeout" [ timeout; "make"; "all" ]
   >>=? fun () -> shell ~dir "cp" [ (bin_name ^ ".native"); filename ]
   >>=? fun () -> shell ~dir "chmod" [ "755"; filename ]
   >>=? fun () ->
