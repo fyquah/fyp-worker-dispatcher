@@ -108,11 +108,20 @@ def main():
         print_row(bench, items)
     print ""
 
+    global global_acc
+    global_acc = []
     print ">>>>> TEST SET <<<<<"
     for bench, items in all_records.iteritems():
         if bench in py_common.INITIAL_EXPERIMENTS:
             continue
         print_row(bench, items)
+    print np.median(global_acc)
+    print np.mean(global_acc)
+    print np.var(global_acc)
+    print np.std(global_acc)
+    print len(global_acc)
+
+global_acc = []
 
 
 def print_row(bench, items):
@@ -128,20 +137,34 @@ def print_row(bench, items):
     third_quartile = "%.3f\\%%" % (np.percentile(speedups, 75) * 100)
     max_speedup = "%.3f\\%%" % (max_speedup * 100)
 
-    seen = []
-
-    import random
-
-    for _ in range(20):
-        acc = 0
-        for _ in range(10):
-            i = random.randint(0, len(speedups) - 1)
-            acc = max(acc, speedups[i])
-        seen.append(acc)
-
     pass_basline = "?"
 
-    print "%s & %d & %s & %s & %s & %s & %s \\\\" % (bench, len(speedups), min_speedup, first_quartile, median_speedup, third_quartile, max_speedup)
+    global PLUGIN_SUBDIR
+    PLUGIN_SUBDIR="plugins-valid"
+    time = read_plugin_times(bench, plugin_name="v1_neural_network_ridge_moe")
+    initial_exec_time = get_initial_exec_time(bench)
+    speedup = (initial_exec_time - time) / initial_exec_time
+    found = None
+
+    for i, the_speedup in enumerate(speedups):
+        if the_speedup > speedup:
+            if i == 0:
+                found = 0
+            else:
+                found = i - 1
+            break
+
+    if found is None:
+        found = len(speedups)
+    averaging_percentile = found / float(len(speedups))
+
+    if "fyq" not in bench:
+        global_acc.append(averaging_percentile)
+
+    print "%s & %.3f\\%% \\\\" % (bench, (speedup - np.median(speedups)) * 100)
+
+    # print "%s & %.3f & %.3f\\%% & %.3f \\\\" % (bench, (speedup - np.median(speedups)) * 100.0, speedup * 100.0, averaging_percentile)
+    # print "%s & %d & %s & %s & %s & %s & %s \\\\" % (bench, len(speedups), min_speedup, first_quartile, median_speedup, third_quartile, max_speedup)
 
 headers = ["Benchmark", "Num samples", "Min", "25th Percentile", "Median", "75th Percentile", "Max"]
 

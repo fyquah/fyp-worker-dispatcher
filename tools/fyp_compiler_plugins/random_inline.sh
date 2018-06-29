@@ -11,7 +11,7 @@ export PATH="$HOME/fyp/worker-dispatcher/hacks:$PATH"
 export OCAMLOPT_TIMEOUT="1m"
 make build/plugin_random.cmxs
 
-for exp in $(python ~/fyp/worker-dispatcher/scripts/query_experiment_params.py --all-old); do
+for exp in $(python ~/fyp/worker-dispatcher/scripts/query_experiment_params.py --all); do
   for i in $(seq 0 100); do
     cd ~/fyp/worker-dispatcher/tools/fyp_compiler_plugins
     cp build/plugin_random.cmxs build/plugin_random_$(((i * 3) + 0)).cmxs

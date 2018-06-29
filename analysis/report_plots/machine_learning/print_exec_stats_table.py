@@ -117,14 +117,14 @@ def main():
 
 def print_row(bench, speedup, time):
     if speedup is not None:
-        speedup = "%.3f%%" % (speedup * 100)
+        speedup = "%.3f\\%%" % (speedup * 100)
     else:
         speedup = "N/A"
     if time is not None:
         time = "%.3fs" % time
     else:
         time = "N/A"
-    print "%s: %s (%s)" % (bench, speedup, time)
+    print "%s & %s & (%s)" % (bench, speedup, time)
 
 
 if __name__ == "__main__":
