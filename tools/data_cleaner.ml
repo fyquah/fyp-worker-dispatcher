@@ -124,7 +124,7 @@ let command_concat_features =
         let oc = Caml.open_out output in
         Caml.output_value oc features;
         Caml.close_out oc;
-        Log.Global.info "Extracted %d features" (List.length features);
+        Log.Global.info "Extracted %d inlining queries" (List.length features);
         Deferred.unit]
 ;;
 
