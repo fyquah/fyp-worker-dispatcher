@@ -155,6 +155,8 @@ def plot_pca(features, labels, title, fname, legend, num_classes):
     pca = PCA(n_components=2)
     pca.fit(features)
     transformed = pca.transform(features)
+    print "Plotting ", title, pca.explained_variance_ratio_
+    print transformed
 
     fig = plt.figure()
     plt.title(title)
@@ -388,7 +390,8 @@ def plot_reward_sparsity(all_features, all_rewards, cluster):
             fname="report_plots/machine_learning/lasso/v3/triviality_plots-cluster-%d.pdf" % cluster)
 
 
-def plot_decisions(all_features, all_rewards, cluster):
+def plot_decisions(all_features, all_rewards, cluster=None, reward_model=None):
+    assert reward_model is not None
 
     DOESNT_MATTER     = 0
     INLINE   = 1
@@ -449,33 +452,36 @@ def plot_decisions(all_features, all_rewards, cluster):
     print "  - inline =",           inline_ratio
     print "  - apply  =",           apply_ratio
 
+    d = "report_plots/machine_learning/plots/%s/" % reward_model
+    if not os.path.exists(d):
+        os.makedirs(d)
 
-    model = MLPClassifier(
-            solver='lbfgs', alpha=1e-5,
-            hidden_layer_sizes=(32,),
-            activation="relu",
-            random_state=1)
-    model.fit(features, labels)
-
-    # from sklearn import svm
-    # model = svm.SVC()
-    # model.fit(features, labels)
-    svm_labels = model.predict(features)
-    
-    print "- ANN performance"
-    print "  - predict dm =",     np.mean(svm_labels == DOESNT_MATTER)
-    print "  - predict inline =", np.mean(svm_labels == INLINE)
-    print "  - predict apply  =",  np.mean(svm_labels == APPLY)
-    print "  - sparsity training model score:", model.score(features, labels)
-
+    if cluster is None:
+        fname = "report_plots/machine_learning/plots/%s/lda.pdf" % reward_model
+    else:
+        fname = "report_plots/machine_learning/plots/%s/lda-%d.pdf" % (reward_model, cluster)
     plot_lda(features, labels,
-            title="PCA Scatter Plot of All Features (%d samples)" % len(features),
-            legend=["Both trivial", "Both important", "Inline important", "Apply important"],
-            num_classes=4,
-            fname="report_plots/machine_learning/lasso/v3/decisions_plots-cluster-%d.pdf" % cluster)
+            title="LDA Scatter Plot of All Features (%d samples)" % len(features),
+            legend=labels, num_classes=3, fname=fname)
+
+    if cluster is None:
+        fname = "report_plots/machine_learning/plots/%s/pca.pdf" % reward_model
+    else:
+        fname = "report_plots/machine_learning/plots/%s/pca-%d.pdf" % (reward_model, cluster)
+
+    # Test ..?
+    print all_features.shape
+    plot_pca(all_features,
+            np.array([0] * len(all_features)),
+            num_classes=1,
+            title="PCA Scatter Plot of All Features",
+            legend=["I don't know", "Inline", "Apply"],
+            fname=fname)
 
 
 def main():
+    matplotlib.rc("text", usetex=True)
+    reward_model = sys.argv[1]
     all_data = feature_loader.read_pickle(feature_version="V3", reward_model=sys.argv[1])
 
     print "No Information about rewards", len([t for (_, t) in all_data if t is None])
@@ -498,44 +504,70 @@ def main():
     normalised_numeric_features = (relevant_numeric_features - np.mean(relevant_numeric_features, axis=0))
     normalised_numeric_features = normalised_numeric_features / np.std(relevant_numeric_features, axis=0)
 
+    non_trivial_indices = [r is not None and r.inline is not None and r.no_inline is not None for r in raw_targets]
+    print sum(non_trivial_indices)
+
     features = np.concatenate([normalised_numeric_features, relevant_bool_features], axis=1)
 
-    plt.figure()
-    ax = plt.gca()
-    # im = fast_analysis.pairwise_l2_diff(features)
-    A = features - np.mean(features, axis=0)
+    print "Reduced %d numeric features to %d" % (all_numeric_features.shape[1], normalised_numeric_features.shape[1])
+    print "Reduced %d boolean features to %d" % (all_bool_features.shape[1],    relevant_bool_features.shape[1])
+
+    A = features[non_trivial_indices, :] - np.mean(features[non_trivial_indices, :], axis=0)
     A = A / np.sqrt((A ** 2).sum(axis=1))[:, np.newaxis]
-    im = np.matmul(A, A.T)
+    covar = np.matmul(A, A.T)
 
     plot_dir = "report_plots/machine_learning/plots/features/"
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
 
+    fname = os.path.join(plot_dir, "histogram-of-normalised-covariance.pdf")
+    plt.figure()
+    ax1 = plt.gca()
     plt.title("Histogram of Number of Highly Correlated Feature Vectors")
-    plt.hist((im > 0.999).sum(axis=1))
-    plt.savefig(fname=os.path.join(plot_dir, "histogram-of-correlation.pdf"))
+    plt.grid()
+    plt.hist((covar > 0.999).sum(axis=1), bins=200)
+    ax1.set_xlabel("Number of Highly Correlated Feature Vectors")
+    ax1.set_ylabel("Frequency")
 
-    print im, im.shape
-    # ax = plt.gca()
-    # im_ = ax.imshow(im)
-    # cbar = ax.figure.colorbar(im_, ax=ax)
-    # plt.savefig(fname=os.path.join(plot_dir, "covariance-between-features.pdf"))
-    return
+    # Print the top-10 repeated examples
+    # arr = list(enumerate((covar > 0.999).sum(axis=1)))
+    # arr.sort(key=lambda (_, a): -a)
+    # for i in range(100):
+    #     idx = arr[i][0]
+    #     print idx, all_data[idx][0].exp_name, "\t", arr[i][1], "\t", all_data[idx][0].metadata[0]
 
-    plot_decisions(features, list(np.array(raw_targets)), cluster=100)
+    # print(covar)
+    # print(sum(np.diagonal(covar)))
+    hist, bin_edges = np.histogram((covar > 0.999).sum(axis=1), bins=200)
+    cs = np.cumsum(hist)
+    ax2 = ax1.twinx()
+    ax2.plot(bin_edges[:-1], cs, color='g')
+    ax2.hlines(0.25 * cs[-1], 0, max(bin_edges), colors='r', linestyles="--")
+    ax2.hlines(0.75 * cs[-1], 0, max(bin_edges), colors='r', linestyles="--")
+    ax2.set_ylabel("Cumulative Frequency")
+    plt.savefig(fname=fname)
 
-    n_clusters = 2
+    # Cache this, because somehow, computing this is really expensive.
+    fname = os.path.join(plot_dir, "correlation-between-feature-vectors.pdf")
+    if not os.path.exists(fname):
+        ax = plt.gca()
+        plt.title("Normalised Covariance Matrix between Feature Vectors")
+        im = ax.imshow(covar)
+        cbar = ax.figure.colorbar(im, ax=ax)
+        plt.savefig(fname=fname)
+
+    plot_decisions(features, list(np.array(raw_targets)), reward_model=reward_model)
+
+    n_clusters = 5
     kmeans = KMeans(n_clusters=n_clusters, random_state=100)
     kmeans.fit(features)
     clusters = np.array(kmeans.labels_, dtype=np.int32)
-
-    np.array(data_covariance)
 
     for i in range(n_clusters):
         print "CLUSTER %d" % i
         idx = (clusters == i)
         # plot_reward_sparsity(features[idx, :], list(np.array(raw_targets)[idx]), cluster=i)
-        plot_decisions(features[idx, :], list(np.array(raw_targets)[idx]), cluster=i)
+        plot_decisions(features[idx, :], list(np.array(raw_targets)[idx]), cluster=i, reward_model=reward_model)
     return
 
     thorough_labels = []
@@ -570,13 +602,6 @@ def main():
     kmeans = KMeans(n_clusters=n_clusters, random_state=100)
     kmeans.fit(features)
     clusters = np.array(kmeans.labels_, dtype=np.int32)
-
-    plot_pca(familiarity_features,
-            np.array([py_common.INITIAL_EXPERIMENTS.index(f.exp_name) for (f, _) in all_data]),
-            num_classes=len(py_common.INITIAL_EXPERIMENTS),
-            title="PCA Scatter Plot of All Features",
-            legend=py_common.INITIAL_EXPERIMENTS,
-            fname="report_plots/machine_learning/pca_exp_scatter_plot.pdf")
 
     exp_labels = np.array([py_common.INITIAL_EXPERIMENTS.index(f.exp_name) for (f, _) in all_data])
     model = MLPClassifier(

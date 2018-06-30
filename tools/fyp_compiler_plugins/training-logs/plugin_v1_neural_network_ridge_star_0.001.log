@@ -1,0 +1,31 @@
+B = 0.001
+Reading pickle from ./report_plots/machine_learning/ridge-star/v3/data.pickle
+No Information about rewards 1199
+Both inline and termination 4388
+Just inline 2228
+Just termination 10026
+Total 17841
+- Dataset statistics:
+  - Number of points = 4388
+  - doesnt matter = 2007 (0.457384)
+  - inline = 1287 (0.293300)
+  - apply  = 1094 (0.249316)
+- ANN performance
+  - predict dm = 0.589334548769371
+  - predict inline = 0.2415679124886053
+  - predict apply  = 0.1690975387420237
+  - decision model score: 0.6479033728350045
+[[0.39653601 0.03851413 0.02233364]
+ [0.09799453 0.14995442 0.04535096]
+ [0.09480401 0.05309936 0.10141294]]
+Test cases outputs:
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 1.00000; 0.00000 ]
+-> [ 0.98790; 0.00033; 0.01176 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.00000; 1.00000 ]
+-> [ 0.00000; 0.20136; 0.79864 ]
+-> [ 0.00000; 0.99548; 0.00452 ]
+-> [ 0.00258; 0.99742; 0.00000 ]
+-> [ 0.00000; 0.18067; 0.81933 ]

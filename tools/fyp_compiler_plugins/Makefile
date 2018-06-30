@@ -122,7 +122,15 @@ build/plugin_v1_neural_network.cmxs: \
 	  build/fyp_compiler_lib.ml \
 	  $(subst model_loader_v1_neural_network,build/model_loader,$^)
 
+
+build/plugin_random.cmxs: plugin_random.ml
+	$(OCAMLOPT) -I build/ -I +compiler-libs -shared -o $@ $^
+
 build/plugin_nothing.cmxs: plugin_nothing.ml
+	$(OCAMLOPT) -I build/ -I +compiler-libs -shared -o $@ $^
+
+
+build/plugin_test.cmxs: plugin_test.ml
 	$(OCAMLOPT) -I build/ -I +compiler-libs -shared -o $@ $^
 
 clean:

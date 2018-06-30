@@ -29,9 +29,13 @@ export EXPERIMENT_MODULE_PATHS=$(python ./scripts/query_experiment_params.py --n
 export ADDITIONAL_CONTROLLER_ARGS="-csv -overrides $(readlink -f $override_file)"
 
 echo "Benchmarking $override_file" >/dev/stderr
+export EXPERIMENT_TMP_DIR=$(mktemp -d)
+echo  "tmpdir = $EXPERIMENT_TMP_DIR">/dev/stderr
+
 scripts/run_prod.sh benchmark-decisions &>/dev/stderr
 
-wait_for_completion $(cat tmp/controller.pid)
-cat $(cat tmp/controller.rundir)/stdout.log
 
-rm -rf $(cat tmp/controller.rundir)/experiments
+wait_for_completion $(cat $EXPERIMENT_TMP_DIR/controller.pid)
+cat $(cat $EXPERIMENT_TMP_DIR/controller.rundir)/stdout.log
+
+rm -rf $(cat $EXPERIMENT_TMP_DIR/controller.rundir)/experiments

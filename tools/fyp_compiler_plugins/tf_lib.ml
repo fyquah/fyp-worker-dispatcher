@@ -250,3 +250,19 @@ let argmax (arr : float array) =
   in
   loop ~acc:0 1
 ;;
+
+let choose_expert arr =
+  let a =
+    map (fun x -> x /. float_of_int (Array.length arr))
+      (Array.fold_left add (Vec [| 0.0; 0.0; 0.0 |]) arr)
+  in
+  match a with
+  | Vec v -> 
+    if v.(1) > 0.5 then
+      Vec [| 0.0; 1.0; 0.0 |]
+    else if v.(2) > 0.5 then
+      Vec [| 0.0; 0.0; 1.0 |]
+    else
+      Vec [| 1.0; 0.0; 0.0 |]
+  | _ -> assert false
+;;

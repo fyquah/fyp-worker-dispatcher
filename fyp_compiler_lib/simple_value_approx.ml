@@ -64,3 +64,5 @@ and value_float_array = {
   contents : value_float_array_contents;
   size : int;
 }
+
+let realise (_ : t) = ()

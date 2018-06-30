@@ -11,7 +11,7 @@ for subdir in $(ls $EXP_BASE_DIR/); do
   if [ -f "$EXP_BASE_DIR/$subdir/optimal-expanded.sexp" ]; then
     echo "$EXP_BASE_DIR/$subdir/optimal-expanded.sexp exists -- skipping"
   else
-    python2 print_lasso_with_alpha.py --skip-normalisation --experiment-dir $EXP_BASE_DIR/$subdir/ --problem-dir $PROBLEM_BASE_DIR --optimal-decision --output $EXP_BASE_DIR/$subdir/optimal-expanded.sexp
+    python2 print_lasso.py --skip-normalisation --experiment-dir $EXP_BASE_DIR/$subdir/ --problem-dir $PROBLEM_BASE_DIR --optimal-decision --output $EXP_BASE_DIR/$subdir/optimal-expanded.sexp
   fi
 done
 

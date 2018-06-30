@@ -301,3 +301,29 @@ let extract_v0_features query =
   in
   { base_features with size_after_simplify }
 ;;
+
+let realise_env (env : env) =
+  Variable.Map.iter (fun _k v ->
+      Simple_value_approx.realise (snd v))
+    env.approx;
+  Mutable_variable.Map.iter (fun _k v ->
+      Simple_value_approx.realise v)
+    env.approx_mutable;
+  Symbol.Map.iter (fun _k v ->
+      Simple_value_approx.realise v)
+    env.approx_sym
+;;
+
+let realise_result (r : result) =
+  Simple_value_approx.realise r.approx
+;;
+
+let realise_inlined_result (inlined_result : inlined_result) =
+  realise_result inlined_result.r
+;;
+
+let realise query =
+  realise_env query.env;
+  realise_result query.r;
+  realise_inlined_result query.inlined_result
+;;

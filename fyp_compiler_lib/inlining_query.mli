@@ -62,3 +62,4 @@ type query =
   }
 
 val extract_v0_features : query -> Feature_extractor.t
+val realise : query -> unit
