@@ -37,7 +37,7 @@ cat Makefile.bak \
   | grep -v "inlining-overrides" \
   | grep -v "endif" \
   >Makefile
-sed -i'' -e 's#ocamlopt#~/fyp/ocaml-unstable-closure-origins/ocamlopt.opt -inlining-overrides overrides.sexp#g' Makefile
+sed -i'' -e 's#ocamlopt.opt#~/fyp/ocaml-unstable-closure-origins/ocamlopt.opt -inlining-overrides overrides.sexp#g' Makefile
 
 echo "Running make in $(pwd)"
 make clean
