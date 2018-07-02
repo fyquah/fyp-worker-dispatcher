@@ -9,14 +9,15 @@ main "theoretical" components that lives in this part of the world are:
 There is a lot of shell scripts and arbitrary scripts. The scripts were
 not structured in organised directories.
 
-## Directory Structure from Data Generation
-
 As the project was carried out on specific hard disks, the rundirs is
 expected to live in one of (which one exactly doesn't matter):
 
 - `/media/usb/home/fyquah/fyp/prod/rundir/`
 - `/media/usb2/home/fyquah/fyp/prod/rundir/`
 - `/media/usb3/prod/rundir/`
+
+The following sections below will discuss how the results in the reports
+were produced, and the roles of scripts throughout the directory.
 
 ## Call Site Reward Assignment
 

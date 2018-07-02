@@ -1,4 +1,38 @@
-## Configuring a new machine to run FYP things
+# FYP: Inlining ML with ML
+
+Presentation slides: [http://www.fyquah.me/fyp/presentation.pdf](http://www.fyquah.me/fyp/presentation.pdf)
+
+Pipeline summary: [http://www.fyquah.me/fyp/summary.pdf](http://www.fyquah.me/fyp/summary.pdf)
+
+
+This repository contains most of the code I have used when working on my
+final year project. Some other relevant repositories are:
+
+- [OCaml fork](https://github.com/fyquah95/fyp-ocaml) patched with the necessary support
+- [Benchmark repository](https://github.com/fyquah95/fyp-experiments)
+- [An opam repo](https://github.com/fyquah95/fyp-opam-repo-dev) containing the opam repo
+- [This repository](https://github.com/fyquah95/fyp-worker-dispatcher) which contains most of the engineering and analysis work.
+
+To reproduce the results in the thesis, you need to:
+
+1. Configure the master machine
+2. Configure the benchmark environments
+3. Run data generation
+4. Run reward assignment
+5. Train and benchmark inlining policies
+
+Most of the "interesting" analysis goes on in (4) and (5), which are
+discussed in [analysis/README.md](analysis/README.md). (1), (2) and (3) are
+required to setup benchmarks.
+
+To make it easier to reproduce the results due to (4) and (5) (which is more
+interesting, anyway), simply skip to
+[analysis/README.md](analysis/README.md) and follow the instructions there.
+
+
+## 1. Configuring the Master Machine
+
+The master machine in this work used a debian jessie machine
 
 Install apt packages that we definitely require:
 
@@ -22,6 +56,7 @@ git clone git@github.com:fyquah95/fyp-worker-dispatcher.git worker-dispatcher
 git clone git@github.com:fyquah95/fyp-ocaml.git ocaml
 git clone git@github.com:fyquah95/fyp-experiments.git experiments
 git clone git@github.com:fyquah95/fyp-opam-repo-dev.git opam-repo-dev
+git clone git@github.com:fyquah95/tensorflow-ocaml.git tensorflow-ocaml
 ```
 
 Install opam
@@ -54,16 +89,34 @@ cp _build/default/tools/now.exe ~/bin/ocamlnow
 source ~/.bashrc
 ```
 
-Finally, add your ssh keys to all the workers
+Finally, add your ssh keys to all the workers. In our case, our workers
 
 ```bash
+ssh-keygen
 SSH_PUB_key=$(cat ~/.ssh/id_rsa.pub)
-ssh fyquah@192.168.0.10 "echo '$SSH_PUB_key=' >>~/.ssh/authorized_keys"
-ssh fyquah@192.168.0.11 "echo '$SSH_PUB_key=' >>~/.ssh/authorized_keys"
-ssh fyquah@192.168.0.12 "echo '$SSH_PUB_key=' >>~/.ssh/authorized_keys"
+ssh fyquah@worker0 "echo '$SSH_PUB_key=' >>~/.ssh/authorized_keys"
+ssh fyquah@worker1 "echo '$SSH_PUB_key=' >>~/.ssh/authorized_keys"
+# ...
 ```
 
-## Cheatsheet
+## 2. Configuring the Worker
+
+1. Copy all the packages in `worker/deb-packages` to the desired worker
+2. ssh into the worker and install the packages via:
+
+```bash
+dpkg -i *.deb
+sudo apt-get install -f
+```
+
+In the experiments, the workers are virtually air-gapped, having only a
+single ethernet connection to the master machine via a network switch.
+
+## 3. Data Generation
+
+The first step of the optimisation pipeline is to generate data.
+
+## Misc: Some scripts to Corellate GC Stats etc. with Exec Times
 
 _Why aren't this a shell script? These are generally one-off things, and the
 variant off which they exist are too messy to be encoded as scripts. Hence,
