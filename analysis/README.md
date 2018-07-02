@@ -7,9 +7,9 @@ main "theoretical" components that lives in this part of the world are:
 - plotting scripts
 
 There is a lot of shell scripts and arbitrary scripts. The scripts were
-not structured in nice directories (tl; dr - research quality).
+not structured in organised directories.
 
-# Directory Structure from Data Generation
+## Directory Structure from Data Generation
 
 As the project was carried out on specific hard disks, the rundirs is
 expected to live in one of (which one exactly doesn't matter):
@@ -18,7 +18,7 @@ expected to live in one of (which one exactly doesn't matter):
 - `/media/usb2/home/fyquah/fyp/prod/rundir/`
 - `/media/usb3/prod/rundir/`
 
-# Call Site Reward Assignment
+### Call Site Reward Assignment
 
 The main data structure used here is the `expanded-tree`, as described in
 the report.
@@ -42,20 +42,21 @@ VERSION="out-v0-reproduce-relabel" ./extract_all.sh
 
 # Fitting by linear regression. These scripts performs automatic
 #   hyperparameter search.
-VERSION="out-v0-reproduce-relabel" /learn_all_lasso.sh
-VERSION="out-v0-reproduce-relabel" /learn_all_ridge.sh
+VERSION="out-v0-reproduce-relabel" ./learn_all_lasso.sh
+VERSION="out-v0-reproduce-relabel" ./learn_all_ridge.sh
 
-# 
-VERSION="out-v0-reproduce-relabel" /print_all_lasso.sh
-VERSION="out-v0-reproduce-relabel" /print_all_ridge.sh
+# Print the "optimal" inlining decisions
+VERSION="out-v0-reproduce-relabel" ./print_all_lasso.sh
+VERSION="out-v0-reproduce-relabel" ./print_all_ridge.sh
 ```
 
-## Data Extraction
+### Data Extraction
 
 The first stage of the pipeline for reward assignment is to extract all
 the inlining trees from every experiment. To extract all data, run:
 
 ```bash
+# Run this only if you have /media/usb mounted, and want to go from raw data.
 VERSION="out-v0-reproduce-relabel" ./extract_all.sh
 ```
 
@@ -71,7 +72,16 @@ a directory called out-$VERSION-reproduce-relabel/<experiment-name>,
 which contains the adjacency lists of inlining trees and execution times
 (stored in pickle format).
 
-## Assign Numerical Rewards to Nodes in Expanded Tree
+One of the early mistakes made in the project was not to have a stable
+labelling algorithm with a proof. Some of the data used in the project were
+not stably proven. `scripts/clean-with-path-patching` converts from the
+unproven labels to the proven in the inlining decision files, and is
+automatically invoked during feature extraction. The resultant "cleaned"
+and "fixed" inlining decisions are stored in
+`/media/usb/home/fyquah/processed-data/`
+
+
+### Assign Numerical Rewards to Nodes in Expanded Tree
 
 There is no real notion for selecting gamma (deacy factor), choice of
 preprocessing function and lambda (regularisation factor, in the case of
@@ -95,7 +105,7 @@ VERSION="out-v0-reproduce-relabel" ./learn_all_ridge.sh
 The results from reward assignment are then written to
 `out-$VERSION/exp-name/<lasso | ridge>/hyperparameter-name/rewards.npy`.
 
-## Print Predictive Modelling Inlining Decisions
+### Print Predictive Modelling Inlining Decisions
 
 ```bash
 VERSION="out-v0-reproduce-relabel" ./print_all_lasso.sh
@@ -113,7 +123,7 @@ and `out-$VERSION/exp-name/<lasso | ridge>/hyperparameter-name/optimal.sexp`,
 containing the "optimal" expanded tree and complete decision set, as defined
 by the optimisation procedure.
 
-## Benchmarking Inlining Decisions
+### Benchmarking Inlining Decisions
 
 To benchmark the predicting modeling decisions, and assuming you have made
 the necessary setups, run:
@@ -126,7 +136,9 @@ cd ../  # Go back to root directory of this repo.
 
 This will take awhile ....
 
-## Selecting `h_general` and `H_star`
+To visualise the results, see [a later section](#Printing-Benchmark-Results)
+
+### Selecting `h_general` and `H_star`
 
 ```bash
 python select_best_model_hyperparams.py --model ridge-v0-reproduce-relabel/ \
@@ -141,7 +153,7 @@ writing of this thesis. The selected hyperparameters are written to
 `out-v0-reproduce-relabel/*-general-hyperparams.txt` respectively. They
 are used for deriving labels used in the inlining policy.
 
-## Misc.
+### Misc.
 
 The report mentioned the study of the effects of the regularisation factor
 in lasso regression, ceteris peribus. The scripts used to study that are
@@ -156,48 +168,97 @@ print_lasso_with_alpha.sh
 
 They can be used similarly to the instructions above.
 
-# Learning an Inlining Policy
+## Learning an Inlining Policy
 
-## Feature Extraction
+This is the final stage of the optimisation pipeline, that is to turn
+rewards into a model that decides when to inline a function.
 
+The following bash snippets assume that you are in the `analysis` directory,
+similar to the previous section.
 
-
-
-## Directory Structure
-
-Files used to collect data from our large messy set of execution statistics:
-
-- `extract_data_from_experiments.py` - Extract data from the archive files
-  that I have collected in the 3 machines sitting in 505. The data is
-  assumed to reside in /media/usb or /media/usb2 or /media/usb<n> or ...
-
-
-In general, most experiments have two files:
-
-- `learn_<exp_name>.py` - optimises things
-- `print_<exp_name>.py` - print what the model has figured out, inlining
-  decisions etc.
-
-The modelling results will be storred in `modelling-results` with the
-following data stucture:
+tl; dr - To reproduce everything from raw data and reward assignments for
+this section, run the following code snippet:
 
 ```bash
-out/
-  almabench/
-    properties.pkl
-    edges_lists.pkl
-    execution_times.npz
-    node_labels.npz
-    linear_general_reward/
-      somewhat-meaningful-id/
-        hyperparams.pkl
+# Run the following two only if you want to go from raw data. They can take
+# a long long time (up to 12 hours on a reasonably powerful 8-core machine)
+./scripts/extract-features-from-all-experiments  # assumes /media/usb/ is mounted.
+./scripts/dump_features_from_all_experiments.sh  # assumes /media/usb/ is mounted.
+
+./scripts/gen-merged-features-and-rewards
+cd ../tools/fyp_compiler_plugins/
+
+# Benchmarks all the models / inlining policies that were discussed in the
+# report.
+./bulk_bench.sh
 ```
 
+### Extracting Inlining Query
 
-## Modelling Algorithms & Experiments
+The following two scripts take the "cleaned" inlining decisions (described
+above) and run them with the compilation flags that generates the set of
+inlining decisions that were taken in the first round of Flambda inlining.
+To do that, run:
 
-- `linear_specialised_reward` - the model I first talk to DT about.
-  Contributions are added lienarly throughout the paths in the tree.
-- `linear_general_reward` - similar to above, except using a shared
-  contribution value for every experiment rather than using something that
-  is specialised for every experimental run.
+```bash
+# Run the following two only if you want to go from raw data. They can take
+# a long long time (up to 12 hours on a reasonably powerful 8-core machine)
+./scripts/extract-features-from-all-experiments  # assumes /media/usb/ is mounted.
+./scripts/dump_features_from_all_experiments.sh  # assumes /media/usb/ is mounted.
+```
+
+The first script and stores them in `/media/usb/home/fyquah/processed-data/`
+in a file called `queries-v0.bin`.
+
+The second script takes all the queries extracted, concatenates them and
+stores them in `../w/<exp-name>/queries-v0.bin`
+
+
+### Generating Feature-Reward Pairs
+
+There were several different kinds of reward assignment schemes, namely
+`H_star`, `h_general` and `h_hand` from both ridge and lasso regression.
+The following script generate the combined feature-reward pairs.
+
+```bash
+./scripts/gen-merged-features-and-rewards
+```
+
+The script invokes `scripts/dump_rewards_from_all_experiments.sh` and
+`scripts/merge_feature_and_rewards_from_all_experiments`. The former dumps
+the learnt reward vector into
+`../w/reward-v0-reproduce-relabel/<lasso | ridge>/<exp-name>/rewards.sexp`.
+The latter runs the feature-reward merge procedure (by mathcing labels) and
+stores the results in
+`report_plots/reward_assignment/data/$REWARD_MODEL/$exp/feature_reward_pair_v3.sexp`.
+
+After invoking the said two scripts, the script invokes `feature_loader.py`,
+which concats all the features for a given reward-assignment model together.
+
+_Note: there has been 4 iterations of feature selection. The version used
+here (and the report) is V3. The parameter can be configured by modifying
+`scripts/gen-merged-features-and-rewards`_
+
+### Learning and Benchmarking
+
+As the dataset is not extremely big (only around 4.3k data points), training
+is pretty fast (runs under 20 seconds). For that reason, there was no
+infrastructure setup to execute machine learning.
+
+To benchmark all models disucssed, run the following (from `analysis`
+subdirectory).
+
+```bash
+cd ../tools/fyp_compiler_plugins/
+./bulk_bench.sh
+```
+
+`bulk_bench.sh` benchmarks the lasso regression models (3)
+and the regression models whilist logarithimically varying the
+uncertainty threshold / bound (3 * 8) and lasso CMoE and ridge CMoE. In
+addition to this, the script also benchmarks a "nothing" plugin, that
+compiles the program without overidding inlining decisions.
+
+## Printing Benchmark Results
+
+

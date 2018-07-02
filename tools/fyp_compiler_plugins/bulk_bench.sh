@@ -8,10 +8,7 @@ export PATH="$HOME/fyp/worker-dispatcher/hacks:$PATH"
 export OCAMLOPT_TIMEOUT="1m"
 
 ./compile_and_benchmark_v1_ridge_moe.sh
-exit 0
-
 ./compile_and_benchmark_v1_lasso_moe.sh
-./compile_and_benchmark_nothing.sh
 ./compile_and_benchmark_v1_lasso.sh hand   
 ./compile_and_benchmark_v1_lasso.sh general
 ./compile_and_benchmark_v1_lasso.sh star   
@@ -23,3 +20,7 @@ for b in $BOUNDS; do
    ./compile_and_benchmark_v1_ridge.sh general $b
    ./compile_and_benchmark_v1_ridge.sh star    $b
 done
+
+./compile_and_benchmark_nothing.sh
+
+exit 0
