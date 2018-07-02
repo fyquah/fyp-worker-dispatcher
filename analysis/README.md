@@ -18,7 +18,7 @@ expected to live in one of (which one exactly doesn't matter):
 - `/media/usb2/home/fyquah/fyp/prod/rundir/`
 - `/media/usb3/prod/rundir/`
 
-### Call Site Reward Assignment
+## Call Site Reward Assignment
 
 The main data structure used here is the `expanded-tree`, as described in
 the report.
@@ -136,9 +136,7 @@ cd ../  # Go back to root directory of this repo.
 
 This will take awhile ....
 
-To visualise the results, see [a later section](#Printing-Benchmark-Results)
-
-### Selecting `h_general` and `H_star`
+### Selecting `h_general` and `H_star` + Printing Results
 
 ```bash
 python select_best_model_hyperparams.py --model ridge-v0-reproduce-relabel/ \
@@ -147,8 +145,11 @@ python select_best_model_hyperparams.py --model lasso-v0-reproduce-relabel/ \
          --prefix lasso --output-dir out-v0-reproduce-relabel/
 ```
 
-You can ignore the latex output printed to stdout, they were used for
-writing of this thesis. The selected hyperparameters are written to
+The output printed to stdout is the latex table of the results. You can paste
+the results in (pipe the results into `| xclip -sel clip` and paste it in
+some latex rendering tool).
+
+The selected hyperparameters are written to
 `out-v0-reproduce-relabel/*-best-hyperparams.sexp` and
 `out-v0-reproduce-relabel/*-general-hyperparams.txt` respectively. They
 are used for deriving labels used in the inlining policy.
@@ -259,6 +260,20 @@ uncertainty threshold / bound (3 * 8) and lasso CMoE and ridge CMoE. In
 addition to this, the script also benchmarks a "nothing" plugin, that
 compiles the program without overidding inlining decisions.
 
-## Printing Benchmark Results
+### Printing Benchmark Results
 
+The raw results are stored in
+`../results/<exp-name>/plugins/plugin_<model-name>.sexp`.
+To print the results, use the `report_plots/machine_learning/print_exec_stats_table.py`
+script. The first argument to the script is the name of the the model which
+you are interested in inspecting results.
 
+```bash
+cd analysis/  # Only if you are not in the analysis subdirectory
+
+# Some examples of printing results:
+PYTHONPATH=. python report_plots/machine_learning/print_exec_stats_table.py v1_neural_network_lasso_star
+PYTHONPATH=. python report_plots/machine_learning/print_exec_stats_table.py v1_neural_network_ridge_star_0.0005
+PYTHONPATH=. python report_plots/machine_learning/print_exec_stats_table.py v1_neural_network_lasso_moe
+PYTHONPATH=. python report_plots/machine_learning/print_exec_stats_table.py v1_neural_network_ridge_moe
+```
