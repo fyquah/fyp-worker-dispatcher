@@ -29,6 +29,8 @@ To make it easier to reproduce the results due to (4) and (5) (which is more
 interesting, anyway), simply skip to
 [analysis/README.md](analysis/README.md) and follow the instructions there.
 
+## Directory Structure
+
 
 ## 1. Configuring the Master Machine
 
@@ -97,6 +99,12 @@ SSH_PUB_key=$(cat ~/.ssh/id_rsa.pub)
 ssh fyquah@worker0 "echo '$SSH_PUB_key=' >>~/.ssh/authorized_keys"
 ssh fyquah@worker1 "echo '$SSH_PUB_key=' >>~/.ssh/authorized_keys"
 # ...
+```
+
+Compile everything!
+
+```
+make  # Pls ignore the warnings :P
 ```
 
 ## 2. Configuring the Worker
