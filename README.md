@@ -7,9 +7,14 @@ Presentation slides: [http://www.fyquah.me/fyp/presentation.pdf](http://www.fyqu
 
 Pipeline summary: [http://www.fyquah.me/fyp/summary.pdf](http://www.fyquah.me/fyp/summary.pdf)
 
+THIS IS A RESERACH PROJECT, hence, the contents of the repository is not
+production ready. To even get something up and running is quite difficult,
+but can be done with the instructions below.
 
 This repository contains most of the code I have used when working on my
-final year project. Some other relevant repositories are:
+final year project.
+
+Some other relevant repositories are:
 
 - [OCaml fork](https://github.com/fyquah95/fyp-ocaml) patched with the necessary support
 - [Benchmark repository](https://github.com/fyquah95/fyp-experiments)
@@ -32,7 +37,9 @@ All this will probably take a long time, so, there are 3 "levels" of
 reproducing you can try:
 
 (A) From raw benchmarks. This will take a few weeks
+
 (B) From raw data (obtained via data generation). This will take at most a week.
+
 (C) From processed data (obtained via data generation). This will take at most a day.
 
 In (A), you perform data generation yourself.
@@ -82,65 +89,6 @@ $HOME/fyp/
     worker_dispatcher.opam
 ```
 
-The master machine in this work used a debian jessie machine
-
-Install apt packages that we definitely require:
-
-```bash
-sudo apt-get install zip build-essential git tmux curl
-curl -sSL https://gist.githubusercontent.com/fyquah95/2621159524ec7341e0be/raw/51980b660d1b59f19b4a6c582f21a32c159a3c2f/.tmux.conf | sed -e 's/zsh/bash/g' >~/.tmux.conf
-
-# These are required by owl
-sudo apt-get install libgsl0-dev liblapacke-dev libopenblas-dev pkg-config libplplot-dev libshp-dev m4
-```
-
-
-Install opam
-
-```bash
-wget https://raw.github.com/ocaml/opam/master/shell/opam_installer.sh -O - | sh -s /usr/local/bin
-```
-
-Setup the FYP compilation environment
-
-```bash
-cd ~/fyp/worker-dispatcher
-./scripts/configure-fyp-env
-```
-
-Install the packages we need to compile worker dispatcher and friends:
-
-```bash
-opam install core=v0.9.1  # Version here is important, our code doesn't compile with
-                          # the newer core versions
-opam install jbuilder async async_shell async_unix menhir owl
-```
-
-"installing" ocamlnow
-
-```bash
-echo 'export PATH="$PATH:$HOME/bin/"' >> ~/.bashrc
-mkdir -p ~/bin/
-cp _build/default/tools/now.exe ~/bin/ocamlnow
-source ~/.bashrc
-```
-
-Finally, add your ssh keys to all the workers. In our case, our workers
-
-```bash
-ssh-keygen
-SSH_PUB_key=$(cat ~/.ssh/id_rsa.pub)
-ssh fyquah@worker0 "echo '$SSH_PUB_key=' >>~/.ssh/authorized_keys"
-ssh fyquah@worker1 "echo '$SSH_PUB_key=' >>~/.ssh/authorized_keys"
-# ...
-```
-
-Compile everything!
-
-```
-make  # Pls ignore the warnings :P
-```
-
 ## 1. Setup Vagrant
 
 You will need the vagrant disk size plugin and 50GB space
@@ -156,7 +104,10 @@ This will enter vagrant environment.
 vagrant ssh
 ```
 
-Optionally, you can setup the master node yourself, with the [instructions here](SETTING_UP_MASTER.md)
+Optionally, you can setup the master node yourself, with the [instructions here](SETTING_UP_MASTER.md). Some other configurations you have to make yourself will be to modify
+`prod-configs/all.sexp` and `prod-configs/only-worker-*.sexp` so that they
+point to the right IP addresses of the workers. This is highly dependent
+on your local configuration.
 
 ## 2. Configuring the Worker
 
