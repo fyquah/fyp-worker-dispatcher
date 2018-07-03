@@ -195,7 +195,16 @@ you are not using the exact same environment setup as myself (it's very
 unlikely that you are), you will want to modify the scripts appropriately,
 especially `scripts/run_prod.sh`.
 
-## Misc: Some scripts to Corellate GC Stats etc. with Exec Times
+## Misc: Raw Data data -> `pca-data/`
+
+This section gives you an idea on how data from your rundirs can be converted
+to csv data in the form in `pca-data`. The original idea was to see if there
+is any obvious correlation / indicator from the `perf` data w.r.t.
+performance, but this idea was not explored (in favor of a more general-
+purporse [reward-assignment model](analysis/README.md)). These scripts
+illustrates how to populate pca-data appropriately, as well as obtain
+the number of instructions from the generated binary. You *probably don't
+need this section*
 
 _Why aren't this a shell script? These are generally one-off things, and the
 variant off which they exist are too messy to be encoded as scripts. Hence,
