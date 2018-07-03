@@ -16,20 +16,27 @@ final year project. Some other relevant repositories are:
 - [An opam repo](https://github.com/fyquah95/fyp-opam-repo-dev) containing the opam repo
 - [This repository](https://github.com/fyquah95/fyp-worker-dispatcher) which contains most of the engineering and analysis work.
 
-To reproduce the results in the thesis, you need to:
+To reproduce the results in the thesis (from scratch), you need to:
 
 1. Configure the master machine
 2. Configure the benchmark environments
 3. Run data generation
-4. Run reward assignment
+4. Run reward assignment (See the [analysis section](analysis/README.md))
 5. Train and benchmark inlining policies
+   (See the [analysis section](analysis/README.md))
 
 Most of the "interesting" analysis goes on in (4) and (5), which are
-discussed in [analysis/README.md](analysis/README.md).
+discussed in [analysis/README.md](analysis/README.md). Hence, if you are
+only interested in that section of the project, it is much easier (and
+takes much less time)
+
+1. Use [this Vagrantfile]() to configure the development environment.
+2. Run reward assignment (See the [analysis section](analysis/README.md))
+3. Train and benchmark inlining policies (See the [analysis section](analysis/README.md))
 
 To make it easier to reproduce the results due to (4) and (5) (which is more
 interesting, anyway), simply skip to
-[analysis/README.md](analysis/README.md) and follow the instructions there.
+(analysis/README.md) and follow the instructions there.
 
 ## Project Structure
 
@@ -56,6 +63,8 @@ $HOME/fyp/
                    # (such as simulated annealing-based data generation)
     protocol/  # Source code for several data structures and configuration
                #  s-expressions live here
+    tools/   # Code for tooling lives here
+      fyp_compiler_plugins/  # Code for inlining policies live here
     results/  # Execution time from running training and test benchmarks
     scripts/  # All arbitrary scripts live here.
     test/     # test for various parts of the code.
@@ -194,6 +203,62 @@ The scripts made some assumptions of the network setup I was using, so if
 you are not using the exact same environment setup as myself (it's very
 unlikely that you are), you will want to modify the scripts appropriately,
 especially `scripts/run_prod.sh`.
+
+## Misc: Benchmarking
+
+To get a full list of benchmarks used in the project, run
+
+```bash
+python scripts/query_experiment_params.py --all
+```
+
+For just the training benchmarks:
+
+```bash
+python scripts/query_experiment_params.py --all-old
+```
+
+### Manual Usage
+
+If you want to run a benchmark with a certain set of inlining overrides:
+
+```bash
+./scripts/run-benchmark almabench decision.sexp
+# decision.sexp is a S-expression serialised list of inlining decisions
+```
+
+this results of execution will be written to standard out.
+
+### Benchmarking a Predictive Model
+
+To benchmark a certain model, first ensure that you have the optimal
+inlining tree (see [the analysis README](analysis/README.md) for more
+information about this) are correctly written in
+`analysis/out-$VERSION/<exp-name>/<model>/<hyperparams>/optimal.sexp`. To run
+the benchmark for all hyperparameter configurations for a given model:
+
+```bash
+VERSION="v0-reproduce-relabel" \
+         ./scripts/run-all-benchmarks <model-name> [exp-name]
+# omitting exp-name will result in all experiments being benchamrked.
+```
+
+The results will be stored in `results/<exp-name>/<model>/<hyperparams>.csv`.
+
+### Benchmarking Inlining Policy
+
+Inlining policies are distributed in the form of OCaml compiler plugins.
+See [the analysis README](analysis/README.md) for more information on how
+benchmarks are organised.
+
+If you have a (correctly-formatted and compiled) OCaml plugin, run
+
+```bash
+./scripts/run-plugin-benchmark <plugin-name> [exp-name]
+# omitting exp-name will result in all experiments being benchamrked.
+```
+
+the result will be written to `results/<exp-name>/plugins/plugin_<plugin-name>.csv`
 
 ## Misc: Raw Data data -> `pca-data/`
 
