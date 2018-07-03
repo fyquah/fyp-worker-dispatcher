@@ -1,6 +1,9 @@
 #!/bin/bash
+# Setups the dependencies required to compile some of the macro benchmarks.
 
-# sudo yum install gmp gmp-devel
+# TODO: Install using specific versions of packages!
+
+sudo apt-get install -y gmp libgmp-dev
 
 set -euo pipefail
 
