@@ -1,8 +1,5 @@
 # FYP: Inlining ML with ML
 
-*Why is this repo called worker-dispatcher? We will never know, but FWIW,
-you can treat this repo as the "main" repo for the project.*
-
 Presentation slides: [http://www.fyquah.me/fyp/presentation.pdf](http://www.fyquah.me/fyp/presentation.pdf)
 
 Pipeline summary: [http://www.fyquah.me/fyp/summary.pdf](http://www.fyquah.me/fyp/summary.pdf)
@@ -23,7 +20,7 @@ Some other relevant repositories are:
 
 To reproduce the results in the thesis from scratch, you need to:
 
-1. Use [this Vagrantfile]() to configure the development environment.
+1. Configure the development environment.
 2. Configure the benchmark environments
 3. Run data generation
 4. Run reward assignment (See the [analysis section](analysis/README.md))
@@ -31,7 +28,8 @@ To reproduce the results in the thesis from scratch, you need to:
    (See the [analysis section](analysis/README.md))
 
 Most of the "interesting" analysis goes on in (4) and (5), which are
-discussed in [analysis/README.md](analysis/README.md).
+discussed in [analysis/README.md](analysis/README.md). (1), (2) and (3) are
+required to setup benchmarks.
 
 All this will probably take a long time, so, there are 3 "levels" of
 reproducing you can try:
@@ -89,25 +87,30 @@ $HOME/fyp/
     worker_dispatcher.opam
 ```
 
-## 1. Setup Vagrant
+## 1. Configure the development Environment
 
-You will need the vagrant disk size plugin and 50GB space
-
-```bash
-vagrant plugin install vagrant-disksize
-vagrant up
-```
-
-This will enter vagrant environment.
-
-```bash
-vagrant ssh
-```
-
-Optionally, you can setup the master node yourself, with the [instructions here](SETTING_UP_MASTER.md). Some other configurations you have to make yourself will be to modify
+You can setup the master node yourself, with the
+[instructions here](SETTING_UP_MASTER.md). Some other configurations you have to make yourself will be to modify
 `prod-configs/all.sexp` and `prod-configs/only-worker-*.sexp` so that they
 point to the right IP addresses of the workers. This is highly dependent
 on your local configuration.
+
+Once you are done setting up the environment, and interested in reproducing
+with method (C) (that is, from processed data).
+
+This data is not publicly available (hopefully, will be at some point) and
+is in a hard disk.  Assuming you have this hard disk, you can simply paste
+the data by:
+
+```bash
+# Assuming disk is mounted to /media/external
+
+cd ~/fyp/worker-dispatcher/
+scp -R /media/external/home/fyquah/fyp-reproduce/w/ ./w/
+scp -R /media/external/home/fyquah/fyp-reproduce/analysis/out-v0-reproduce-relabel \
+  ./analysis/out-reproduce-relabel
+```
+
 
 ## 2. Configuring the Worker
 

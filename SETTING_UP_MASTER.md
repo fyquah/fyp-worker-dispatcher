@@ -1,3 +1,11 @@
+# Setting up a Master Node
+
+*Ideally, this should be a vagrantfile, but I did not have time to do this.*
+
+I have tested these instructions in a vagrant instance. The reason why this
+isn't a vagrant instance is because I was struggling to get a vagrant debian
+box with the right disk sizes.
+
 Install debian dependencies
 
 ```bash
@@ -70,4 +78,11 @@ echo 'export PATH="$PATH:$HOME/bin/"' >> ~/.bashrc
 mkdir -p ~/bin/
 cp _build/default/tools/now.exe ~/bin/ocamlnow
 source ~/.bashrc
+```
+
+Install python dependencies. I assume you have python2.7
+
+```bash
+cd ~/fyp/worker-dispatcher/metadata-filelist
+pip install <python-requirements.txt
 ```
