@@ -1,3 +1,7 @@
+# Analysis
+
+*I assume you have looked through the main README*
+
 All the python programs (excluding some very very simply scripts, which can
 live in ROOT/scripts/) used in the project lives in this directory. The
 main "theoretical" components that lives in this part of the world are:
@@ -9,17 +13,25 @@ main "theoretical" components that lives in this part of the world are:
 There is a lot of shell scripts and arbitrary scripts. The scripts were
 not structured in organised directories.
 
-As the project was carried out on specific hard disks, the rundirs is
-expected to live in one of (which one exactly doesn't matter):
+As the project was carried out on specific hard disks, the rundirs in raw
+data is expected to live in one of (which one exactly doesn't matter):
 
 - `/media/usb/home/fyquah/fyp/prod/rundir/`
 - `/media/usb2/home/fyquah/fyp/prod/rundir/`
 - `/media/usb3/prod/rundir/`
 
+The weird naming is due to a weird initial design decision to write raw
+data directly into the same disk, rather than writing to an external hard
+disk symlinked to `~/fyp/prod/`.
+
 The following sections below will discuss how the results in the reports
 were produced, and the roles of scripts throughout the directory.
 
-## Call Site Reward Assignment
+Prior to doing anything, run `make` in the `analysis/` directory, it
+compiles the shared libraries for faster inlining tree construction from
+adjacency lists.
+
+## 4. Call Site Reward Assignment
 
 The main data structure used here is the `expanded-tree`, as described in
 the report.
@@ -171,7 +183,7 @@ print_lasso_with_alpha.sh
 
 They can be used similarly to the instructions above.
 
-## Learning an Inlining Policy
+## 5. Learning an Inlining Policy
 
 This is the final stage of the optimisation pipeline, that is to turn
 rewards into a model that decides when to inline a function.
