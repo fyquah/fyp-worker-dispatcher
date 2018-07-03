@@ -38,7 +38,7 @@ cd path/to/fyp/analysis
 # Note: Every script uses all core in the machine, so DO NOT parallelise
 #       these 3 scripts.
 
-# Data extraction
+# Data extraction. Do this only for reproduction level (B) and (A)
 VERSION="out-v0-reproduce-relabel" ./extract_all.sh
 
 # Fitting by linear regression. These scripts performs automatic
@@ -58,6 +58,7 @@ the inlining trees from every experiment. To extract all data, run:
 
 ```bash
 # Run this only if you have /media/usb mounted, and want to go from raw data.
+# Data extraction. Do this only for reproduction level (B) and (A)
 VERSION="out-v0-reproduce-relabel" ./extract_all.sh
 ```
 
@@ -184,6 +185,7 @@ this section, run the following code snippet:
 ```bash
 # Run the following two only if you want to go from raw data. They can take
 # a long long time (up to 12 hours on a reasonably powerful 8-core machine)
+# Data extraction. Do this only for reproduction level (B) and (A)
 ./scripts/extract-features-from-all-experiments  # assumes /media/usb/ is mounted.
 ./scripts/dump_features_from_all_experiments.sh  # assumes /media/usb/ is mounted.
 
@@ -205,6 +207,7 @@ To do that, run:
 ```bash
 # Run the following two only if you want to go from raw data. They can take
 # a long long time (up to 12 hours on a reasonably powerful 8-core machine)
+# Data extraction. Do this only for reproduction level (B) and (A)
 ./scripts/extract-features-from-all-experiments  # assumes /media/usb/ is mounted.
 ./scripts/dump_features_from_all_experiments.sh  # assumes /media/usb/ is mounted.
 ```

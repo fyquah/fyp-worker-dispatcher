@@ -16,9 +16,9 @@ final year project. Some other relevant repositories are:
 - [An opam repo](https://github.com/fyquah95/fyp-opam-repo-dev) containing the opam repo
 - [This repository](https://github.com/fyquah95/fyp-worker-dispatcher) which contains most of the engineering and analysis work.
 
-To reproduce the results in the thesis (from scratch), you need to:
+To reproduce the results in the thesis from scratch, you need to:
 
-1. Configure the master machine
+1. Use [this Vagrantfile]() to configure the development environment.
 2. Configure the benchmark environments
 3. Run data generation
 4. Run reward assignment (See the [analysis section](analysis/README.md))
@@ -26,17 +26,21 @@ To reproduce the results in the thesis (from scratch), you need to:
    (See the [analysis section](analysis/README.md))
 
 Most of the "interesting" analysis goes on in (4) and (5), which are
-discussed in [analysis/README.md](analysis/README.md). Hence, if you are
-only interested in that section of the project, it is much easier (and
-takes much less time)
+discussed in [analysis/README.md](analysis/README.md).
 
-1. Use [this Vagrantfile]() to configure the development environment.
-2. Run reward assignment (See the [analysis section](analysis/README.md))
-3. Train and benchmark inlining policies (See the [analysis section](analysis/README.md))
+All this will probably take a long time, so, there are 3 "levels" of
+reproducing you can try:
 
-To make it easier to reproduce the results due to (4) and (5) (which is more
-interesting, anyway), simply skip to
-(analysis/README.md) and follow the instructions there.
+(A) From raw benchmarks. This will take a few weeks
+(B) From raw data (obtained via data generation). This will take at most a week.
+(C) From processed data (obtained via data generation). This will take at most a day.
+
+In (A), you perform data generation yourself.
+
+In (B), you are given the data from data generation.
+
+In (C), you are given the adjadency list for expanded trees of all the
+training benchmarks. This is probably what you want.
 
 ## Project Structure
 
@@ -78,9 +82,6 @@ $HOME/fyp/
     worker_dispatcher.opam
 ```
 
-
-## 1. Configuring the Master Machine
-
 The master machine in this work used a debian jessie machine
 
 Install apt packages that we definitely require:
@@ -93,20 +94,6 @@ curl -sSL https://gist.githubusercontent.com/fyquah95/2621159524ec7341e0be/raw/5
 sudo apt-get install libgsl0-dev liblapacke-dev libopenblas-dev pkg-config libplplot-dev libshp-dev m4
 ```
 
-Clone all the relevant repos:
-
-```bash
-ssh-keygen
-
-##### Then, Add ssh key to github #####
-
-mkdir -p ~/fyp
-git clone git@github.com:fyquah95/fyp-worker-dispatcher.git worker-dispatcher
-git clone git@github.com:fyquah95/fyp-ocaml.git ocaml
-git clone git@github.com:fyquah95/fyp-experiments.git experiments
-git clone git@github.com:fyquah95/fyp-opam-repo-dev.git opam-repo-dev
-git clone git@github.com:fyquah95/tensorflow-ocaml.git tensorflow-ocaml
-```
 
 Install opam
 
@@ -154,6 +141,23 @@ Compile everything!
 make  # Pls ignore the warnings :P
 ```
 
+## 1. Setup Vagrant
+
+You will need the vagrant disk size plugin and 50GB space
+
+```bash
+vagrant plugin install vagrant-disksize
+vagrant up
+```
+
+This will enter vagrant environment.
+
+```bash
+vagrant ssh
+```
+
+Optionally, you can setup the master node yourself, with the [instructions here](SETTING_UP_MASTER.md)
+
 ## 2. Configuring the Worker
 
 1. Copy all the packages in `worker/deb-packages` to the desired worker
@@ -170,6 +174,8 @@ In the experiments, the workers are virtually air-gapped, having only a
 single ethernet connection to the master machine via a network switch.
 
 ## 3. Data Generation
+
+*Perform this step only if you are trying to reproduce from step (A)*
 
 The first step of the optimisation pipeline is to generate data. To run
 simulated annealing on the training benchmars, run:
