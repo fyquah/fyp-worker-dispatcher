@@ -1,5 +1,8 @@
 # FYP: Inlining ML with ML
 
+*Why is this repo called worker-dispatcher? We will never know, but FWIW,
+you can treat this repo as the "main" repo for the project.*
+
 Presentation slides: [http://www.fyquah.me/fyp/presentation.pdf](http://www.fyquah.me/fyp/presentation.pdf)
 
 Pipeline summary: [http://www.fyquah.me/fyp/summary.pdf](http://www.fyquah.me/fyp/summary.pdf)
@@ -22,14 +25,49 @@ To reproduce the results in the thesis, you need to:
 5. Train and benchmark inlining policies
 
 Most of the "interesting" analysis goes on in (4) and (5), which are
-discussed in [analysis/README.md](analysis/README.md). (1), (2) and (3) are
-required to setup benchmarks.
+discussed in [analysis/README.md](analysis/README.md).
 
 To make it easier to reproduce the results due to (4) and (5) (which is more
 interesting, anyway), simply skip to
 [analysis/README.md](analysis/README.md) and follow the instructions there.
 
-## Directory Structure
+## Project Structure
+
+```bash
+$HOME/fyp/
+  experiments/
+  ocaml/
+  worker-dispatcher/  # THIS REPO
+    analysis-specs/
+    analysis/
+    codegen/
+    controller/  # Source code that runs data generation with simulated annealing / random walk lives here
+    experiment-scripts/  # scripts to aid running data generation. These scripts
+                         # are meant to be invoked by other scripts, not humans
+    fyp_compiler_lib/  # source code for compiler libraries
+    hacks/  # scripts used in benchmarking. This is a hacky solution to override
+            # ocamlopt.opt with something custom-made
+    important-logs/
+    metadata-filelist/  # Stores interesting list of files.
+    optimization/  # Source code for simulated annealing over asynchronous
+                   # processes lives here
+    pca-data/  # N
+    prod-configs/  # Config files for executing long-running processes
+                   # (such as simulated annealing-based data generation)
+    protocol/  # Source code for several data structures and configuration
+               #  s-expressions live here
+    results/  # Execution time from running training and test benchmarks
+    scripts/  # All arbitrary scripts live here.
+    test/     # test for various parts of the code.
+
+    tf_config.pb  # Tensorflow config that makes sure that TF doesn't use
+                  # up the entire GPU.
+    dev_config.sexp  # Config files for executing long-running dev processes
+    training_tasks.txt  # List of task for running data-generation on training
+                        # benchmarks
+    Makefile
+    worker_dispatcher.opam
+```
 
 
 ## 1. Configuring the Master Machine
@@ -115,6 +153,8 @@ make  # Pls ignore the warnings :P
 ```bash
 dpkg -i *.deb
 sudo apt-get install -f
+cd ~
+mkdir -p worker-rundir/0
 ```
 
 In the experiments, the workers are virtually air-gapped, having only a
@@ -123,6 +163,17 @@ single ethernet connection to the master machine via a network switch.
 ## 3. Data Generation
 
 The first step of the optimisation pipeline is to generate data.
+
+```bash
+
+```
+
+- `scripts/run_parallel_experiments_from_file.sh` launches the same
+  experiment in 3 different processes
+
+The scripts made some assumptions of the network setup I was using, so if
+you are not using the exact same environment setup as myself (it's very
+unlikely that you are), you will want to modify the scripts appropriately.
 
 ## Misc: Some scripts to Corellate GC Stats etc. with Exec Times
 
