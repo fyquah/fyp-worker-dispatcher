@@ -162,18 +162,38 @@ single ethernet connection to the master machine via a network switch.
 
 ## 3. Data Generation
 
-The first step of the optimisation pipeline is to generate data.
+The first step of the optimisation pipeline is to generate data. To run
+simulated annealing on the training benchmars, run:
 
 ```bash
-
+EXPERIMENT_ROUND=0 ./scripts/run_training_experiments
 ```
+
+The script takes a long time to run. The script runs 3 processes in
+parallel, each one of the process exploring the *same* training benchmark.
+The configs used are `prod-configs/only-worker-0.sexp` and so on. The
+path to the rundirs of all of the experiments are written to
+`important-logs/batch_executor.log`.
+
+You will want to leave this script running for awhile, probably something
+like a week (or even more). Each process runs 300 steps of simulated
+annealing, and each step (usually) executes a binary 6 times. 1500 times 10s
+= 15,000 seconds per process. That is easily 5h (ignoring compilation time)
+for a single experiment's exploration. To explore 12 experiments, it
+will take 60 hours, just half a day under a week.
+
+Some relevant scripts that are (indirectly) invoked during data generation are:
 
 - `scripts/run_parallel_experiments_from_file.sh` launches the same
   experiment in 3 different processes
+- `experiment-scripts/simulated-annealing-generic` sets up the environment
+  variables for the next scripts
+- `scripts/run_prod.sh`
 
 The scripts made some assumptions of the network setup I was using, so if
 you are not using the exact same environment setup as myself (it's very
-unlikely that you are), you will want to modify the scripts appropriately.
+unlikely that you are), you will want to modify the scripts appropriately,
+especially `scripts/run_prod.sh`.
 
 ## Misc: Some scripts to Corellate GC Stats etc. with Exec Times
 
