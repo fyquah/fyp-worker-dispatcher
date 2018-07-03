@@ -47,6 +47,10 @@ opam switch 4.06.1
 eval `opam config env`
 ```
 
+Change the line with `/home/fyquah` in
+~/fyp/opam-repo-dev/compilers/4.06.0+fyp.comp to the relevant home directory
+in your setup.
+
 Compile OCaml compiler for compiling benchmarks (with support for inlining
 policies and overrides):
 
