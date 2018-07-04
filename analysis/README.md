@@ -1,6 +1,8 @@
 # Analysis
 
-*I assume you have looked through the main README*
+*I assume you have looked through the main README. Throughout this document,
+unless otherwise stated, the scripts assumes that you are in `ROOT/analysis`.
+ROOT will be used as a variable indicating the path to this repo.*
 
 All the python programs (excluding some very very simply scripts, which can
 live in ROOT/scripts/) used in the project lives in this directory. The
@@ -13,34 +15,27 @@ main "theoretical" components that lives in this part of the world are:
 There is a lot of shell scripts and arbitrary scripts. The scripts were
 not structured in organised directories.
 
-As the project was carried out on specific hard disks, the rundirs in raw
-data is expected to live in one of (which one exactly doesn't matter):
+## Structure of Raw Data
+
+The rundirs in raw data is expected to live in one of (which one exactly
+doesn't matter):
 
 - `/media/usb/home/fyquah/fyp/prod/rundir/`
 - `/media/usb2/home/fyquah/fyp/prod/rundir/`
 - `/media/usb3/prod/rundir/`
 
-The weird naming is due to a weird initial design decision to write raw
+*The weird naming is due to a weird initial design decision to write raw
 data directly into the same disk, rather than writing to an external hard
-disk symlinked to `~/fyp/prod/`.
+disk symlinked to `~/fyp/prod/`.*
 
 The following sections below will discuss how the results in the reports
 were produced, and the roles of scripts throughout the directory.
 
-Prior to doing anything, run `make` in the `analysis/` directory, it
+Prior to doing anything, run `make` in the `analysis/` directory. This
 compiles the shared libraries for faster inlining tree construction from
 adjacency lists.
 
 ## 4. Call Site Reward Assignment
-
-The main data structure used here is the `expanded-tree`, as described in
-the report.
-
-The primary data structures are provided by
-
-- `inlining_tree.py` - Albeit it's name, it actually provides the expanded
-   tree as described in the report. The name is as such because I found out
-   about expanded trees after writing this part.
 
 tl; dr : To reproduce this stage of the project's results, run the following:
 
@@ -63,10 +58,17 @@ VERSION="out-v0-reproduce-relabel" ./print_all_lasso.sh
 VERSION="out-v0-reproduce-relabel" ./print_all_ridge.sh
 ```
 
+The main data structure used here is the `expanded-tree`, as described in
+the report. This data structure is provided by the module `inlining_tree.py`.
+Albeit it's name, it actually provides the expanded tree as described in the
+report. The name is as such because I found out about this need for expanded
+trees after programming this part of the project.
+
 ### Data Extraction
 
 The first stage of the pipeline for reward assignment is to extract all
-the inlining trees from every experiment. To extract all data, run:
+the inlining trees from every execution (or rundirs). To extract all data,
+run:
 
 ```bash
 # Run this only if you have /media/usb mounted, and want to go from raw data.
@@ -84,7 +86,9 @@ The script simply runs extraction in parallel, invoking the following files:
 Running each extraction script using `extract_data_from_experiment.py` creates
 a directory called out-$VERSION-reproduce-relabel/<experiment-name>,
 which contains the adjacency lists of inlining trees and execution times
-(stored in pickle format).
+(stored in pickle format). The VERSION variable indicates which version of
+the data is extracted. For reproduction purposes, you can just assume
+that this is always `out-v0-reproduce-relabel`.
 
 One of the early mistakes made in the project was not to have a stable
 labelling algorithm with a proof. Some of the data used in the project were
@@ -95,19 +99,21 @@ and "fixed" inlining decisions are stored in
 `/media/usb/home/fyquah/processed-data/`
 
 
-### Assign Numerical Rewards to Nodes in Expanded Tree
+### Optimisation / "Learning" Reward Values
 
-There is no real notion for selecting gamma (deacy factor), choice of
+There is no real notion for selecting gamma (decay factor), choice of
 preprocessing function and lambda (regularisation factor, in the case of
 ridge regression). There are shell scripts that automatically select
-"sensible" values to perform an exhaustive search on.
+"sensible" values to perform a grid search on.
 
-To assign numerical rewards using both schemes, run the following script:
+Run the following script:
 
 ```bash
 VERSION="out-v0-reproduce-relabel" ./learn_all_lasso.sh
 VERSION="out-v0-reproduce-relabel" ./learn_all_ridge.sh
 ```
+
+The said shell scripts invoke the following scripts:
 
 - `learn_lasso.py` and `learn_ridge.py` construct the problem as a linear
   MSE problem (with matrices) and write the learnt reward values into
@@ -160,7 +166,7 @@ python select_best_model_hyperparams.py --model lasso-v0-reproduce-relabel/ \
 ```
 
 The output printed to stdout is the latex table of the results. You can paste
-the results in (pipe the results into `| xclip -sel clip` and paste it in
+the results in (pipe the results into `xclip -sel clip` and paste it in
 some latex rendering tool).
 
 The selected hyperparameters are written to
@@ -191,8 +197,8 @@ rewards into a model that decides when to inline a function.
 The following bash snippets assume that you are in the `analysis` directory,
 similar to the previous section.
 
-tl; dr - To reproduce everything from raw data and reward assignments for
-this section, run the following code snippet:
+tl; dr - To reproduce everything from raw data and reward assignments to
+inlining policies, run the following code snippet:
 
 ```bash
 # Run the following two only if you want to go from raw data. They can take
@@ -217,19 +223,19 @@ inlining decisions that were taken in the first round of Flambda inlining.
 To do that, run:
 
 ```bash
-# Run the following two only if you want to go from raw data. They can take
-# a long long time (up to 12 hours on a reasonably powerful 8-core machine)
-# Data extraction. Do this only for reproduction level (B) and (A)
+# Call site feature extraction. Do this only for reproduction level (B) and (A)
 ./scripts/extract-features-from-all-experiments  # assumes /media/usb/ is mounted.
 ./scripts/dump_features_from_all_experiments.sh  # assumes /media/usb/ is mounted.
 ```
 
-The first script and stores them in `/media/usb/home/fyquah/processed-data/`
+The first script recompiles the programs with a flag that dumps the features
+of function call sites, and stores them in `/media/usb/home/fyquah/processed-data/`
 in a file called `queries-v0.bin`.
 
-The second script takes all the queries extracted, concatenates them and
-stores them in `../w/<exp-name>/queries-v0.bin`
+The second script takes all the queries extracted from the first script,
+concatenates them and stores them in `../w/<exp-name>/queries-v0.bin`
 
+These two scripts, combined, can take around a day to run on a 8-core machine.
 
 ### Generating Feature-Reward Pairs
 
@@ -254,7 +260,10 @@ which concats all the features for a given reward-assignment model together.
 
 _Note: there has been 4 iterations of feature selection. The version used
 here (and the report) is V3. The parameter can be configured by modifying
-`scripts/gen-merged-features-and-rewards`_
+`scripts/gen-merged-features-and-rewards`. V1 to V3 features are
+constructed from inlining queries, whereas V0 is constructed directly
+from compilation, ie, compilation generates `features-v0.sexp` rather than
+`queries-v0.bin`._
 
 ### Learning and Benchmarking
 
@@ -274,7 +283,7 @@ cd ../tools/fyp_compiler_plugins/
 and the regression models whilist logarithimically varying the
 uncertainty threshold / bound (3 * 8) and lasso CMoE and ridge CMoE. In
 addition to this, the script also benchmarks a "nothing" plugin, that
-compiles the program without overidding inlining decisions.
+compiles the program without overidding inlining decisions (as a baseline).
 
 ### Printing Benchmark Results
 

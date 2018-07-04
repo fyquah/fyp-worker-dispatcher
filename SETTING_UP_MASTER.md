@@ -1,18 +1,21 @@
-# Setting up a Master Node
+# Setting up a Development Environment
 
-*Ideally, this should be a vagrantfile, but I did not have time to do this.*
+*Ideally, this should be a Vagrantfile, but I did not have time to do this,
+and encountered some trouble with regards to disk space.*
 
 I have tested these instructions in a vagrant instance. The reason why this
 isn't a vagrant instance is because I was struggling to get a vagrant debian
 box with the right disk sizes.
 
-Install debian dependencies
+I am assuming you are using debian strech (if not, why?).
+
+Firstly, install debian dependencies
 
 ```bash
 # Packages for building things
 sudo apt-get install zip build-essential git tmux curl ocaml # (Yes, we need a system copy of OCaml)
 
-# These are required by owl
+# These are required by owl (a numerical package in OCaml)
 sudo apt-get install libgsl0-dev liblapacke-dev libopenblas-dev pkg-config libplplot-dev libshp-dev m4 libffi-dev python-pip
 ```
 
@@ -22,7 +25,8 @@ Generate SSH keys
 ssh-keygen
 ```
 
-Clone all the relevant repos:
+Clone all the relevant repos: (You will need to enter your github
+credentials 5 times).
 
 ```bash
 mkdir -p ~/fyp
@@ -39,7 +43,8 @@ Install opam:
 wget https://raw.github.com/ocaml/opam/master/shell/opam_installer.sh -O - | sudo sh -s /usr/local/bin
 ```
 
-Compile OCaml compiler for the master node (ocaml 4.06.1):
+Compile OCaml compiler (ocaml 4.06.1) for the main binaries (eg: data
+generation, tools etc.):
 
 ```bash
 opam init
@@ -47,12 +52,14 @@ opam switch 4.06.1
 eval `opam config env`
 ```
 
-Change the line with `/home/fyquah` in
+**IMPORTANT**: Change the line with `/home/fyquah` in
 ~/fyp/opam-repo-dev/compilers/4.06.0+fyp.comp to the relevant home directory
-in your setup.
+in your setup. I have not figured out how to use a generic `$HOME` variable
+in the said file.
 
 Compile OCaml compiler for compiling benchmarks (with support for inlining
-policies and overrides):
+policies and overrides). The script assumes that this ocaml version lives
+in `~/fyp/ocaml`:
 
 ```bash
 cd ~/fyp/worker-dispatcher
@@ -75,7 +82,7 @@ Compile everything!
 make ocamlopt
 ```
 
-Install `ocamlnow`
+Move `ocamlnow` to your HOME's PATH
 
 ```bash
 echo 'export PATH="$PATH:$HOME/bin/"' >> ~/.bashrc
